@@ -58,6 +58,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="task"
+        options={{
+          title: 'Task',
+          tabBarIcon: ({ size, color }) => (
+            <MaterialIcons name="checklist" size={ICON_SIZE} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="ai-lesson"
         options={{
           title: 'AIレッスン',
@@ -72,15 +81,6 @@ export default function TabLayout() {
           title: 'スケジュール',
           tabBarIcon: ({ size, color }) => (
             <MaterialIcons name="calendar-today" size={ICON_SIZE} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="task"
-        options={{
-          title: 'Task',
-          tabBarIcon: ({ size, color }) => (
-            <MaterialIcons name="checklist" size={ICON_SIZE} color={color} />
           ),
         }}
       />
