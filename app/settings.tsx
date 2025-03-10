@@ -48,16 +48,12 @@ export default function SettingsScreen({ navigation }: Props) {
             <Text style={styles.infoLabel}>テーマ設定</Text>
             <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.infoItem} onPress={() => router.push('/language')}>
-            <Text style={styles.infoLabel}>言語設定</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.infoItem} onPress={() => alert('キャッシュをクリアしました')}>
             <Text style={styles.infoLabel}>キャッシュをクリア</Text>
             <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.infoItem} onPress={() => router.push('/sync')}>
-            <Text style={styles.infoLabel}>データ同期設定</Text>
+            <Text style={styles.infoLabel}>データ同期</Text>
             <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
           </TouchableOpacity>
         </View>
