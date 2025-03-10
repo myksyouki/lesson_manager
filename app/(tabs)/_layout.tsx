@@ -48,11 +48,6 @@ export default function TabLayout() {
           ),
           headerShown: true,
           headerTitle: 'ホーム',
-          headerRight: () => (
-            <TouchableOpacity style={styles.logoutButton} onPress={signOut}>
-              <MaterialIcons name="logout" size={24} color="#1a73e8" />
-            </TouchableOpacity>
-          ),
         }}
       />
       <Tabs.Screen
