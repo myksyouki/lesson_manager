@@ -1,9 +1,25 @@
-import { View, Text } from 'react-native';
+import React from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
+import { useTaskStore } from '../store/tasks';
+import TaskCard from '../components/TaskCard';
+import { Task } from '../types/task';
 
 export default function TaskScreen() {
+  const { tasks } = useTaskStore();
+
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Task Page</Text>
-    </View>
+    <ScrollView style={styles.container}>
+      {tasks.map((task) => (
+        <TaskCard key={task.id} task={task} />
+      ))}
+    </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+  },
+});
