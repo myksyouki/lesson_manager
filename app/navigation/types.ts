@@ -5,5 +5,7 @@ export type RootStackParamList = {
   Theme: undefined;
   Language: undefined;
   Sync: undefined;
+  Notifications: undefined;
+  Privacy: undefined;
   // 他の画面の型定義をここに追加
 };
