@@ -9,10 +9,10 @@ import {
   ScrollView,
   SafeAreaView,
   KeyboardAvoidingView,
-  ActivityIndicator,
   Alert,
   Modal,
 } from 'react-native';
+import LoadingOverlay from './components/LoadingOverlay';
 import { router } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { processAudioFile } from './services/audioProcessing';
@@ -27,6 +27,11 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Dimensions } from 'react-native';
+import { storage } from './config/firebase';
+import { auth } from './config/firebase';  // ✅ 追加
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from './config/firebase';
 
 const DAYS = ['日', '月', '火', '水', '木', '金', '土'];
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
@@ -49,12 +54,14 @@ export default function LessonForm() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const translateX = useSharedValue(0);
   const context = useSharedValue({ x: 0 });
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [audioUrl, setAudioUrl] = useState('');
   
   const { addLesson } = useLessonStore();
 
@@ -146,7 +153,7 @@ export default function LessonForm() {
   const handleUpload = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'audio/*',
+        type: ['audio/mpeg', 'audio/wav', 'audio/m4a'],
       });
 
       if (result.canceled) {
@@ -156,79 +163,82 @@ export default function LessonForm() {
       const fileUri = result.assets[0].uri;
       const fileName = result.assets[0].name;
       setSelectedFile(fileName);
+      
+      // Fetch the file content
+      const response = await fetch(fileUri);
+      const blob = await response.blob();
+
+      // Create storage reference
+      const storageRef = ref(storage, `lessons/${Date.now()}_${fileName}`);
+      
+      // Start upload
+      const uploadTask = uploadBytesResumable(storageRef, blob);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
+          setProcessingStep(`アップロード中... ${Math.round(progress)}%`);
+        },
+        (error) => {
+          console.error('Upload error:', error);
+          Alert.alert('エラー', 'ファイルのアップロードに失敗しました');
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          setAudioUrl(downloadURL);
+          setProcessingStep('アップロード完了');
+        }
+      );
+
     } catch (err) {
       console.error(err);
       Alert.alert('エラー', 'ファイルのアップロードに失敗しました');
     }
   };
 
-  const processLesson = async (fileUri: string) => {
+  const handleSubmit = async () => {
     if (!formData.teacherName.trim()) {
       Alert.alert('エラー', '講師名を入力してください');
       return;
     }
-    
+
     try {
       setIsProcessing(true);
-      setProcessingStep('アップロード中...');
+      setProcessingStep('保存中...');
+
+    // Firestore に保存するデータをオブジェクトとして明示
+    const lessonData = {
+      teacherName: formData.teacherName,
+      date: formData.date,
+      piece: formData.piece,
+      notes: formData.notes,
+      tags: formData.tags,  // 既に配列型ならこのままでOK
+      userId: auth.currentUser?.uid || "anonymous",  // ユーザーがいない場合を考慮
+      audioUrl: audioUrl || null,   // 音声ファイルの URL
+      createdAt: new Date(),
+    };
+
+    console.log("📝 保存するデータ:", lessonData);
+
+    // Firestore にドキュメントを追加
+    const lessonRef = await addDoc(collection(db, 'lessons'), lessonData);
+
+    console.log(`✅ レッスン保存成功: ID = ${lessonRef.id}`);
+
+    setProcessingStep('完了！');
       
-      // Process the audio file
-      const result = await processAudioFile(fileUri, {
-        teacher: formData.teacherName,
-        date: formData.date,
-        piece: formData.piece,
-        notes: formData.notes,
-        tags: formData.tags,
-      });
-      
-      if (!result.success) {
-        throw new Error('処理に失敗しました');
-      }
-      
-      setProcessingStep('文字起こし中...');
-      
-      // Short delay to show the transcription step
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setProcessingStep('要約生成中...');
-      
-      // Short delay to show the summary step
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Navigate back to the lessons screen
-      router.replace('/lessons');
+      // Navigate back to lessons screen
+      setTimeout(() => {
+        router.replace('/lessons');
+      }, 1000);
+
     } catch (error) {
-      console.error('Error processing lesson:', error);
-      Alert.alert('エラー', '処理中にエラーが発生しました');
+      console.error('Error saving lesson:', error);
+      Alert.alert('エラー', 'レッスンの保存に失敗しました');
     } finally {
       setIsProcessing(false);
-      setProcessingStep('');
     }
-  };
-
-  const handleSubmit = async () => {
-    if (!selectedFile) {
-      Alert.alert('エラー', 'レッスン録音ファイルを選択してください');
-      return;
-    }
-    
-    // In a real implementation, you would process the file here
-    // For demo purposes, we'll just simulate a delay
-    setIsProcessing(true);
-    setProcessingStep('アップロード中...');
-    
-    setTimeout(() => {
-      setProcessingStep('文字起こし中...');
-      
-      setTimeout(() => {
-        setProcessingStep('要約生成中...');
-        
-        setTimeout(() => {
-          setIsProcessing(false);
-          router.replace('/lessons');
-        }, 1500);
-      }, 1500);
-    }, 1500);
   };
 
   return (
@@ -246,13 +256,7 @@ export default function LessonForm() {
         </View>
 
         {isProcessing ? (
-          <View style={styles.processingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.processingText}>{processingStep}</Text>
-            <Text style={styles.processingSubtext}>
-              処理には数分かかる場合があります
-            </Text>
-          </View>
+          <LoadingOverlay message={processingStep} />
         ) : (
           <>
             <ScrollView style={styles.form}>
@@ -278,7 +282,7 @@ export default function LessonForm() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>練習曲</Text>
+                <Text style={styles.label}>レッスン曲</Text>
                 <TextInput
                   style={styles.input}
                   value={formData.piece}
@@ -325,10 +329,10 @@ export default function LessonForm() {
             <TouchableOpacity 
               style={[
                 styles.submitButton,
-                (!selectedFile || !formData.teacherName) && styles.submitButtonDisabled
+                !formData.teacherName && styles.submitButtonDisabled // 🔄 `selectedFile` のチェックを削除
               ]} 
               onPress={handleSubmit}
-              disabled={!selectedFile || !formData.teacherName}
+              disabled={!formData.teacherName} // 🔄 `selectedFile` をチェックしない
             >
               <Text style={styles.submitButtonText}>レッスンを保存</Text>
             </TouchableOpacity>
