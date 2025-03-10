@@ -12,7 +12,7 @@ const useTabBarHeight = () => {
 
 export default function TabLayout() {
   const TAB_BAR_HEIGHT = useTabBarHeight();
-  const ICON_SIZE = 30; // Increased icon size for better visibility
+  const ICON_SIZE = 24; // LINE風のアイコンサイズ
   const { signOut } = useAuthStore();
 
   return (
@@ -31,9 +31,9 @@ export default function TabLayout() {
         tabBarInactiveTintColor: '#5f6368',
         tabBarLabelStyle: {
           fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-          fontSize: 13, // Slightly larger font size
-          fontWeight: '500',
-          marginTop: 5,
+          fontSize: 10, // LINE風のフォントサイズ
+          fontWeight: '400',
+          marginTop: 2,
         },
         tabBarIconStyle: {
           marginBottom: -5,
