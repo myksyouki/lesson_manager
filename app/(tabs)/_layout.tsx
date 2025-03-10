@@ -46,8 +46,6 @@ export default function TabLayout() {
           tabBarIcon: ({ size, color }) => (
             <MaterialIcons name="home" size={ICON_SIZE} color={color} />
           ),
-          headerShown: true,
-          headerTitle: 'ホーム',
         }}
       />
       <Tabs.Screen
