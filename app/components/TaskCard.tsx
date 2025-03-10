@@ -1,0 +1,80 @@
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { Task } from '../types/task';
+
+interface TaskCardProps {
+  task: Task;
+}
+
+export default function TaskCard({ task }: TaskCardProps) {
+  const handlePress = () => {
+    router.push({
+      pathname: '/task-detail',
+      params: { id: task.id },
+    });
+  };
+
+  return (
+    <TouchableOpacity 
+      style={styles.taskCard} 
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardHeader}>
+        <Text style={styles.taskTitle}>{task.title}</Text>
+        <MaterialIcons 
+          name={task.isCompleted ? "check-circle" : "radio-button-unchecked"} 
+          size={24} 
+          color={task.isCompleted ? "#34C759" : "#8E8E93"} 
+        />
+      </View>
+      <Text style={styles.taskDescription}>{task.description}</Text>
+      <Text style={styles.taskDueDate}>期日: {task.dueDate}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  taskCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 20,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  taskTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  taskDescription: {
+    fontSize: 15,
+    color: '#636366',
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  taskDueDate: {
+    fontSize: 13,
+    color: '#8E8E93',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+});
