@@ -1,11 +1,13 @@
 export type RootStackParamList = {
-  Home: undefined;
-  Settings: undefined;
   '(tabs)': undefined;
-  Theme: undefined;
-  Language: undefined;
-  Sync: undefined;
-  Notifications: undefined;
-  Privacy: undefined;
-  // 他の画面の型定義をここに追加
+  'lesson-detail': { id: string };
+  'lesson-form': { id?: string };
+  login: undefined;
+  profile: undefined;
+  settings: undefined;
+  theme: undefined;
+  language: undefined;
+  sync: undefined;
+  notifications: undefined;
+  privacy: undefined;
 };
