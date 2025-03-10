@@ -36,7 +36,10 @@ export default function TabLayout() {
           marginTop: 2,
         },
         tabBarIconStyle: {
-          marginBottom: -5,
+          marginBottom: -3,
+        },
+        tabBarItemStyle: {
+          gap: 4,
         },
       }}>
       <Tabs.Screen
