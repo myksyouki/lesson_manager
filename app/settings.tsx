@@ -101,7 +101,7 @@ export default function SettingsScreen({ navigation }: Props) {
       <View style={styles.footer}>
         <TouchableOpacity 
           style={styles.homeButton}
-          onPress={() => navigation.navigate('Home')}
+          onPress={() => navigation.navigate('(tabs)')}
         >
           <Ionicons name="home" size={24} color="white" />
           <Text style={styles.homeButtonText}>HOMEに戻る</Text>
