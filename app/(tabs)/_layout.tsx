@@ -76,6 +76,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="task"
+        options={{
+          title: 'Task',
+          tabBarIcon: ({ size, color }) => (
+            <MaterialIcons name="checklist" size={ICON_SIZE} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: '設定',
