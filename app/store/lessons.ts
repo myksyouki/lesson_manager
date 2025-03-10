@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { db, auth } from '../config/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, serverTimestamp, FieldValue } from 'firebase/firestore';
 
 export interface Lesson {
   id: string;
@@ -11,9 +11,10 @@ export interface Lesson {
   notes: string;
   tags: string[];
   user_id: string;
+  audioUrl?: string;
   isFavorite?: boolean;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: FieldValue | string;
+  updated_at?: FieldValue | string;
 }
 
 interface LessonStore {
@@ -52,14 +53,14 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
     }
   },
 
-  addLesson: async (lesson) => {
+  addLesson: async (lesson): Promise<void> => {
     try {
       set({ isLoading: true, error: null });
 
       const user = auth.currentUser;
       if (!user) throw new Error('User not authenticated');
 
-      const lessonData = {
+      const lessonData: Omit<Lesson, 'id'> = {
         ...lesson,
         user_id: user.uid,
         created_at: serverTimestamp(),
@@ -67,14 +68,13 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
       };
 
       const docRef = await addDoc(collection(db, 'lessons'), lessonData);
-      const newLesson = { id: docRef.id, ...lessonData };
+      const newLesson: Lesson = { id: docRef.id, ...lessonData };
 
       set((state) => ({
         lessons: [...state.lessons, newLesson],
         isLoading: false
       }));
 
-      return newLesson;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
     }
