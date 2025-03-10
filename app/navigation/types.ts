@@ -5,9 +5,10 @@ export type RootStackParamList = {
   login: undefined;
   profile: undefined;
   settings: undefined;
-  theme: undefined;
-  language: undefined;
   sync: undefined;
   notifications: undefined;
-  privacy: undefined;
+  language: undefined;
+  theme: undefined;
+  'privacy-policy': undefined;
+  '+not-found': undefined;
 };
