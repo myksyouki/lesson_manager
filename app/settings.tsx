@@ -16,6 +16,7 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from './store/auth';
 import { useLessonStore } from './store/lessons';
 import LessonCard from './components/LessonCard';
+import { useRouter } from 'expo-router';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -23,6 +24,7 @@ export default function SettingsScreen({ navigation }: Props) {
   const { signOut, user } = useAuthStore();
   const { getFavorites } = useLessonStore();
   const favoriteLesson = getFavorites();
+  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -31,23 +33,37 @@ export default function SettingsScreen({ navigation }: Props) {
           <Text style={styles.title}>設定</Text>
         </View>
 
+        {/* 一般設定セクション */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>アカウント</Text>
-          
-          <View style={styles.userInfoContainer}>
-            <View style={styles.userAvatar}>
-              <Text style={styles.userInitial}>
-                {user?.email?.charAt(0).toUpperCase() || 'U'}
-              </Text>
-            </View>
-            <View style={styles.userDetails}>
-              <Text style={styles.userName}>
-                {user?.email?.split('@')[0] || 'ユーザー'}
-              </Text>
-              <Text style={styles.userEmail}>{user?.email || ''}</Text>
-            </View>
-          </View>
-          
+          <Text style={styles.sectionTitle}>一般設定</Text>
+          <TouchableOpacity style={styles.infoItem} onPress={() => router.push('/notifications')}>
+            <Text style={styles.infoLabel}>通知設定</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.infoItem} onPress={() => router.push('/privacy')}>
+            <Text style={styles.infoLabel}>プライバシーポリシー</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.infoItem} onPress={() => router.push('/theme')}>
+            <Text style={styles.infoLabel}>テーマ設定</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.infoItem} onPress={() => router.push('/language')}>
+            <Text style={styles.infoLabel}>言語設定</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.infoItem} onPress={() => alert('キャッシュをクリアしました')}>
+            <Text style={styles.infoLabel}>キャッシュをクリア</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.infoItem} onPress={() => router.push('/sync')}>
+            <Text style={styles.infoLabel}>データ同期設定</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+          </TouchableOpacity>
+        </View>
+
+        {/* 新規追加: ログアウトボタンを一般設定の下、アプリ情報の上に配置 */}
+        <View style={styles.section}>
           <TouchableOpacity style={styles.logoutButton} onPress={signOut}>
             <MaterialIcons name="logout" size={24} color="white" />
             <Text style={styles.logoutButtonText}>ログアウト</Text>
@@ -55,42 +71,11 @@ export default function SettingsScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>お気に入りレッスン</Text>
-          
-          {favoriteLesson.length > 0 ? (
-            favoriteLesson.map(lesson => (
-              <LessonCard
-                key={lesson.id}
-                id={lesson.id}
-                teacher={lesson.teacher}
-                date={lesson.date}
-                piece={lesson.piece}
-                tags={lesson.tags}
-                isFavorite={lesson.isFavorite}
-                showFavoriteButton={true}
-              />
-            ))
-          ) : (
-            <View style={styles.emptyFavorites}>
-              <MaterialIcons name="favorite-border" size={48} color="#8E8E93" />
-              <Text style={styles.emptyFavoritesText}>
-                お気に入りのレッスンはまだありません
-              </Text>
-              <Text style={styles.emptyFavoritesSubtext}>
-                レッスン一覧から♡マークをタップして追加できます
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.section}>
           <Text style={styles.sectionTitle}>アプリ情報</Text>
-          
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>バージョン</Text>
             <Text style={styles.infoValue}>1.0.0</Text>
           </View>
-          
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>開発者</Text>
             <Text style={styles.infoValue}>Lesson Manager Team</Text>
@@ -99,10 +84,7 @@ export default function SettingsScreen({ navigation }: Props) {
       </ScrollView>
       
       <View style={styles.footer}>
-        <TouchableOpacity 
-          style={styles.homeButton}
-          onPress={() => navigation.navigate('(tabs)')}
-        >
+        <TouchableOpacity style={styles.homeButton} onPress={() => router.push("/")}>
           <Ionicons name="home" size={24} color="white" />
           <Text style={styles.homeButtonText}>HOMEに戻る</Text>
         </TouchableOpacity>
@@ -257,12 +239,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  footer: {
-    padding: 16,
-    backgroundColor: '#F8F9FA',
-    borderTopWidth: 1,
-    borderTopColor: '#E9ECEF',
-  },
   homeButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -270,12 +246,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     padding: 16,
     borderRadius: 16,
+    marginTop: 16,
   },
   homeButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    marginLeft: 8, // アイコンとテキストの間隔
+  },
+  footer: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E9ECEF',
   },
 });
