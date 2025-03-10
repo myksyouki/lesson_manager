@@ -84,27 +84,7 @@ export default function HomeScreen() {
 
   const handleUpload = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'audio/*',
-      });
-
-      if (result.canceled) {
-        return;
-      }
-
-      setUploading(true);
-      
-      // Show processing message
-      Alert.alert(
-        '処理中',
-        'ファイルをアップロードして処理しています。このプロセスには数分かかる場合があります。',
-        [{ text: 'OK' }]
-      );
-      
-      // Get the file URI
-      const fileUri = result.assets[0].uri;
-      
-      // Create basic lesson data
+      // 基本のレッスンデータを作成
       const lessonData = {
         teacherName: '',
         date: new Date().toLocaleDateString('ja-JP', {
@@ -117,33 +97,17 @@ export default function HomeScreen() {
         tags: [],
       };
       
-      // Process the audio file (in a real app, this would be done in the background)
-      // For demo purposes, we'll just simulate a delay
-      setTimeout(() => {
-        setUploading(false);
-        router.push('/lesson-form');
-      }, 2000);
-      
-      // In a real implementation, you would process the file and then navigate
-      // const result = await processAudioFile(fileUri, lessonData);
-      // if (result.success) {
-      //   router.push({
-      //     pathname: '/lesson-form',
-      //     params: {
-      //       lessonId: result.lessonId,
-      //       summary: result.summary,
-      //     }
-      //   });
-      // }
+      // lesson-form に直接遷移
+      router.push('/lesson-form');
+
     } catch (err) {
       console.error(err);
-      setUploading(false);
-      Alert.alert('エラー', 'ファイルのアップロードに失敗しました');
+      Alert.alert('エラー', '処理中にエラーが発生しました');
     }
   };
 
   const navigateToSettings = () => {
-    router.push('/(tabs)/settings');
+    router.push('/settings');
   };
 
   return (
@@ -184,11 +148,10 @@ export default function HomeScreen() {
 
         <TouchableOpacity
           style={styles.uploadButton}
-          onPress={handleUpload}
-          disabled={uploading}>
-          <Ionicons name="cloud-upload" size={26} color="white" />
+          onPress={handleUpload}>
+          <Ionicons name="add-circle-outline" size={26} color="white" />
           <Text style={styles.uploadButtonText}>
-            {uploading ? 'アップロード中...' : 'レッスン録音をアップロード'}
+            新しいレッスンを追加
           </Text>
         </TouchableOpacity>
       </View>
