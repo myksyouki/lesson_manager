@@ -12,7 +12,7 @@ import { Lesson } from '../../../store/lessons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CALENDAR_WIDTH = SCREEN_WIDTH - 32;
-const DAY_SIZE = Math.floor(CALENDAR_WIDTH / 7);
+const DAY_SIZE = Math.floor(CALENDAR_WIDTH / 7) - 0.5;
 
 const colors = {
   primary: '#4285F4',
@@ -91,13 +91,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     const days = [];
 
     // 月の開始曜日を月曜日基準で計算
-    const firstDayOfWeek = (firstDay.getDay() + 6) % 7; // 月曜日を0に変換
+    const firstDayOfWeek = (firstDay.getDay() + 6) % 7;
     const prevMonthLastDay = new Date(year, month, 0);
     
-    // 前月分の日付を正しい順序で追加
-    for (let i = firstDayOfWeek; i > 0; i--) {
+    // 前月分の日付を追加（月曜日基準）
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      const prevDate = new Date(year, month - 1, prevMonthLastDay.getDate() - (firstDayOfWeek - 1) + i);
       days.push({
-        date: new Date(year, month - 1, prevMonthLastDay.getDate() - i + 1),
+        date: prevDate,
         isCurrentMonth: false,
       });
     }
@@ -109,7 +110,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
       });
     }
 
-    // 正確な週数計算で日付を埋める
+    // 週数を計算して日付を埋める
     const totalWeeks = Math.ceil(days.length / 7);
     const totalDays = totalWeeks * 7;
     const remainingDays = totalDays - days.length;
@@ -129,7 +130,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   const calendarDays = generateCalendarDays();
 
   const formatDate = (date: Date) => {
-    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日`;
   };
 
   const hasLesson = (date: Date) => {
@@ -201,6 +203,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   );
 };
 
+// スタイル定義
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
@@ -222,8 +225,8 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 0,
     paddingVertical: 8,
   },
   dayCell: {
