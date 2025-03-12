@@ -1,0 +1,6 @@
+demucs
+openai-whisper
+firebase-admin
+flask
+gunicorn
+requests

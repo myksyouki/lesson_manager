@@ -1,5 +1,4 @@
 import { uploadAudioFile } from './storage';
-import { transcribeAudio, generateSummary, extractTags } from './openai';
 import { useLessonStore } from '../store/lessons';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
@@ -7,88 +6,81 @@ import { auth, db } from '../config/firebase';
 import { collection, addDoc, updateDoc, doc, serverTimestamp } from "firebase/firestore";
 
 // Process audio file: upload, transcribe, summarize, and save to Firestore
-export const processAudioFile = async (fileUri: string, lessonData: any) => {
+export const processAudioFile = async (
+  lessonId: string, 
+  fileUri: string, 
+  fileName: string,
+  processingId: string
+): Promise<{ success: boolean; lessonId: string; transcription?: string; summary?: string; tags?: string[]; error?: any }> => {
   try {
-    // Generate a unique filename
-    const timestamp = new Date().getTime();
-    const fileName = `lesson_${timestamp}.m4a`;
-
-    // Step 1: Upload the audio file to Firebase Storage
-    const uploadResult = await uploadAudioFile(fileUri, fileName);
-
-    if (!uploadResult.success) {
-      throw new Error('Failed to upload audio file');
-    }
-
+    console.log(`音声処理開始: レッスンID=${lessonId}, 処理ID=${processingId || 'なし'}`);
+    
     // Get the current user
     const user = auth.currentUser;
     if (!user) {
-      throw new Error('User not authenticated');
+      throw new Error('ユーザーが認証されていません');
     }
 
-    // Step 2: Create a new lesson record in Firestore
-    const { addLesson } = useLessonStore.getState();
+    // Get the lesson document reference
+    const lessonRef = doc(db, "lessons", lessonId);
 
-    const lessonRecord = {
-      ...lessonData,
-      audio_url: uploadResult.url,
-      audio_path: uploadResult.path,
+    // Update the lesson status to 'processing'
+    await updateDoc(lessonRef, {
       status: 'processing',
-      user_id: user.uid,
-      created_at: serverTimestamp(),
-    };
+      audioPath: `audio/${auth.currentUser?.uid}/${fileName}`,
+      processingId: processingId,
+    });
 
-    const lessonDocRef = await addDoc(collection(db, "lessons"), lessonRecord);
+    // Upload the audio file to Firebase Storage
+    const uploadResult = await uploadAudioFile(fileUri, fileName);
 
-    // Step 3: Start the transcription process
-    // Step 3a: Transcribe the audio
-    const transcriptionResult = await transcribeAudio(uploadResult.path);
-
-    if (!transcriptionResult.success) {
-      await updateLessonStatus(lessonDocRef.id, 'error', 'Transcription failed');
-      throw new Error('Failed to transcribe audio');
+    if (!uploadResult.success) {
+      throw new Error('ファイルのアップロードに失敗しました');
     }
 
-    // Step 3b: Generate a summary from the transcription
-    const summaryResult = await generateSummary(transcriptionResult.text);
-
-    if (!summaryResult.success) {
-      await updateLessonStatus(lessonDocRef.id, 'error', 'Summary generation failed');
-      throw new Error('Failed to generate summary');
-    }
-
-    // Step 3c: Extract tags from the transcription
-    const tagsResult = await extractTags(transcriptionResult.text);
-
-    let tags = lessonData.tags || [];
-    if (tagsResult.success) {
-      tags = [...new Set([...tags, ...tagsResult.tags])]; // Combine and deduplicate tags
-    }
-
-    // Step 4: Update the lesson record with the transcription, summary, and tags
-    await updateLessonWithAIResults(
-      lessonDocRef.id, 
-      transcriptionResult.text, 
-      summaryResult.summary,
-      tags
-    );
-
-    // Return the processed lesson data
-    return {
-      success: true,
-      lessonId: lessonDocRef.id,
-      transcription: transcriptionResult.text,
-      summary: summaryResult.summary,
-      tags,
+    // Storage Triggerが自動的に処理を行うため、APIエンドポイントの呼び出しは不要
+    console.log(`音声ファイルをアップロードしました。Storage Triggerが処理を開始します。`);
+    
+    // レッスンのステータスを更新して、処理中であることを示す
+    await updateDoc(lessonRef, {
+      status: 'processing',
+      message: 'Storage Triggerによる処理を待機中...',
+    });
+    
+    return { 
+      success: true, 
+      lessonId: lessonId,
     };
   } catch (error) {
-    console.error('Error processing audio file:', error);
-    return { success: false, error };
+    console.error('音声処理エラー:', error);
+    
+    try {
+      // エラーが発生した場合はステータスを更新
+      await updateLessonStatus(
+        lessonId, 
+        'error', 
+        error instanceof Error ? error.message : '不明なエラー'
+      );
+    } catch (updateError) {
+      console.error('エラーステータス更新失敗:', updateError);
+    }
+    
+    return { 
+      success: false, 
+      lessonId,
+      error
+    };
   }
 };
 
 // Update lesson with transcription and summary in Firestore
-const updateLessonWithAIResults = async (lessonId, transcription, summary, tags) => {
+const updateLessonWithAIResults = async (
+  lessonId: string, 
+  transcription: string, 
+  summary: string, 
+  tags: string[],
+  processingId?: string
+) => {
   try {
     const lessonRef = doc(db, "lessons", lessonId);
     await updateDoc(lessonRef, {
@@ -97,43 +89,106 @@ const updateLessonWithAIResults = async (lessonId, transcription, summary, tags)
       tags,
       status: 'completed',
       updated_at: serverTimestamp(),
+      ...(processingId ? { processingId } : {}),
     });
 
+    // Update local store
+    const { lessons, setLessons } = useLessonStore.getState();
+    const updatedLessons = lessons.map(lesson => {
+      if (lesson.id === lessonId) {
+        return {
+          ...lesson,
+          transcription,
+          summary,
+          tags,
+          status: 'completed',
+          ...(processingId ? { processingId } : {}),
+        };
+      }
+      return lesson;
+    });
+    
+    setLessons(updatedLessons);
+    
     return { success: true };
   } catch (error) {
-    console.error('Error updating lesson with AI results:', error);
+    console.error('レッスン更新エラー:', error);
     return { success: false, error };
   }
 };
 
 // Update lesson status (e.g., to 'error' if processing fails)
-const updateLessonStatus = async (lessonId, status, errorMessage = null) => {
+const updateLessonStatus = async (
+  lessonId: string, 
+  status: string, 
+  errorMessage: string | null = null
+) => {
   try {
-    const updateData = {
+    const lessonRef = doc(db, "lessons", lessonId);
+    const updateData: any = {
       status,
       updated_at: serverTimestamp(),
     };
-
+    
     if (errorMessage) {
-      updateData.error_message = errorMessage;
+      updateData.error = errorMessage;
     }
-
-    const lessonRef = doc(db, "lessons", lessonId);
+    
     await updateDoc(lessonRef, updateData);
-
+    
+    // Update local store
+    const { lessons, setLessons } = useLessonStore.getState();
+    const updatedLessons = lessons.map(lesson => {
+      if (lesson.id === lessonId) {
+        return {
+          ...lesson,
+          status,
+          error: errorMessage || undefined,
+        };
+      }
+      return lesson;
+    });
+    
+    setLessons(updatedLessons);
+    
     return { success: true };
   } catch (error) {
-    console.error('Error updating lesson status:', error);
+    console.error('レッスンステータス更新エラー:', error);
     return { success: false, error };
   }
 };
 
-// Record audio and process it
-export const recordAndProcessAudio = async (recordingUri: string, lessonData: any) => {
+// 録音ファイルを処理する関数
+export const processRecordingFile = async (recordingUri: string): Promise<{ success: boolean; lessonId?: string; error?: any }> => {
   try {
-    return await processAudioFile(recordingUri, lessonData);
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('ユーザーが認証されていません');
+    }
+
+    // Generate a unique processing ID
+    const processingId = `recording_${user.uid}_${Date.now()}`;
+    
+    // Create a new lesson document for this recording
+    const lessonRef = await addDoc(collection(db, 'lessons'), {
+      teacher: 'レコーダーから',
+      date: new Date().toLocaleDateString('ja-JP'),
+      user_id: user.uid,
+      status: 'uploading',
+      created_at: serverTimestamp(),
+      processingId: processingId, // Add processing ID
+    });
+
+    // Process the audio file
+    const fileName = `lesson_${new Date().getTime()}.m4a`;
+    const result = await processAudioFile(lessonRef.id, recordingUri, fileName, processingId);
+    return { 
+      success: result.success, 
+      lessonId: lessonRef.id,
+      error: result.error
+    };
   } catch (error) {
-    console.error('Error processing recording:', error);
+    console.error('録音処理エラー:', error);
     return { success: false, error };
   }
 };

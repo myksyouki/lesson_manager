@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,90 +9,116 @@ import {
   Platform,
   SafeAreaView,
   KeyboardAvoidingView,
+  ActivityIndicator,
+  Alert,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useAuthStore } from '../store/auth';
+import { getUserChatRooms, ChatRoom } from '../services/chatRoomService';
+import { FAB } from 'react-native-paper';
 
 export default function AILessonScreen() {
-  const [message, setMessage] = useState('');
-  const [chat, setChat] = useState([
-    {
-      id: 1,
-      type: 'ai',
-      text: 'こんにちは！レッスンについて何かお手伝いできることはありますか？',
-    },
-  ]);
+  const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { user } = useAuthStore();
 
-  const handleSend = () => {
-    if (!message.trim()) return;
+  useEffect(() => {
+    if (user) {
+      loadChatRooms();
+    }
+  }, [user]);
 
-    setChat((prev) => [
-      ...prev,
-      { id: Date.now(), type: 'user', text: message.trim() },
-    ]);
-    setMessage('');
-
-    // AIの応答をシミュレート
-    setTimeout(() => {
-      setChat((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          type: 'ai',
-          text: 'ご質問ありがとうございます。現在、AIアシスタント機能は開発中です。',
-        },
-      ]);
-    }, 1000);
+  const loadChatRooms = async () => {
+    try {
+      setLoading(true);
+      if (!user) return;
+      
+      const rooms = await getUserChatRooms(user.uid);
+      setChatRooms(rooms);
+    } catch (error) {
+      console.error('チャットルーム一覧の取得に失敗しました:', error);
+      Alert.alert('エラー', 'チャットルーム一覧の取得に失敗しました。後でもう一度お試しください。');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleCreateRoom = () => {
+    router.push('/chat-room-form');
+  };
+
+  const handleOpenRoom = (roomId: string) => {
+    router.push({
+      pathname: '/chat-room',
+      params: { id: roomId }
+    });
+  };
+
+  const renderChatRoomItem = ({ item }: { item: ChatRoom }) => (
+    <TouchableOpacity
+      style={styles.chatRoomItem}
+      onPress={() => handleOpenRoom(item.id)}
+    >
+      <View style={styles.chatRoomContent}>
+        <Text style={styles.chatRoomTitle}>{item.title}</Text>
+        <Text style={styles.chatRoomTopic}>{item.topic}</Text>
+        <Text style={styles.chatRoomDate}>
+          {item.updatedAt instanceof Date 
+            ? item.updatedAt.toLocaleDateString('ja-JP') 
+            : new Date(item.updatedAt.seconds * 1000).toLocaleDateString('ja-JP')}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={24} color="#C7C7CC" />
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
+      <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>AIレッスン</Text>
+          <Text style={styles.subtitle}>
+            AIと対話して練習メニューを作成しましょう
+          </Text>
         </View>
 
-        <ScrollView style={styles.chatContainer}>
-          {chat.map((message) => (
-            <View
-              key={message.id}
-              style={[
-                styles.messageContainer,
-                message.type === 'user' ? styles.userMessage : styles.aiMessage,
-              ]}>
-              <Text style={[
-                styles.messageText,
-                message.type === 'user' ? styles.userMessageText : styles.aiMessageText
-              ]}>
-                {message.text}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+          </View>
+        ) : (
+          <>
+            {chatRooms.length > 0 ? (
+              <FlatList
+                data={chatRooms}
+                renderItem={renderChatRoomItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.chatRoomsList}
+              />
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="chatbubbles-outline" size={64} color="#d1d1d6" />
+                <Text style={styles.emptyText}>
+                  チャットルームがありません
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  「+」ボタンをタップして新しいチャットを始めましょう
+                </Text>
+              </View>
+            )}
+          </>
+        )}
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={message}
-            onChangeText={setMessage}
-            placeholder="メッセージを入力"
-            multiline
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, !message.trim() && styles.sendButtonDisabled]}
-            onPress={handleSend}
-            disabled={!message.trim()}>
-            <Ionicons
-              name="send"
-              size={26} // Larger icon
-              color={message.trim() ? '#007AFF' : '#C7C7CC'}
-            />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+        <FAB
+          style={styles.fab}
+          icon="plus"
+          onPress={handleCreateRoom}
+          color="#ffffff"
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -112,80 +138,84 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   title: {
-    fontSize: 30, // Larger title
+    fontSize: 30,
     fontWeight: '700',
     color: '#1C1C1E',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  chatContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  messageContainer: {
-    maxWidth: '85%', // Wider messages
-    marginBottom: 16,
-    padding: 16, // Increased padding
-    borderRadius: 20, // Increased border radius
-  },
-  userMessage: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#007AFF',
-  },
-  aiMessage: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'white',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  messageText: {
-    fontSize: 17, // Larger font size
-    lineHeight: 24, // Increased line height
+  subtitle: {
+    fontSize: 16,
+    color: '#8E8E93',
+    marginTop: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  userMessageText: {
-    color: 'white',
-  },
-  aiMessageText: {
-    color: '#1C1C1E',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-  },
-  input: {
+  loadingContainer: {
     flex: 1,
-    minHeight: 48, // Increased height
-    maxHeight: 120,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 24, // Increased border radius
-    paddingHorizontal: 18, // Increased padding
-    paddingVertical: 12, // Increased padding
-    marginRight: 12,
-    fontSize: 17, // Larger font size
-    color: '#1C1C1E',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  sendButton: {
-    width: 48, // Larger button
-    height: 48, // Larger button
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 24, // Make it circular
   },
-  sendButtonDisabled: {
-    opacity: 0.5,
+  chatRoomsList: {
+    padding: 16,
+  },
+  chatRoomItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  chatRoomContent: {
+    flex: 1,
+  },
+  chatRoomTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  chatRoomTopic: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  chatRoomDate: {
+    fontSize: 12,
+    color: '#C7C7CC',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#8E8E93',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  emptySubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#8E8E93',
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#007AFF',
   },
 });

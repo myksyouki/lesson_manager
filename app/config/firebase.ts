@@ -1,27 +1,33 @@
 // app/config/firebase.ts
 import { initializeApp } from "firebase/app";
-import { getAuth, initializeAuth, getReactNativePersistence } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from 'expo-constants';
+
+// 環境変数を取得する関数
+const getEnvVariable = (key: string) => {
+  return Constants.expoConfig?.extra?.[key] || 
+         process.env[key] || 
+         Constants.manifest?.extra?.[key] || 
+         '';
+};
 
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
+  apiKey: getEnvVariable('EXPO_PUBLIC_FIREBASE_API_KEY'),
+  authDomain: getEnvVariable('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnvVariable('EXPO_PUBLIC_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnvVariable('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnvVariable('EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnvVariable('EXPO_PUBLIC_FIREBASE_APP_ID')
 };
 
 
 // Firebase アプリの初期化
 const firebaseApp = initializeApp(firebaseConfig);
 
-// Auth の初期化（AsyncStorage を適用）
-const auth = initializeAuth(firebaseApp, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+// Auth の初期化
+const auth = getAuth(firebaseApp);
 
 // Firebase の各サービスをエクスポート
 export const db = getFirestore(firebaseApp);

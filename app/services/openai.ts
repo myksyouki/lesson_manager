@@ -1,10 +1,21 @@
 import OpenAI from 'openai';
 import { storage } from '../config/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
+import Constants from 'expo-constants';
+
+// 環境変数からAPIキーを取得
+const OPENAI_API_KEY = Constants.expoConfig?.extra?.expoPublicOpenaiApiKey || 
+                       process.env.EXPO_PUBLIC_OPENAI_API_KEY || 
+                       Constants.manifest?.extra?.expoPublicOpenaiApiKey ||
+                       process.env.OPENAI_API_KEY ||
+                       'your_openai_api_key_here';
+
+console.log('OpenAI API Key設定状態:', OPENAI_API_KEY ? 'APIキーが設定されています' : 'APIキーが設定されていません');
+console.log('OpenAI API Key (最初の5文字):', OPENAI_API_KEY ? OPENAI_API_KEY.substring(0, 5) + '...' : 'なし');
 
 // Initialize OpenAI with API key from environment variables
 const openai = new OpenAI({
-  apiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
+  apiKey: OPENAI_API_KEY,
   dangerouslyAllowBrowser: true, // Note: In production, API calls should be made from a secure backend
 });
 
@@ -84,16 +95,16 @@ export const generateSummary = async (transcription: string) => {
 export const extractTags = async (transcription: string) => {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-3.5-turbo',
       messages: [
         {
           role: 'system',
-          content: `あなたは音楽レッスンの内容からキーワードを抽出するAIアシスタントです。
-          以下の文字起こしから、レッスンの内容に関連するタグを5つ以内で抽出してください。
-          
-          タグの候補：リズム、テクニック、表現、ペダル、音色、強弱、アーティキュレーション、フレージング、和声、調性、形式、歴史、解釈
-          
-          タグはカンマ区切りのリストとして返してください。例：「リズム,表現,ペダル」`
+          content: `
+          あなたはレッスンの文字起こしからタグを抽出する専門家です。
+          与えられたテキストから、5つ以下の重要なキーワードを抽出してください。
+          キーワードはカンマ区切りで返してください。
+          例: JavaScript, React, フロントエンド, 開発環境, デバッグ
+          `
         },
         {
           role: 'user',
@@ -101,12 +112,19 @@ export const extractTags = async (transcription: string) => {
         }
       ],
       temperature: 0.3,
-      max_tokens: 100,
+      max_tokens: 100
     });
 
-    const tagsString = response.choices[0].message.content;
-    const tags = tagsString.split(',').map(tag => tag.trim());
-
+    const tagsString = response.choices[0]?.message?.content;
+    
+    // nullチェックを追加
+    if (!tagsString) {
+      return { success: true, tags: [] };
+    }
+    
+    // カンマで区切ってタグの配列に変換
+    const tags = tagsString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+    
     return { success: true, tags };
   } catch (error) {
     console.error('Error extracting tags:', error);

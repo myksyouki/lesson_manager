@@ -1,25 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
   StyleSheet,
-  TouchableOpacity,
-  Platform,
   ScrollView,
   SafeAreaView,
-  KeyboardAvoidingView,
   Alert,
-  Modal,
 } from 'react-native';
 import LoadingOverlay from './components/LoadingOverlay';
 import { router } from 'expo-router';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { processAudioFile } from './services/audioProcessing';
 import { useLessonStore } from './store/lessons';
 import * as DocumentPicker from 'expo-document-picker';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, {
+import { Gesture } from 'react-native-gesture-handler';
+import {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
@@ -28,10 +20,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Dimensions } from 'react-native';
 import { storage } from './config/firebase';
-import { auth } from './config/firebase';  // ✅ 追加
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc } from 'firebase/firestore';
+import { auth } from './config/firebase';
+import { ref, uploadBytesResumable, getDownloadURL, updateMetadata } from 'firebase/storage';
+import { collection, addDoc, onSnapshot, doc } from 'firebase/firestore';
 import { db } from './config/firebase';
+import FormHeader from './features/lessons/components/form/FormHeader';
+import FormInputs from './features/lessons/components/form/FormInputs';
+import CalendarModal from './features/lessons/components/form/CalendarModal';
+import AudioUploader from './features/lessons/components/form/AudioUploader';
 
 const DAYS = ['日', '月', '火', '水', '木', '金', '土'];
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
@@ -47,14 +43,16 @@ export default function LessonForm() {
       month: 'long',
       day: 'numeric'
     }).replace(/\s/g, ''),
-    piece: '',
+    pieces: [] as string[],
     notes: '',
-    tags: [],
+    tags: [] as string[],
   });
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedFileUri, setSelectedFileUri] = useState<string | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -62,8 +60,43 @@ export default function LessonForm() {
   const context = useSharedValue({ x: 0 });
   const [uploadProgress, setUploadProgress] = useState(0);
   const [audioUrl, setAudioUrl] = useState('');
+  const [lessonDocId, setLessonDocId] = useState<string | null>(null);
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null);
   
   const { addLesson } = useLessonStore();
+
+  // レッスンドキュメントの状態を監視
+  useEffect(() => {
+    if (lessonDocId) {
+      const unsubscribe = onSnapshot(doc(db, 'lessons', lessonDocId), (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data();
+          setProcessingStatus(data.status);
+          
+          // 処理状態に応じてメッセージを更新
+          switch (data.status) {
+            case 'processing':
+              setProcessingStep('音声ファイルを処理中...');
+              break;
+            case 'transcribed':
+              setProcessingStep('文字起こしが完了しました。要約を生成中...');
+              break;
+            case 'completed':
+              setProcessingStep('処理が完了しました！');
+              // 処理が完了したら1秒後に画面遷移
+              setTimeout(() => {
+                router.replace('/lessons');
+              }, 1000);
+              break;
+            default:
+              setProcessingStep('処理中...');
+          }
+        }
+      });
+      
+      return () => unsubscribe();
+    }
+  }, [lessonDocId]);
 
   const changeMonth = (increment: number) => {
     const newMonth = new Date(currentMonth);
@@ -152,279 +185,206 @@ export default function LessonForm() {
 
   const handleUpload = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['audio/mpeg', 'audio/wav', 'audio/m4a'],
-      });
-
-      if (result.canceled) {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('エラー', 'ログインが必要です');
         return;
       }
 
-      const fileUri = result.assets[0].uri;
-      const fileName = result.assets[0].name;
-      setSelectedFile(fileName);
+      // 入力チェック
+      if (!formData.teacherName) {
+        Alert.alert('エラー', '講師名は必須です');
+        return;
+      }
+
+      // 一意の処理IDを生成
+      const uniqueProcessingId = `lesson_${user.uid}_${Date.now()}`;
       
-      // Fetch the file content
+      setIsProcessing(true);
+      setProcessingStep('レッスン情報を保存中...');
+
+      // ファイルが選択されていない場合は、音声なしでレッスンを保存
+      if (!selectedFileUri) {
+        // Firestoreにレッスンドキュメントを作成
+        const lessonRef = await addDoc(collection(db, 'lessons'), {
+          teacher: formData.teacherName,
+          date: formData.date,
+          pieces: formData.pieces,
+          notes: formData.notes,
+          tags: formData.tags,
+          user_id: user.uid,
+          created_at: new Date(),
+          status: 'completed',
+          isFavorite: false,
+          isDeleted: false,
+          processingId: uniqueProcessingId, // 一意の処理IDを追加
+        });
+
+        // 保存完了後、レッスン一覧画面に遷移
+        router.replace('/lessons');
+        return;
+      }
+
+      const fileUri = selectedFileUri;
+      const fileName = selectedFileName || `lesson_${new Date().getTime()}.m4a`;
+
+      // まずFirestoreにレッスンドキュメントを作成
+      const lessonRef = await addDoc(collection(db, 'lessons'), {
+        teacher: formData.teacherName,
+        date: formData.date,
+        pieces: formData.pieces,
+        notes: formData.notes,
+        tags: formData.tags,
+        user_id: user.uid,
+        created_at: new Date(),
+        status: 'uploading',
+        isFavorite: false,
+        isDeleted: false,
+        processingId: uniqueProcessingId, // 一意の処理IDを追加
+      });
+
+      setLessonDocId(lessonRef.id);
+      
+      // レッスン一覧画面に遷移（処理を待たずに）
+      router.replace('/lessons');
+      
+      // バックグラウンドで音声ファイルのアップロードと処理を続行
       const response = await fetch(fileUri);
       const blob = await response.blob();
-
-      // Create storage reference
-      const storageRef = ref(storage, `lessons/${Date.now()}_${fileName}`);
       
-      // Start upload
+      const storageRef = ref(storage, `lessons/${user.uid}/${lessonRef.id}/${fileName}`);
       const uploadTask = uploadBytesResumable(storageRef, blob);
 
-      uploadTask.on('state_changed',
+      uploadTask.on(
+        'state_changed',
         (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          const progress = Math.round(
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+          );
           setUploadProgress(progress);
-          setProcessingStep(`アップロード中... ${Math.round(progress)}%`);
+          setProcessingStep(`アップロード中... ${progress}%`);
         },
         (error) => {
-          console.error('Upload error:', error);
-          Alert.alert('エラー', 'ファイルのアップロードに失敗しました');
+          console.error('アップロードエラー:', error);
+          setIsProcessing(false);
         },
         async () => {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          setAudioUrl(downloadURL);
-          setProcessingStep('アップロード完了');
+          try {
+            // アップロード完了後、メタデータを更新
+            await updateMetadata(storageRef, {
+              customMetadata: {
+                lessonId: lessonRef.id,
+                userId: user.uid,
+                processingId: uniqueProcessingId, // メタデータにも処理IDを追加
+              },
+            });
+            
+            // ダウンロードURLを取得
+            const downloadUrl = await getDownloadURL(storageRef);
+            setAudioUrl(downloadUrl);
+            
+            // Firestoreのレッスンドキュメントを更新 - 処理IDを渡す
+            await processAudioFile(lessonRef.id, fileUri, fileName, uniqueProcessingId);
+            
+            // ローカルのレッスンストアへの追加は行わない
+            // Firestoreからのデータ同期に任せる
+            
+          } catch (error) {
+            console.error('処理エラー:', error);
+            setIsProcessing(false);
+          }
         }
       );
-
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error('アップロードエラー:', error);
+      setIsProcessing(false);
       Alert.alert('エラー', 'ファイルのアップロードに失敗しました');
     }
   };
 
-  const handleSubmit = async () => {
-    if (!formData.teacherName.trim()) {
-      Alert.alert('エラー', '講師名を入力してください');
+  const handleSave = () => {
+    if (!formData.teacherName) {
+      Alert.alert('エラー', '講師名は必須です');
       return;
     }
+    
+    // 音声ファイルの有無に関わらず、直接アップロード処理を実行
+    handleUpload();
+  };
 
+  const handleUpdateFormData = (data: Partial<typeof formData>) => {
+    setFormData(prev => ({ ...prev, ...data }));
+  };
+
+  const canSave = formData.teacherName.trim() !== '';
+
+  const handleSelectFile = async () => {
     try {
-      setIsProcessing(true);
-      setProcessingStep('保存中...');
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['audio/*'],
+        copyToCacheDirectory: true,
+      });
 
-    // Firestore に保存するデータをオブジェクトとして明示
-    const lessonData = {
-      teacherName: formData.teacherName,
-      date: formData.date,
-      piece: formData.piece,
-      notes: formData.notes,
-      tags: formData.tags,  // 既に配列型ならこのままでOK
-      userId: auth.currentUser?.uid || "anonymous",  // ユーザーがいない場合を考慮
-      audioUrl: audioUrl || null,   // 音声ファイルの URL
-      createdAt: new Date(),
-    };
+      if (result.canceled) {
+        console.log('ファイル選択がキャンセルされました');
+        return;
+      }
 
-    console.log("📝 保存するデータ:", lessonData);
-
-    // Firestore にドキュメントを追加
-    const lessonRef = await addDoc(collection(db, 'lessons'), lessonData);
-
-    console.log(`✅ レッスン保存成功: ID = ${lessonRef.id}`);
-
-    setProcessingStep('完了！');
+      const file = result.assets[0];
+      console.log('選択されたファイル:', file);
       
-      // Navigate back to lessons screen
-      setTimeout(() => {
-        router.replace('/lessons');
-      }, 1000);
-
+      // ファイル名を表示用に保存
+      setSelectedFile(file.name);
+      // ファイルURIを保存（実際のアップロード時に使用）
+      setSelectedFileUri(file.uri);
+      // ファイル名を保存
+      setSelectedFileName(file.name);
+      
+      // ここでアップロードを開始しない
+      // handleUpload()の呼び出しを削除
     } catch (error) {
-      console.error('Error saving lesson:', error);
-      Alert.alert('エラー', 'レッスンの保存に失敗しました');
-    } finally {
-      setIsProcessing(false);
+      console.error('ファイル選択エラー:', error);
+      Alert.alert('エラー', 'ファイルの選択に失敗しました');
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={26} color="#007AFF" />
-          </TouchableOpacity>
-          <Text style={styles.title}>新規レッスン</Text>
-        </View>
-
-        {isProcessing ? (
-          <LoadingOverlay message={processingStep} />
-        ) : (
-          <>
-            <ScrollView style={styles.form}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>講師名 *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.teacherName}
-                  onChangeText={(text) => setFormData({ ...formData, teacherName: text })}
-                  placeholder="講師名を入力"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>日付 *</Text>
-                <TouchableOpacity
-                  style={[styles.input, styles.dateInput]}
-                  onPress={() => setShowCalendar(true)}
-                >
-                  <Text style={styles.dateText}>{formData.date}</Text>
-                  <MaterialIcons name="calendar-today" size={22} color="#5f6368" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>レッスン曲</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.piece}
-                  onChangeText={(text) => setFormData({ ...formData, piece: text })}
-                  placeholder="曲名を入力"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>メモ</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={formData.notes}
-                  onChangeText={(text) => setFormData({ ...formData, notes: text })}
-                  placeholder="メモを入力"
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-              </View>
-
-              <View style={styles.uploadSection}>
-                <Text style={styles.label}>レッスン録音</Text>
-                
-                <TouchableOpacity 
-                  style={styles.uploadButton}
-                  onPress={handleUpload}
-                >
-                  <Ionicons name="cloud-upload" size={24} color="#007AFF" />
-                  <Text style={styles.uploadButtonText}>
-                    音声ファイルをアップロード
-                  </Text>
-                </TouchableOpacity>
-                
-                {selectedFile && (
-                  <View style={styles.selectedFileContainer}>
-                    <Ionicons name="document" size={22} color="#007AFF" />
-                    <Text style={styles.selectedFileText}>{selectedFile}</Text>
-                  </View>
-                )}
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity 
-              style={[
-                styles.submitButton,
-                !formData.teacherName && styles.submitButtonDisabled // 🔄 `selectedFile` のチェックを削除
-              ]} 
-              onPress={handleSubmit}
-              disabled={!formData.teacherName} // 🔄 `selectedFile` をチェックしない
-            >
-              <Text style={styles.submitButtonText}>レッスンを保存</Text>
-            </TouchableOpacity>
-          </>
-        )}
+      <FormHeader 
+        title="レッスン記録" 
+        onSave={handleSave} 
+        canSave={canSave && !isProcessing} 
+      />
+      
+      <ScrollView style={styles.scrollView}>
+        <FormInputs 
+          formData={formData} 
+          onUpdateFormData={handleUpdateFormData} 
+          onShowCalendar={() => setShowCalendar(true)} 
+        />
         
-        <Modal visible={showCalendar} animationType="slide" transparent>
-          <View style={styles.modalContainer}>
-            <View style={styles.calendarModal}>
-              <View style={styles.modalHeader}>
-                <TouchableOpacity onPress={() => setShowCalendar(false)}>
-                  <Text style={styles.modalCloseText}>キャンセル</Text>
-                </TouchableOpacity>
-                <Text style={styles.modalTitle}>日付を選択</Text>
-                <TouchableOpacity onPress={() => handleDateSelect(selectedDate)}>
-                  <Text style={styles.modalDoneText}>完了</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.monthSelector}>
-                <TouchableOpacity 
-                  onPress={() => changeMonth(-1)} 
-                  style={styles.monthButton}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <MaterialIcons name="chevron-left" size={32} color="#007AFF" />
-                </TouchableOpacity>
-                <Text style={styles.monthText}>
-                  {currentMonth.getFullYear()}年{MONTHS[currentMonth.getMonth()]}
-                </Text>
-                <TouchableOpacity 
-                  onPress={() => changeMonth(1)} 
-                  style={styles.monthButton}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <MaterialIcons name="chevron-right" size={32} color="#007AFF" />
-                </TouchableOpacity>
-              </View>
-
-              <GestureDetector gesture={gesture}>
-                <Animated.View style={[styles.calendar, animatedStyle]}>
-                  <View style={styles.weekDayHeader}>
-                    {DAYS.map((day, index) => (
-                      <Text
-                        key={day}
-                        style={[
-                          styles.weekDayText,
-                          { width: DAY_SIZE },
-                          index === 0 && styles.sundayText,
-                          index === 6 && styles.saturdayText,
-                        ]}>
-                        {day}
-                      </Text>
-                    ))}
-                  </View>
-
-                  <View style={styles.daysGrid}>
-                    {generateCalendarDays().map((item, index) => {
-                      const isSelected =
-                        selectedDate &&
-                        item.date.getDate() === selectedDate.getDate() &&
-                        item.date.getMonth() === selectedDate.getMonth() &&
-                        item.date.getFullYear() === selectedDate.getFullYear();
-
-                      return (
-                        <TouchableOpacity
-                          key={index}
-                          style={[
-                            styles.dayButton,
-                            { width: DAY_SIZE, height: DAY_SIZE },
-                            !item.isCurrentMonth && styles.otherMonthDay,
-                            isSelected && styles.selectedDay,
-                          ]}
-                          onPress={() => setSelectedDate(item.date)}>
-                          <Text
-                            style={[
-                              styles.dayText,
-                              !item.isCurrentMonth && styles.otherMonthDayText,
-                              isSelected && styles.selectedDayText,
-                            ]}>
-                            {item.date.getDate()}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </Animated.View>
-              </GestureDetector>
-            </View>
-          </View>
-        </Modal>
-      </KeyboardAvoidingView>
+        <AudioUploader 
+          selectedFile={selectedFile} 
+          uploadProgress={uploadProgress} 
+          isProcessing={isProcessing} 
+          processingStep={processingStep} 
+          onUpload={handleSelectFile} 
+        />
+      </ScrollView>
+      
+      <CalendarModal 
+        visible={showCalendar} 
+        onClose={() => setShowCalendar(false)} 
+        onDateSelect={handleDateSelect} 
+        selectedDate={selectedDate} 
+        currentMonth={currentMonth} 
+        onChangeMonth={changeMonth} 
+        calendarDays={generateCalendarDays()} 
+        gesture={gesture} 
+        animatedStyle={animatedStyle} 
+      />
+      
+      {isProcessing && <LoadingOverlay message={processingStep} />}
     </SafeAreaView>
   );
 }
@@ -434,237 +394,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
-  container: {
+  scrollView: {
     flex: 1,
     backgroundColor: '#F8F9FA',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 20 : 30,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  backButton: {
-    padding: 10, // Increased padding for better touch target
-    marginRight: 8,
-  },
-  title: {
-    fontSize: 22, // Larger font size
-    fontWeight: '600',
-    color: '#1C1C1E',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  form: {
-    flex: 1,
-    padding: 20,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 17, // Larger font size
-    fontWeight: '500',
-    color: '#1C1C1E',
-    marginBottom: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  input: {
-    backgroundColor: 'white',
-    borderRadius: 12, // Increased border radius
-    padding: 16, // Increased padding
-    fontSize: 17, // Larger font size
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  dateInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dateText: {
-    fontSize: 17, // Larger font size
-    color: '#1C1C1E',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  textArea: {
-    height: 120, // Increased height
-    paddingTop: 16,
-  },
-  uploadSection: {
-    marginBottom: 20,
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    borderStyle: 'dashed',
-  },
-  uploadButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  selectedFileContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  selectedFileText: {
-    fontSize: 16,
-    color: '#1C1C1E',
-    marginLeft: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  submitButton: {
-    backgroundColor: '#007AFF',
-    margin: 20,
-    padding: 18, // Increased padding
-    borderRadius: 16, // Increased border radius
-    alignItems: 'center',
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#A2A2A2',
-  },
-  submitButtonText: {
-    color: 'white',
-    fontSize: 18, // Larger font size
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  processingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  processingText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginTop: 20,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  processingSubtext: {
-    fontSize: 16,
-    color: '#8E8E93',
-    marginTop: 8,
-    textAlign: 'center',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  calendarModal: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 24, // Increased border radius
-    borderTopRightRadius: 24, // Increased border radius
-    padding: 20,
-    width: '100%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalCloseText: {
-    color: '#007AFF',
-    fontSize: 18, // Larger font size
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  modalDoneText: {
-    color: '#007AFF',
-    fontSize: 18, // Larger font size
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  modalTitle: {
-    fontSize: 20, // Larger font size
-    fontWeight: '600',
-    color: '#1C1C1E',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  monthSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    marginBottom: 10,
-  },
-  monthButton: {
-    width: 44, // Increased size
-    height: 44, // Increased size
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 22, // Make it circular
-  },
-  monthText: {
-    fontSize: 22, // Larger font size
-    fontWeight: '600',
-    color: '#1C1C1E',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  calendar: {
-    marginBottom: 20,
-  },
-  weekDayHeader: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-  weekDayText: {
-    textAlign: 'center',
-    fontSize: 16, // Larger font size
-    color: '#8E8E93',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  sundayText: {
-    color: '#FF3B30',
-  },
-  saturdayText: {
-    color: '#007AFF',
-  },
-  daysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  dayButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dayText: {
-    fontSize: 18, // Larger font size
-    color: '#1C1C1E',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  otherMonthDay: {
-    opacity: 0.3,
-  },
-  otherMonthDayText: {
-    color: '#8E8E93',
-  },
-  selectedDay: {
-    backgroundColor: '#007AFF',
-    borderRadius: 22, // Increased border radius
-  },
-  selectedDayText: {
-    color: 'white',
-    fontWeight: '600',
   },
 });

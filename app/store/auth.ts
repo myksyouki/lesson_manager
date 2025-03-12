@@ -27,11 +27,10 @@ WebBrowser.maybeCompleteAuthSession();
 const redirectUri = AuthSession.makeRedirectUri({
   scheme: "lessonmanager",
   preferLocalhost: false, // ✅ ローカル環境でも `https://auth.expo.io/...` を使う
-  isSilent: false,
 });
-console.log("🔍 実際に使われるURI:", redirectUri);
 
-console.log("🔍 使用するリダイレクトURI:", redirectUri);
+// 初期化時に一度だけログ出力
+console.log("🔍 実際に使われるURI:", redirectUri);
 
 // ✅ Googleログイン用のフック
 export function useGoogleAuth() {
@@ -40,11 +39,11 @@ export function useGoogleAuth() {
     androidClientId: Constants.expoConfig?.extra?.expoPublicGoogleAndroidClientId,
     webClientId: Constants.expoConfig?.extra?.expoPublicGoogleWebClientId,
     redirectUri,         // 上記で生成したURI
-    useProxy: true,
     scopes: ["profile", "email"],
   });
 
-  console.log("🌍 Google リクエスト URL:", request?.url); // デバッグ用
+  // デバッグ用のログ出力を削除
+  // console.log("🌍 Google リクエスト URL:", request?.url);
 
   // 自動サインイン処理を削除
   // useEffect(() => {
@@ -76,6 +75,15 @@ export const useAuthStore = create<AuthState>((set) => {
   // 認証状態を監視
   onAuthStateChanged(auth, (user) => {
     set({ user: user || null, isLoading: false });
+    
+    // ユーザー情報をローカルストレージに保存（ウェブのみ）
+    if (Platform.OS === 'web' && user) {
+      try {
+        localStorage.setItem('userAuth', 'true');
+      } catch (e) {
+        console.error('ローカルストレージへの保存に失敗:', e);
+      }
+    }
 
     if (user) {
       setTimeout(() => {

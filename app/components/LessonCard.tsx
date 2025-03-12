@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  GestureResponderEvent,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -38,13 +39,17 @@ export default function LessonCard({
     });
   };
 
-  const handleFavoritePress = (e) => {
+  const handleFavoritePress = (e: GestureResponderEvent) => {
     e.stopPropagation();
     toggleFavorite(id);
   };
 
   return (
-    <TouchableOpacity style={styles.lessonCard} onPress={handlePress}>
+    <TouchableOpacity 
+      style={styles.lessonCard} 
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
       <View style={styles.cardHeader}>
         <Text style={styles.lessonDate}>{date}</Text>
         {showFavoriteButton && (
@@ -63,8 +68,8 @@ export default function LessonCard({
       <Text style={styles.lessonTeacher}>{teacher}</Text>
       <Text style={styles.lessonPiece}>{piece}</Text>
       <View style={styles.tagContainer}>
-        {tags.map((tag, index) => (
-          <View key={index} style={styles.lessonTag}>
+        {tags && tags.map((tag, index) => (
+          <View key={`${id}-tag-${index}`} style={styles.lessonTag}>
             <Text style={styles.lessonTagText}>{tag}</Text>
           </View>
         ))}

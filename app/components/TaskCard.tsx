@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Task } from '../types/task';
 
@@ -16,12 +16,21 @@ export default function TaskCard({ task }: TaskCardProps) {
     });
   };
 
+  // AIから生成された練習メニューかどうかを判定
+  const isAIPracticeMenu = task.attachments?.some(att => att.type === 'text' && att.url.startsWith('/chatRooms/'));
+
   return (
     <TouchableOpacity 
-      style={styles.taskCard} 
+      style={[styles.taskCard, isAIPracticeMenu && styles.aiTaskCard]} 
       onPress={handlePress}
       activeOpacity={0.7}
     >
+      {isAIPracticeMenu && (
+        <View style={styles.aiIndicator}>
+          <Ionicons name="musical-notes-outline" size={16} color="#007AFF" />
+          <Text style={styles.aiIndicatorText}>AI練習メニュー</Text>
+        </View>
+      )}
       <View style={styles.cardHeader}>
         <Text style={styles.taskTitle}>{task.title}</Text>
         <MaterialIcons 
@@ -30,7 +39,9 @@ export default function TaskCard({ task }: TaskCardProps) {
           color={task.isCompleted ? "#34C759" : "#8E8E93"} 
         />
       </View>
-      <Text style={styles.taskDescription}>{task.description}</Text>
+      <Text style={styles.taskDescription} numberOfLines={2} ellipsizeMode="tail">
+        {task.description}
+      </Text>
       <Text style={styles.taskDueDate}>期日: {task.dueDate}</Text>
     </TouchableOpacity>
   );
@@ -53,6 +64,23 @@ const styles = StyleSheet.create({
         elevation: 4,
       },
     }),
+  },
+  aiTaskCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#007AFF',
+    backgroundColor: '#FAFCFF',
+  },
+  aiIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiIndicatorText: {
+    fontSize: 12,
+    color: '#007AFF',
+    marginLeft: 4,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   cardHeader: {
     flexDirection: 'row',

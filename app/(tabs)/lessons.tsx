@@ -1,24 +1,71 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   ScrollView,
-  TouchableOpacity,
-  Platform,
   SafeAreaView,
 } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useLessonStore } from '../store/lessons';
-import LessonCard from '../components/LessonCard';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db, auth } from '../config/firebase';
+import ListHeader from '../features/lessons/components/list/ListHeader';
+import LessonCard from '../features/lessons/components/list/LessonCard';
+import { Lesson } from '../store/lessons';
 
 export default function LessonsScreen() {
   const [searchText, setSearchText] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const availableTags = ['リズム', 'テクニック', '表現', 'ペダル', '音色', '強弱'];
-  const { lessons } = useLessonStore();
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Firestoreからのリアルタイム更新を監視
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    console.log('レッスン一覧: リアルタイム監視を開始します');
+    
+    const lessonsRef = collection(db, 'lessons');
+    // user_idフィールドを使用したクエリを作成
+    const userId = auth.currentUser.uid;
+    const q = query(lessonsRef, where('user_id', '==', userId));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const lessonsList = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          teacher: data.teacher || data.teacherName || '',
+          date: data.date || '',
+          piece: data.piece || '',
+          pieces: data.pieces || [],
+          summary: data.summary || '',
+          notes: data.notes || '',
+          tags: data.tags || [],
+          user_id: data.user_id || data.userId || '',
+          audioUrl: data.audioUrl || data.audio_url || null,
+          transcription: data.transcription || '',
+          status: data.status || '',
+          isFavorite: data.isFavorite || false,
+          isDeleted: data.isDeleted || false,
+          processingId: data.processingId || '',
+          created_at: data.created_at || data.createdAt || new Date(),
+          updated_at: data.updated_at || data.updatedAt || new Date(),
+        };
+      });
+      
+      // 削除されたレッスンをフィルタリング
+      const filteredLessons = lessonsList.filter(lesson => !lesson.isDeleted);
+      
+      console.log(`レッスン一覧: ${filteredLessons.length}件のレッスンを更新しました`);
+      setLessons(filteredLessons);
+      setIsLoading(false);
+    });
+    
+    return () => {
+      console.log('レッスン一覧: リアルタイム監視を終了します');
+      unsubscribe();
+    };
+  }, [auth.currentUser?.uid]);
 
   const handleTagPress = (tag: string) => {
     setSelectedTags((prev) =>
@@ -30,7 +77,7 @@ export default function LessonsScreen() {
     const matchesSearch =
       searchText === '' ||
       lesson.teacher.includes(searchText) ||
-      lesson.piece.includes(searchText) ||
+      (lesson.pieces && lesson.pieces.some(piece => piece.includes(searchText))) ||
       lesson.summary.includes(searchText);
 
     const matchesTags =
@@ -43,39 +90,13 @@ export default function LessonsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>レッスン一覧</Text>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={22} color="#8E8E93" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="レッスンを検索"
-              placeholderTextColor="#8E8E93"
-              value={searchText}
-              onChangeText={setSearchText}
-            />
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.tagScrollView}
-            contentContainerStyle={styles.tagScrollContent}>
-            {availableTags.map((tag) => (
-              <TouchableOpacity
-                key={tag}
-                style={[styles.tag, selectedTags.includes(tag) && styles.tagSelected]}
-                onPress={() => handleTagPress(tag)}>
-                <Text
-                  style={[
-                    styles.tagText,
-                    selectedTags.includes(tag) && styles.tagTextSelected,
-                  ]}>
-                  {tag}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        <ListHeader
+          searchText={searchText}
+          onSearchChange={setSearchText}
+          availableTags={availableTags}
+          selectedTags={selectedTags}
+          onTagPress={handleTagPress}
+        />
 
         <ScrollView style={styles.lessonList}>
           {filteredLessons.map((lesson) => (
@@ -84,7 +105,7 @@ export default function LessonsScreen() {
               id={lesson.id}
               teacher={lesson.teacher}
               date={lesson.date}
-              piece={lesson.piece}
+              pieces={lesson.pieces || []}
               tags={lesson.tags}
               isFavorite={lesson.isFavorite}
             />
@@ -104,64 +125,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 20 : 30,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  title: {
-    fontSize: 30, // Larger title
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 16,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12, // Increased border radius
-    paddingHorizontal: 14,
-    height: 48, // Increased height for better touch target
-    marginBottom: 16,
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 17, // Larger font size
-    color: '#1C1C1E',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  tagScrollView: {
-    marginBottom: 16,
-  },
-  tagScrollContent: {
-    paddingRight: 20,
-  },
-  tag: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 18, // Increased border radius
-    paddingVertical: 8, // Increased padding
-    paddingHorizontal: 14, // Increased padding
-    marginRight: 10,
-  },
-  tagSelected: {
-    backgroundColor: '#1a73e8',
-  },
-  tagText: {
-    fontSize: 15, // Larger font size
-    color: '#5f6368',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  tagTextSelected: {
-    color: '#ffffff',
-  },
   lessonList: {
+    flex: 1,
     padding: 20,
   },
 });

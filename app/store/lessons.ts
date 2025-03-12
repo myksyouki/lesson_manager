@@ -6,13 +6,17 @@ export interface Lesson {
   id: string;
   date: string;
   teacher: string;
-  piece: string;
+  pieces?: string[];
   summary: string;
   notes: string;
   tags: string[];
   user_id: string;
   audioUrl?: string;
+  transcription?: string;
+  status?: string;
   isFavorite?: boolean;
+  isDeleted?: boolean;
+  processingId?: string; // レッスン処理の一意識別子
   created_at?: FieldValue | string;
   updated_at?: FieldValue | string;
 }
@@ -22,11 +26,12 @@ interface LessonStore {
   isLoading: boolean;
   error: string | null;
   fetchLessons: (userId: string) => Promise<void>;
-  addLesson: (lesson: Omit<Lesson, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  addLesson: (lesson: Omit<Lesson, 'id' | 'created_at' | 'updated_at'>) => Promise<string>;
   updateLesson: (lesson: Lesson) => Promise<void>;
   deleteLesson: (id: string) => Promise<void>;
   toggleFavorite: (id: string) => void;
   getFavorites: () => Lesson[];
+  setLessons: (lessons: Lesson[]) => void;
 }
 
 export const useLessonStore = create<LessonStore>((set, get) => ({
@@ -42,10 +47,27 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
       const q = query(lessonsRef, where('user_id', '==', userId));
       const querySnapshot = await getDocs(q);
 
-      const lessons = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Lesson[];
+      const lessons = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          teacher: data.teacher || data.teacherName || '',
+          date: data.date || '',
+          pieces: data.pieces || [],
+          summary: data.summary || '',
+          notes: data.notes || '',
+          tags: data.tags || [],
+          user_id: data.user_id || data.userId || '',
+          audioUrl: data.audioUrl || data.audio_url || null,
+          transcription: data.transcription || '',
+          status: data.status || '',
+          isFavorite: data.isFavorite || false,
+          isDeleted: data.isDeleted || false,
+          processingId: data.processingId || '', // レッスン処理の一意識別子
+          created_at: data.created_at || data.createdAt || '',
+          updated_at: data.updated_at || data.updatedAt || '',
+        };
+      }).filter(lesson => !lesson.isDeleted); // 削除されたレッスンをフィルタリング
 
       set({ lessons, isLoading: false });
     } catch (error: any) {
@@ -53,7 +75,7 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
     }
   },
 
-  addLesson: async (lesson): Promise<void> => {
+  addLesson: async (lesson): Promise<string> => {
     try {
       set({ isLoading: true, error: null });
 
@@ -75,8 +97,10 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
         isLoading: false
       }));
 
+      return docRef.id;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
+      throw error; // エラーを再スローして呼び出し元で処理できるようにする
     }
   },
 
@@ -107,8 +131,14 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      await deleteDoc(doc(db, 'lessons', id));
+      // Firestoreのドキュメントを削除する代わりに、isDeletedフラグを更新する
+      const lessonRef = doc(db, 'lessons', id);
+      await updateDoc(lessonRef, {
+        isDeleted: true,
+        updated_at: serverTimestamp()
+      });
 
+      // ローカルのレッスンリストから削除
       set((state) => ({
         lessons: state.lessons.filter((lesson) => lesson.id !== id),
         isLoading: false
@@ -127,6 +157,10 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
   },
 
   getFavorites: () => {
-    return get().lessons.filter(lesson => lesson.isFavorite);
-  }
+    return get().lessons.filter((lesson) => lesson.isFavorite);
+  },
+
+  setLessons: (lessons) => {
+    set({ lessons });
+  },
 }));

@@ -1,14 +1,15 @@
 import { storage, auth } from '../config/firebase';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject, uploadBytesResumable } from 'firebase/storage';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
-import { v4 as uuidv4 } from 'uuid';
+// UUIDの代わりにタイムスタンプを使用
+// import { v4 as uuidv4 } from 'uuid';
 import { getFileHash } from './fileUtils';
 import type { UploadTaskSnapshot } from 'firebase/storage';
 
 // Supported file types and size limits
-const SUPPORTED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/mp4'];
-const MAX_FILE_SIZE = 1024 * 1024 * 100; // 100MB
+const SUPPORTED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/m4a', 'audio/x-m4a'];
+const MAX_FILE_SIZE = 1024 * 1024 * 500; // 500MB (90分の音声ファイルに対応)
 
 // Upload audio file to Firebase Storage
 export interface UploadProgress {
@@ -36,18 +37,55 @@ export const uploadAudioFile = async (
   onProgress?: (progress: UploadProgress) => void
 ): Promise<UploadResult> => {
   try {
+    // Optional("https")形式のURLを処理
+    let validUri = uri;
+    if (uri.includes('Optional(') && uri.includes(')')) {
+      const match = uri.match(/Optional\(["'](.+?)["']\)/);
+      if (match && match[1]) {
+        validUri = match[1];
+        console.log('Optional形式から抽出したURI:', validUri);
+      }
+    }
+
+    // HTTPSスキームの処理
+    if (validUri.startsWith('https://')) {
+      console.log('HTTPSスキームを検出しました。一時ファイルをダウンロードします。');
+      try {
+        // 一時ディレクトリのパス
+        const tempDir = FileSystem.cacheDirectory + 'shared/';
+        
+        // 一時ディレクトリが存在するか確認し、なければ作成
+        const dirInfo = await FileSystem.getInfoAsync(tempDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(tempDir, { intermediates: true });
+        }
+        
+        const tempFileName = `temp_${Date.now()}_${fileName}`;
+        const downloadResult = await FileSystem.downloadAsync(
+          validUri,
+          tempDir + tempFileName
+        );
+        console.log('ダウンロード結果:', downloadResult);
+        validUri = downloadResult.uri;
+      } catch (downloadError) {
+        console.error('HTTPSファイルのダウンロードエラー:', downloadError);
+        throw new Error('HTTPSファイルのダウンロードに失敗しました');
+      }
+    }
+    
     // Validate file type and size
-    const fileInfo = await FileSystem.getInfoAsync(uri);
+    console.log('ファイル情報を取得します:', validUri);
+    const fileInfo = await FileSystem.getInfoAsync(validUri);
     if (!fileInfo.exists || fileInfo.size === undefined) {
-      throw new Error('File not found');
+      throw new Error('ファイルが見つかりません');
     }
 
     if (fileInfo.size > MAX_FILE_SIZE) {
-      throw new Error(`File size exceeds limit of ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+      throw new Error(`ファイルサイズが上限（${MAX_FILE_SIZE / 1024 / 1024}MB）を超えています`);
     }
 
     // Get file metadata
-    const mimeType = await getMimeType(uri);
+    const mimeType = await getMimeType(validUri);
     if (!SUPPORTED_TYPES.includes(mimeType)) {
       throw new Error(`Unsupported file type: ${mimeType}`);
     }
@@ -59,17 +97,17 @@ export const uploadAudioFile = async (
     }
 
     // Generate unique file path with cache key
-    const fileHash = await getFileHash(uri);
-    const filePath = `audio/${user.uid}/${fileHash}_${fileName}`;
+    const fileHash = await getFileHash(validUri);
+    const filePath = `audio/${user.uid}/${Date.now()}_${fileName}`;
     const fileRef = ref(storage, filePath);
 
     // Convert file to blob
     let blob;
     if (Platform.OS !== 'web') {
-      const response = await fetch(uri);
+      const response = await fetch(validUri);
       blob = await response.blob();
     } else {
-      blob = uri as unknown as Blob;
+      blob = validUri as unknown as Blob;
     }
 
     // Upload with progress tracking
@@ -100,7 +138,7 @@ export const uploadAudioFile = async (
     const metadata = {
       fileSize: fileInfo.size,
       mimeType,
-      duration: await getAudioDuration(uri)
+      duration: await getAudioDuration(validUri)
     };
 
     return {
