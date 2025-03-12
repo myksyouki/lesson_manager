@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
@@ -83,7 +83,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     transform: [{ translateX: translateX.value }],
   }));
 
-  const generateCalendarDays = () => {
+  const generateCalendarDays = useMemo(() => () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const firstDay = new Date(year, month, 1);
@@ -94,67 +94,48 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     const firstDayOfWeek = (firstDay.getDay() + 6) % 7;
     const prevMonthLastDay = new Date(year, month, 0);
     
-    // 前月分の日付を追加（月曜日基準）
+    // 前月分の日付を追加
     for (let i = 0; i < firstDayOfWeek; i++) {
       const prevDate = new Date(year, month - 1, prevMonthLastDay.getDate() - (firstDayOfWeek - 1) + i);
-      days.push({
-        date: prevDate,
-        isCurrentMonth: false,
-      });
+      days.push({ date: prevDate, isCurrentMonth: false });
     }
 
+    // 今月分の日付を追加
     for (let i = 1; i <= lastDay.getDate(); i++) {
-      days.push({
-        date: new Date(year, month, i),
-        isCurrentMonth: true,
-      });
+      days.push({ date: new Date(year, month, i), isCurrentMonth: true });
     }
 
-    // 週数を計算して日付を埋める
+    // 翌月分の日付で埋める
     const totalWeeks = Math.ceil(days.length / 7);
-    const totalDays = totalWeeks * 7;
-    const remainingDays = totalDays - days.length;
-    
-    if (remainingDays > 0) {
-      for (let i = 0; i < remainingDays; i++) {
-        days.push({
-          date: new Date(year, month + 1, i),
-          isCurrentMonth: false,
-        });
-      }
+    const remainingDays = totalWeeks * 7 - days.length;
+    for (let i = 0; i < remainingDays; i++) {
+      days.push({ date: new Date(year, month + 1, i), isCurrentMonth: false });
     }
 
     return days;
-  };
+  }, [currentMonth]);
 
-  const calendarDays = generateCalendarDays();
+  const calendarDays = useMemo(() => generateCalendarDays(), [generateCalendarDays]);
 
-  const formatDate = (date: Date) => {
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日`;
-  };
+  const hasLesson = useCallback((date: Date) => {
+    const targetDate = new Date(Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    ));
+    
+    return lessons.some(lesson => {
+      const lessonDate = new Date(lesson.date);
+      return lessonDate.toISOString().split('T')[0] === targetDate.toISOString().split('T')[0];
+    });
+  }, [lessons]);
 
-  const hasLesson = (date: Date) => {
-    const formattedDate = formatDate(date);
-    return lessons.some(lesson => lesson.date === formattedDate);
-  };
+  const isSelectedDate = (date: Date) => 
+    date.toDateString() === selectedDate.toDateString();
 
-  const isSelectedDate = (date: Date) => {
-    return (
-      date.getDate() === selectedDate.getDate() &&
-      date.getMonth() === selectedDate.getMonth() &&
-      date.getFullYear() === selectedDate.getFullYear()
-    );
-  };
-
-  const isTodayDate = (date: Date) => {
-    const today = new Date();
-    return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    );
-  };
+  const isTodayDate = useCallback((date: Date) => 
+    date.toDateString() === new Date().toDateString(),
+  []);
 
   return (
     <View style={styles.container}>
@@ -163,9 +144,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
           {calendarDays.map((item, index) => {
             const isSelected = isSelectedDate(item.date);
             const isToday = isTodayDate(item.date);
-            const hasLessonOnDate = hasLesson(item.date);
-            const isSunday = item.date.getDay() === 0;
-            const isSaturday = item.date.getDay() === 6;
+            const dayOfWeek = item.date.getDay();
 
             return (
               <TouchableOpacity
@@ -174,25 +153,22 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   styles.dayCell,
                   !item.isCurrentMonth && styles.otherMonthDay,
                   isSelected && styles.selectedDay,
-                  isToday && !isSelected && styles.todayDay,
+                  isToday && styles.todayDay,
                 ]}
                 onPress={() => onDateSelect(item.date)}
                 disabled={!item.isCurrentMonth}
               >
                 <View style={styles.dayCellContent}>
-                  <Text
-                    style={[
-                      styles.dayText,
-                      !item.isCurrentMonth && styles.otherMonthDayText,
-                      isSunday && styles.sundayText,
-                      isSaturday && styles.saturdayText,
-                      isSelected && styles.selectedDayText,
-                      isToday && !isSelected && styles.todayDayText,
-                    ]}
-                  >
+                  <Text style={[
+                    styles.dayText,
+                    dayOfWeek === 0 && styles.sundayText,
+                    dayOfWeek === 6 && styles.saturdayText,
+                    isSelected && styles.selectedDayText,
+                    isToday && styles.todayDayText,
+                  ]}>
                     {item.date.getDate()}
                   </Text>
-                  {hasLessonOnDate && <View style={styles.lessonIndicator} />}
+                  {hasLesson(item.date) && <View style={styles.lessonIndicator} />}
                 </View>
               </TouchableOpacity>
             );
@@ -203,12 +179,10 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   );
 };
 
-// スタイル定義
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     borderRadius: 12,
-    overflow: 'hidden',
     marginBottom: 16,
     ...Platform.select({
       ios: {
@@ -225,9 +199,7 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 0,
-    paddingVertical: 8,
+    padding: 8,
   },
   dayCell: {
     width: DAY_SIZE,
@@ -246,13 +218,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     color: colors.textPrimary,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   otherMonthDay: {
     opacity: 0.3,
-  },
-  otherMonthDayText: {
-    color: colors.textTertiary,
   },
   selectedDay: {
     backgroundColor: colors.primary,
