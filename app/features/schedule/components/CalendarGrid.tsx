@@ -109,10 +109,13 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
       });
     }
 
-    // 週末の位置調整（月曜日始まり対応）
-    const remainingDays = (7 - (days.length % 7)) % 7;
+    // 正確な週数計算で日付を埋める
+    const totalWeeks = Math.ceil(days.length / 7);
+    const totalDays = totalWeeks * 7;
+    const remainingDays = totalDays - days.length;
+    
     if (remainingDays > 0) {
-      for (let i = 1; i <= remainingDays; i++) {
+      for (let i = 0; i < remainingDays; i++) {
         days.push({
           date: new Date(year, month + 1, i),
           isCurrentMonth: false,
