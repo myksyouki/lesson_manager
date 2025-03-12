@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -13,6 +13,20 @@ import { Lesson } from '../../../store/lessons';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CALENDAR_WIDTH = SCREEN_WIDTH - 32;
 const DAY_SIZE = Math.floor(CALENDAR_WIDTH / 7);
+
+const colors = {
+  primary: '#4285F4',
+  primaryLight: '#8AB4F8',
+  secondary: '#34A853',
+  error: '#EA4335',
+  warning: '#FBBC05',
+  background: '#FFFFFF',
+  surface: '#F8F9FA',
+  textPrimary: '#202124',
+  textSecondary: '#5F6368',
+  textTertiary: '#9AA0A6',
+  divider: '#DADCE0',
+};
 
 interface CalendarGridProps {
   currentMonth: Date;
@@ -76,14 +90,17 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     const lastDay = new Date(year, month + 1, 0);
     const days = [];
 
-    for (let i = 0; i < firstDay.getDay(); i++) {
-      const prevMonthLastDay = new Date(year, month, 0);
+    // 月の開始曜日を月曜日基準で計算
+    const firstDayOfWeek = (firstDay.getDay() + 6) % 7; // 月曜日を0に変換
+    const prevMonthLastDay = new Date(year, month, 0);
+    
+    // 前月分の日付を正しい順序で追加
+    for (let i = firstDayOfWeek; i > 0; i--) {
       days.push({
-        date: new Date(year, month - 1, prevMonthLastDay.getDate() - i),
+        date: new Date(year, month - 1, prevMonthLastDay.getDate() - i + 1),
         isCurrentMonth: false,
       });
     }
-    days.reverse();
 
     for (let i = 1; i <= lastDay.getDate(); i++) {
       days.push({
@@ -92,8 +109,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
       });
     }
 
-    const remainingDays = 7 - (days.length % 7);
-    if (remainingDays < 7) {
+    // 週末の位置調整（月曜日始まり対応）
+    const remainingDays = (7 - (days.length % 7)) % 7;
+    if (remainingDays > 0) {
       for (let i = 1; i <= remainingDays; i++) {
         days.push({
           date: new Date(year, month + 1, i),
@@ -105,11 +123,26 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     return days;
   };
 
+  const calendarDays = generateCalendarDays();
+
   const formatDate = (date: Date) => {
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
   };
 
-  const isToday = (date: Date) => {
+  const hasLesson = (date: Date) => {
+    const formattedDate = formatDate(date);
+    return lessons.some(lesson => lesson.date === formattedDate);
+  };
+
+  const isSelectedDate = (date: Date) => {
+    return (
+      date.getDate() === selectedDate.getDate() &&
+      date.getMonth() === selectedDate.getMonth() &&
+      date.getFullYear() === selectedDate.getFullYear()
+    );
+  };
+
+  const isTodayDate = (date: Date) => {
     const today = new Date();
     return (
       date.getDate() === today.getDate() &&
@@ -118,106 +151,133 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     );
   };
 
-  const hasLesson = (date: Date) => {
-    const formattedDate = formatDate(date);
-    return lessons.some(lesson => lesson.date === formattedDate);
-  };
-
   return (
-    <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.calendarGrid, animatedStyle]}>
-        {generateCalendarDays().map((item, index) => {
-          const isSelected = formatDate(item.date) === formatDate(selectedDate);
-          const isTodayDate = isToday(item.date);
-          
-          return (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.day,
-                !item.isCurrentMonth && styles.otherMonth,
-                isSelected && styles.selectedDay,
-                isTodayDate && !isSelected && styles.today,
-              ]}
-              onPress={() => onDateSelect(item.date)}>
-              <Text
+    <View style={styles.container}>
+      <GestureDetector gesture={gesture}>
+        <Animated.View style={[styles.calendarGrid, animatedStyle]}>
+          {calendarDays.map((item, index) => {
+            const isSelected = isSelectedDate(item.date);
+            const isToday = isTodayDate(item.date);
+            const hasLessonOnDate = hasLesson(item.date);
+            const isSunday = item.date.getDay() === 0;
+            const isSaturday = item.date.getDay() === 6;
+
+            return (
+              <TouchableOpacity
+                key={index}
                 style={[
-                  styles.dayText,
-                  !item.isCurrentMonth && styles.otherMonthText,
-                  isSelected && styles.selectedDayText,
-                  isTodayDate && !isSelected && styles.todayText,
-                  isSelected && isTodayDate && styles.selectedTodayText,
-                ]}>
-                {item.date.getDate()}
-              </Text>
-              {hasLesson(item.date) && (
-                <View style={[
-                  styles.lessonIndicator,
-                  isSelected && styles.selectedLessonIndicator
-                ]} />
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </Animated.View>
-    </GestureDetector>
+                  styles.dayCell,
+                  !item.isCurrentMonth && styles.otherMonthDay,
+                  isSelected && styles.selectedDay,
+                  isToday && !isSelected && styles.todayDay,
+                ]}
+                onPress={() => onDateSelect(item.date)}
+                disabled={!item.isCurrentMonth}
+              >
+                <View style={styles.dayCellContent}>
+                  <Text
+                    style={[
+                      styles.dayText,
+                      !item.isCurrentMonth && styles.otherMonthDayText,
+                      isSunday && styles.sundayText,
+                      isSaturday && styles.saturdayText,
+                      isSelected && styles.selectedDayText,
+                      isToday && !isSelected && styles.todayDayText,
+                    ]}
+                  >
+                    {item.date.getDate()}
+                  </Text>
+                  {hasLessonOnDate && <View style={styles.lessonIndicator} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </Animated.View>
+      </GestureDetector>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
-  day: {
+  dayCell: {
     width: DAY_SIZE,
     height: DAY_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    margin: 1,
+  },
+  dayCellContent: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dayText: {
-    fontSize: 16,
-    color: '#1C1C1E',
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.textPrimary,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  otherMonth: {
-    opacity: 0.4,
+  otherMonthDay: {
+    opacity: 0.3,
   },
-  otherMonthText: {
-    color: '#8E8E93',
+  otherMonthDayText: {
+    color: colors.textTertiary,
   },
   selectedDay: {
-    backgroundColor: '#1a73e8',
+    backgroundColor: colors.primary,
     borderRadius: DAY_SIZE / 2,
   },
   selectedDayText: {
-    color: '#ffffff',
+    color: colors.background,
     fontWeight: '600',
   },
-  today: {
-    borderWidth: 1,
-    borderColor: '#1a73e8',
+  todayDay: {
+    borderWidth: 1.5,
+    borderColor: colors.primary,
     borderRadius: DAY_SIZE / 2,
   },
-  todayText: {
-    color: '#1a73e8',
+  todayDayText: {
+    color: colors.primary,
     fontWeight: '600',
   },
-  selectedTodayText: {
-    color: '#ffffff',
-    fontWeight: '600',
+  sundayText: {
+    color: colors.error,
+  },
+  saturdayText: {
+    color: colors.primary,
   },
   lessonIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FF9500',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.secondary,
     position: 'absolute',
-    bottom: 8,
-  },
-  selectedLessonIndicator: {
-    backgroundColor: '#ffffff',
+    bottom: 6,
   },
 });
 
