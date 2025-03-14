@@ -1,0 +1,7 @@
+Flask==2.2.3
+firebase-admin==6.2.0
+requests==2.31.0
+subprocess-run==0.0.8
+whisper
+demucs
+gunicorn
