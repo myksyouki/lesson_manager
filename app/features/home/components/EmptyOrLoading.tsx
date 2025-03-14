@@ -1,5 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useTheme } from '../../../theme/index';
+import { AnimatedLoader, FadeIn, Scale, AnimatedButton } from '../../../components/AnimatedComponents';
 
 interface EmptyOrLoadingProps {
   isLoading: boolean;
@@ -10,55 +13,95 @@ export const EmptyOrLoading: React.FC<EmptyOrLoadingProps> = ({
   isLoading,
   onGenerateTasks,
 }) => {
+  const theme = useTheme();
+
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1a73e8" />
-        <Text style={styles.loadingText}>データを読み込み中...</Text>
-      </View>
+      <FadeIn duration={600}>
+        <View style={styles.loadingContainer}>
+          <AnimatedLoader 
+            size={50} 
+            color={theme.colors.primary} 
+            style={{ marginBottom: 20 }}
+          />
+          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+            データを読み込み中...
+          </Text>
+        </View>
+      </FadeIn>
     );
   }
 
   return (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyStateText}>課題がありません</Text>
-      <TouchableOpacity 
-        style={styles.generateButton}
-        onPress={onGenerateTasks}
-      >
-        <Text style={styles.generateButtonText}>レッスンから課題を生成</Text>
-      </TouchableOpacity>
-    </View>
+    <FadeIn duration={800}>
+      <View style={styles.emptyState}>
+        <Scale duration={1000} from={0.8}>
+          <View style={styles.iconContainer}>
+            <MaterialIcons 
+              name="assignment" 
+              size={70} 
+              color={theme.colors.textTertiary} 
+            />
+          </View>
+        </Scale>
+        
+        <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>
+          課題がありません
+        </Text>
+        
+        <Text style={[styles.emptyStateDescription, { color: theme.colors.textSecondary }]}>
+          過去のレッスンから新しい練習課題を自動生成できます
+        </Text>
+        
+        <AnimatedButton 
+          title="レッスンから課題を生成"
+          onPress={onGenerateTasks}
+          style={{ 
+            backgroundColor: theme.colors.primary, 
+            paddingVertical: 12,
+            paddingHorizontal: 20,
+            borderRadius: 8,
+            marginTop: 24
+          }}
+          textStyle={styles.generateButtonText}
+          activeScale={0.95}
+        />
+      </View>
+    </FadeIn>
   );
 };
 
 const styles = StyleSheet.create({
   loadingContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 40,
   },
   loadingText: {
-    marginTop: 16,
     fontSize: 16,
-    color: '#8E8E93',
+    fontWeight: '500',
   },
   emptyState: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 30,
   },
-  emptyStateText: {
-    fontSize: 18,
-    color: '#8E8E93',
+  iconContainer: {
     marginBottom: 20,
+    padding: 20,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
   },
-  generateButton: {
-    backgroundColor: '#1a73e8',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  emptyStateDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 22,
   },
   generateButtonText: {
     color: '#FFFFFF',

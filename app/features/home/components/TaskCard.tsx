@@ -1,10 +1,12 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform, ScrollView } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform, ScrollView, Animated } from 'react-native';
 import { router } from 'expo-router';
-import Animated from 'react-native-reanimated';
+import ReAnimated, { useAnimatedStyle, withTiming, Easing as ReEasing } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Task } from '../../../types/task';
+import { useTheme } from '../../../theme/index';
+import { AnimatedButton } from '../../../components/AnimatedComponents';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -23,6 +25,37 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   gesture,
   animatedStyle,
 }) => {
+  const theme = useTheme();
+  
+  // カードのシャドウアニメーション
+  const shadowAnim = new Animated.Value(0);
+  
+  useEffect(() => {
+    // カードが表示されるときのアニメーション
+    Animated.sequence([
+      Animated.timing(shadowAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      })
+    ]).start();
+  }, []);
+  
+  const cardShadow = {
+    shadowOpacity: shadowAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.15],
+    }),
+    shadowRadius: shadowAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 12],
+    }),
+    elevation: shadowAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 8],
+    }),
+  };
+
   const navigateToTaskDetail = (taskId: string) => {
     router.push({
       pathname: '/task-detail',
@@ -41,7 +74,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       // 見出し (##)
       if (line.startsWith('## ')) {
         return (
-          <Text key={index} style={styles.heading}>
+          <Text key={index} style={[styles.heading, { color: theme.colors.text }]}>
             {line.substring(3)}
           </Text>
         );
@@ -50,8 +83,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       else if (line.match(/^- /)) {
         return (
           <View key={index} style={styles.listItemContainer}>
-            <Text style={styles.bulletPoint}>•</Text>
-            <Text style={styles.listItemText}>{line.substring(2)}</Text>
+            <Text style={[styles.bulletPoint, { color: theme.colors.primary }]}>•</Text>
+            <Text style={[styles.listItemText, { color: theme.colors.textSecondary }]}>{line.substring(2)}</Text>
           </View>
         );
       }
@@ -59,19 +92,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         const number = line.match(/^\d+/)?.[0] || '';
         return (
           <View key={index} style={styles.listItemContainer}>
-            <Text style={styles.numberPoint}>{number}.</Text>
-            <Text style={styles.listItemText}>{line.substring(number.length + 2)}</Text>
+            <Text style={[styles.numberPoint, { color: theme.colors.primary }]}>{number}.</Text>
+            <Text style={[styles.listItemText, { color: theme.colors.textSecondary }]}>{line.substring(number.length + 2)}</Text>
           </View>
         );
       }
       // 区切り線 (---)
       else if (line.match(/^---+$/)) {
-        return <View key={index} style={styles.divider} />;
+        return <View key={index} style={[styles.divider, { backgroundColor: theme.colors.border }]} />;
       }
       // 通常のテキスト
       else {
         return (
-          <Text key={index} style={styles.paragraph}>
+          <Text key={index} style={[styles.paragraph, { color: theme.colors.textSecondary }]}>
             {line}
           </Text>
         );
@@ -81,36 +114,57 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   return (
     <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.card, animatedStyle]}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle} numberOfLines={1} ellipsizeMode="tail">
-            {task?.title || ''}
-          </Text>
-        </View>
-        
-        <ScrollView 
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.cardContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {renderFormattedText(task?.description || '')}
-        </ScrollView>
-        
-        <View style={styles.cardFooter}>
-          <View style={styles.dateContainer}>
-            <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
-            <Text style={styles.cardDate}>{task?.dueDate || '期日未設定'}</Text>
+      <ReAnimated.View style={[animatedStyle]}>
+        <Animated.View style={[
+          styles.card, 
+          cardShadow,
+          { 
+            backgroundColor: theme.colors.cardElevated,
+            borderColor: theme.colors.borderLight,
+          }
+        ]}>
+          <View style={[styles.cardHeader, { borderBottomColor: theme.colors.borderLight }]}>
+            <Text style={[styles.cardTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]} numberOfLines={1} ellipsizeMode="tail">
+              {task?.title || ''}
+            </Text>
           </View>
           
-          <TouchableOpacity 
-            style={styles.viewDetailButton}
-            onPress={() => navigateToTaskDetail(task?.id || '')}
+          <ScrollView 
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.cardContent}
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.viewDetailButtonText}>詳細を見る</Text>
-            <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
+            {renderFormattedText(task?.description || '')}
+          </ScrollView>
+          
+          <View style={styles.cardFooter}>
+            <View style={styles.dateContainer}>
+              <MaterialIcons name="event" size={18} color={theme.colors.primary} />
+              <Text style={[styles.cardDate, { color: theme.colors.textSecondary }]}>
+                {task?.dueDate || '期日未設定'}
+              </Text>
+            </View>
+            
+            <AnimatedButton 
+              title="詳細を見る"
+              onPress={() => navigateToTaskDetail(task?.id || '')}
+              style={{ backgroundColor: theme.colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }}
+              textStyle={styles.viewDetailButtonText}
+              activeScale={0.95}
+            />
+          </View>
+          
+          {/* スワイプヒントのインジケーター */}
+          <View style={styles.swipeIndicatorContainer}>
+            <View style={styles.swipeIndicatorWrapper}>
+              <MaterialIcons name="swipe" size={20} color={theme.colors.textTertiary} />
+              <Text style={[styles.swipeIndicatorText, { color: theme.colors.textTertiary }]}>
+                スワイプして次のタスクを表示
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+      </ReAnimated.View>
     </GestureDetector>
   );
 };
@@ -118,15 +172,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
-    height: CARD_HEIGHT, // 高さを制限
-    backgroundColor: '#FFFFFF',
+    height: CARD_HEIGHT,
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1,
     marginHorizontal: SCREEN_WIDTH * 0.05,
   },
   cardHeader: {
@@ -134,13 +185,10 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   scrollContainer: {
     flex: 1,
@@ -153,44 +201,33 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
     marginBottom: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   paragraph: {
     fontSize: 15,
-    color: '#3C3C43',
     marginBottom: 8,
-    lineHeight: 20,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    lineHeight: 22,
   },
   listItemContainer: {
     flexDirection: 'row',
-    marginBottom: 6,
+    marginBottom: 8,
     paddingLeft: 2,
   },
   bulletPoint: {
     fontSize: 15,
-    color: '#3C3C43',
     width: 14,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   numberPoint: {
     fontSize: 15,
-    color: '#3C3C43',
     width: 22,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   listItemText: {
     flex: 1,
     fontSize: 15,
-    color: '#3C3C43',
-    lineHeight: 20,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    lineHeight: 22,
   },
   divider: {
     height: 1,
-    backgroundColor: '#E5E5EA',
     marginVertical: 12,
   },
   cardFooter: {
@@ -199,34 +236,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
+    paddingTop: 8,
   },
   dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   cardDate: {
-    fontSize: 13,
-    color: '#8E8E93',
+    fontSize: 14,
     marginLeft: 6,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   viewDetailButton: {
-    backgroundColor: '#1a73e8',
-    borderRadius: 14,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
   },
   viewDetailButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    marginRight: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    color: '#FFFFFF',
+  },
+  swipeIndicatorContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingBottom: 4,
+  },
+  swipeIndicatorWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  swipeIndicatorText: {
+    fontSize: 12,
+    marginLeft: 4,
   },
 });
 

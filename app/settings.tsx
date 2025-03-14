@@ -44,7 +44,10 @@ export default function SettingsScreen({ navigation }: Props) {
             <Text style={styles.infoLabel}>プライバシーポリシー</Text>
             <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.infoItem} onPress={() => router.push('/theme')}>
+          <TouchableOpacity 
+            style={styles.infoItem} 
+            onPress={() => router.push('/theme-settings')}
+          >
             <Text style={styles.infoLabel}>テーマ設定</Text>
             <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
           </TouchableOpacity>

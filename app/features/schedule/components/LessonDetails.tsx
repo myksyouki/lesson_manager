@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -10,9 +10,9 @@ interface LessonDetailsProps {
 }
 
 export const LessonDetails: React.FC<LessonDetailsProps> = ({ selectedDate, lesson }) => {
-  const formatDate = (date: Date) => {
+  const formatDate = useCallback((date: Date) => {
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
-  };
+  }, []);
 
   const handleViewLesson = () => {
     if (lesson) {
@@ -46,7 +46,11 @@ export const LessonDetails: React.FC<LessonDetailsProps> = ({ selectedDate, less
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>曲名:</Text>
-              <Text style={styles.infoValue}>{lesson.piece || '未設定'}</Text>
+              <Text style={styles.infoValue}>
+                {lesson.pieces && lesson.pieces.length > 0 
+                  ? lesson.pieces.join(', ') 
+                  : '未設定'}
+              </Text>
             </View>
             {lesson.tags && lesson.tags.length > 0 && (
               <View style={styles.tagsContainer}>
@@ -61,6 +65,12 @@ export const LessonDetails: React.FC<LessonDetailsProps> = ({ selectedDate, less
               <View style={styles.summaryContainer}>
                 <Text style={styles.summaryLabel}>サマリー:</Text>
                 <Text style={styles.summaryText} numberOfLines={3}>{lesson.summary}</Text>
+              </View>
+            )}
+            {lesson.notes && (
+              <View style={styles.summaryContainer}>
+                <Text style={styles.summaryLabel}>メモ:</Text>
+                <Text style={styles.summaryText} numberOfLines={3}>{lesson.notes}</Text>
               </View>
             )}
           </View>
@@ -85,10 +95,10 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   selectedDateText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: '#1C1C1E',
-    marginBottom: 16,
+    marginBottom: 12,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   lessonDetails: {
@@ -96,15 +106,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F0F0F5',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.08,
         shadowRadius: 4,
       },
       android: {
-        elevation: 4,
+        elevation: 3,
       },
     }),
   },
@@ -112,13 +124,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F2F2F7',
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
   lessonTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#1C1C1E',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
@@ -127,31 +139,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F0F7FF',
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 10,
-    borderRadius: 16,
+    borderRadius: 14,
   },
   viewButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#1a73e8',
     marginRight: 4,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   lessonInfo: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
   infoRow: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 10,
+    alignItems: 'center',
   },
   infoLabel: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#8E8E93',
-    width: 60,
+    width: 50,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   infoValue: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#1C1C1E',
     flex: 1,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
@@ -159,64 +172,70 @@ const styles = StyleSheet.create({
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 8,
-    marginBottom: 12,
+    marginTop: 6,
+    marginBottom: 10,
   },
   tag: {
     backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    marginRight: 8,
-    marginBottom: 8,
+    borderRadius: 10,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    marginRight: 6,
+    marginBottom: 6,
+    borderWidth: 0.5,
+    borderColor: '#E5E5EA',
   },
   tagText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#5f6368',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   summaryContainer: {
-    marginTop: 8,
+    marginTop: 6,
     backgroundColor: '#F9F9FB',
     borderRadius: 8,
-    padding: 12,
+    padding: 10,
+    borderWidth: 0.5,
+    borderColor: '#E5E5EA',
   },
   summaryLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#8E8E93',
-    marginBottom: 6,
+    marginBottom: 4,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   summaryText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#1C1C1E',
-    lineHeight: 20,
+    lineHeight: 18,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   noLessonContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: 28,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F0F0F5',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.08,
         shadowRadius: 4,
       },
       android: {
-        elevation: 4,
+        elevation: 3,
       },
     }),
   },
   noLessonText: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#8E8E93',
-    marginTop: 16,
+    marginTop: 14,
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },

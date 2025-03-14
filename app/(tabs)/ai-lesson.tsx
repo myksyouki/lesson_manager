@@ -1,23 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
+  StyleSheet,
   View,
   Text,
-  StyleSheet,
-  TextInput,
-  ScrollView,
   TouchableOpacity,
-  Platform,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  ActivityIndicator,
-  Alert,
   FlatList,
+  SafeAreaView,
+  ActivityIndicator,
+  StyleProp,
+  ViewStyle,
+  RefreshControl,
+  Platform,
+  Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/auth';
 import { getUserChatRooms, ChatRoom } from '../services/chatRoomService';
-import { FAB } from 'react-native-paper';
+import theme from '../theme';
+import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
+import { RippleButton } from '../components/RippleButton';
+
+// テーマの色を直接定義
+const colors = {
+  primary: '#4285F4',
+  primaryLight: '#8AB4F8',
+  primaryDark: '#1A73E8',
+  secondary: '#34A853',
+  background: '#FFFFFF',
+  text: '#202124',
+  textSecondary: '#5F6368',
+  textTertiary: '#9AA0A6',
+  textInverse: '#FFFFFF',
+  border: '#DADCE0',
+  borderLight: '#E8EAED',
+  ripple: 'rgba(66, 133, 244, 0.12)',
+  success: '#34A853',
+  warning: '#FBBC05',
+  error: '#EA4335',
+};
 
 export default function AILessonScreen() {
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
@@ -46,8 +67,17 @@ export default function AILessonScreen() {
     }
   };
 
-  const handleCreateRoom = () => {
-    router.push('/chat-room-form');
+  const handleCreateRoom = async () => {
+    try {
+      if (!user) return;
+      
+      // 正しいナビゲーションパスを使用
+      const result = await router.push('/chat-room-form');
+      console.log('Create room result:', result);
+    } catch (error) {
+      console.error('Error navigating to create room:', error);
+      Alert.alert('エラー', 'チャットルーム作成画面に移動できませんでした。');
+    }
   };
 
   const handleOpenRoom = (roomId: string) => {
@@ -57,37 +87,48 @@ export default function AILessonScreen() {
     });
   };
 
-  const renderChatRoomItem = ({ item }: { item: ChatRoom }) => (
-    <TouchableOpacity
-      style={styles.chatRoomItem}
-      onPress={() => handleOpenRoom(item.id)}
+  const renderChatRoomItem = ({ item, index }: { item: ChatRoom, index: number }) => (
+    <Animated.View 
+      entering={SlideInRight.delay(index * 100).springify().damping(15)}
     >
-      <View style={styles.chatRoomContent}>
-        <Text style={styles.chatRoomTitle}>{item.title}</Text>
-        <Text style={styles.chatRoomTopic}>{item.topic}</Text>
-        <Text style={styles.chatRoomDate}>
-          {item.updatedAt instanceof Date 
-            ? item.updatedAt.toLocaleDateString('ja-JP') 
-            : new Date(item.updatedAt.seconds * 1000).toLocaleDateString('ja-JP')}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={24} color="#C7C7CC" />
-    </TouchableOpacity>
+      <RippleButton
+        onPress={() => handleOpenRoom(item.id)}
+        rippleColor={colors.ripple} 
+        style={styles.chatRoomItem}
+      >
+        <View style={styles.chatRoomContent}>
+          <Text style={styles.chatRoomTitle}>{item.title}</Text>
+          <View style={styles.topicContainer}>
+            <Text style={[styles.chatRoomTopic, { backgroundColor: colors.primaryLight, color: colors.textInverse }]}>
+              {item.topic}
+            </Text>
+          </View>
+          <Text style={styles.date}>
+            {!item.updatedAt ? '日付なし' 
+              : new Date(item.updatedAt.seconds * 1000).toLocaleDateString('ja-JP')}
+          </Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={24} color={colors.primary} />
+      </RippleButton>
+    </Animated.View>
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>AIレッスン</Text>
-          <Text style={styles.subtitle}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Animated.View 
+          style={styles.header}
+          entering={FadeIn.delay(200).duration(500)}
+        >
+          <Text style={[styles.title, { color: colors.text }]}>AIレッスン</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             AIと対話して練習メニューを作成しましょう
           </Text>
-        </View>
+        </Animated.View>
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
           <>
@@ -97,27 +138,32 @@ export default function AILessonScreen() {
                 renderItem={renderChatRoomItem}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.chatRoomsList}
+                showsVerticalScrollIndicator={false}
               />
             ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="chatbubbles-outline" size={64} color="#d1d1d6" />
-                <Text style={styles.emptyText}>
+              <Animated.View 
+                style={styles.emptyState}
+                entering={FadeIn.delay(300).duration(500)}
+              >
+                <Ionicons name="chatbubbles-outline" size={80} color={colors.borderLight} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                   チャットルームがありません
                 </Text>
-                <Text style={styles.emptySubtext}>
+                <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
                   「+」ボタンをタップして新しいチャットを始めましょう
                 </Text>
-              </View>
+              </Animated.View>
             )}
           </>
         )}
 
-        <FAB
-          style={styles.fab}
-          icon="plus"
+        <RippleButton
+          style={[styles.fab, { backgroundColor: colors.primary }]}
           onPress={handleCreateRoom}
-          color="#ffffff"
-        />
+          rippleColor={colors.ripple}
+        >
+          <MaterialIcons name="add" size={28} color={colors.textInverse} />
+        </RippleButton>
       </View>
     </SafeAreaView>
   );
@@ -126,11 +172,9 @@ export default function AILessonScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 20 : 30,
@@ -138,15 +182,13 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   title: {
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: '700',
-    color: '#1C1C1E',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#8E8E93',
-    marginTop: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   loadingContainer: {
@@ -161,14 +203,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   chatRoomContent: {
     flex: 1,
@@ -177,18 +219,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#1C1C1E',
-    marginBottom: 4,
+    marginBottom: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  topicContainer: {
+    flexDirection: 'row',
+    marginBottom: 8,
   },
   chatRoomTopic: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginBottom: 4,
+    fontSize: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  chatRoomDate: {
+  date: {
     fontSize: 12,
-    color: '#C7C7CC',
+    color: '#8E8E93',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   emptyState: {
@@ -201,21 +249,27 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 18,
     fontWeight: '600',
-    color: '#8E8E93',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   emptySubtext: {
     marginTop: 8,
     fontSize: 14,
-    color: '#8E8E93',
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   fab: {
     position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#007AFF',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
 });

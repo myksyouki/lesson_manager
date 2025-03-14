@@ -39,16 +39,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    paddingHorizontal: 8,
+    marginBottom: 14,
   },
   monthButton: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 20,
   },
   monthText: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#1C1C1E',
+    fontWeight: '700',
+    color: '#202124',
   },
 });
 

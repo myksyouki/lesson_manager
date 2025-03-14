@@ -2,9 +2,11 @@ import { useEffect } from 'react';
 import { Stack, Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, ActivityIndicator, Platform } from 'react-native';
 import { useAuthStore } from './store/auth';
-import { Platform } from 'react-native';
+import { useSettingsStore } from './store/settings';
+import { useTheme } from './theme/index';
+import { FadeIn, AnimatedLoader } from './components/AnimatedComponents';
 import 'react-native-url-polyfill/auto';
 
 declare global {
@@ -15,6 +17,8 @@ declare global {
 
 export default function RootLayout() {
   const { user, isLoading } = useAuthStore();
+  const { theme: themeName } = useSettingsStore();
+  const theme = useTheme();
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -25,16 +29,26 @@ export default function RootLayout() {
   // Show loading screen while checking authentication
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>読み込み中...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.backgroundSecondary }]}>
+        <FadeIn duration={800}>
+          <AnimatedLoader size={50} color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.medium }]}>
+            読み込み中...
+          </Text>
+        </FadeIn>
       </View>
     );
   }
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack 
+        screenOptions={{ 
+          headerShown: false,
+          animation: 'fade_from_bottom',
+          contentStyle: { backgroundColor: theme.colors.background },
+        }}
+      >
         {!user ? (
           <>
             <Stack.Screen name="login" options={{ headerShown: false }} />
@@ -43,13 +57,54 @@ export default function RootLayout() {
         ) : (
           <>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="lesson-form" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="lesson-detail" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="shared-audio" options={{ presentation: 'modal', title: '音声ファイル処理中' }} />
+            <Stack.Screen 
+              name="lesson-form" 
+              options={{ 
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+                gestureEnabled: true,
+                gestureDirection: 'vertical',
+              }} 
+            />
+            <Stack.Screen 
+              name="lesson-detail" 
+              options={{ 
+                presentation: 'modal',
+                animation: 'slide_from_right',
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }} 
+            />
+            <Stack.Screen 
+              name="shared-audio" 
+              options={{ 
+                presentation: 'modal', 
+                title: '音声ファイル処理中',
+                animation: 'fade',
+              }} 
+            />
+            <Stack.Screen 
+              name="task-detail" 
+              options={{ 
+                presentation: 'modal',
+                animation: 'slide_from_right',
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }} 
+            />
+            <Stack.Screen 
+              name="task-form" 
+              options={{ 
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+                gestureEnabled: true,
+                gestureDirection: 'vertical',
+              }} 
+            />
           </>
         )}
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
     </GestureHandlerRootView>
   );
 }
@@ -62,12 +117,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 16,
-    color: '#1C1C1E',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    textAlign: 'center',
   }
 });

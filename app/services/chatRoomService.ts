@@ -35,18 +35,27 @@ export const createChatRoom = async (
       updatedAt: serverTimestamp(),
     };
 
+    // Firestoreにドキュメントを追加
     const docRef = await addDoc(collection(db, 'chatRooms'), chatRoomData);
+    
+    // ドキュメントが確実に作成されたことを確認
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) {
+      throw new Error('チャットルームの作成に失敗しました。ドキュメントが見つかりません。');
+    }
     
     // 現在のタイムスタンプを使用
     const now = Timestamp.now();
     
+    // 作成されたチャットルームデータを返す
     return {
       id: docRef.id,
-      ...chatRoomData,
-      messages: initialMessages,
+      ...docSnap.data(),
+      messages: initialMessages, // サーバーのタイムスタンプの代わりにクライアント側の値を使用
       createdAt: now,
       updatedAt: now,
-    };
+    } as ChatRoom;
   } catch (error) {
     console.error('チャットルーム作成中にエラーが発生しました:', error);
     throw new Error('チャットルームの作成に失敗しました。後でもう一度お試しください。');

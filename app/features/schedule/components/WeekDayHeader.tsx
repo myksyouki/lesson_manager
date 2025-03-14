@@ -26,19 +26,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginBottom: 8,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F5',
   },
   weekDayText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
+    fontWeight: '700',
+    color: '#5F6368',
     width: 36,
     textAlign: 'center',
   },
   sundayText: {
-    color: '#FF3B30',
+    color: '#EA4335',
   },
   saturdayText: {
-    color: '#007AFF',
+    color: '#4285F4',
   },
 });
 

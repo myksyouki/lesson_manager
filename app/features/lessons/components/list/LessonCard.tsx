@@ -11,6 +11,8 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useLessonStore } from '../../../../store/lessons';
+import { useTheme } from '../../../../theme/index';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface LessonCardProps {
   id: string;
@@ -32,6 +34,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
   showFavoriteButton = true,
 }) => {
   const { toggleFavorite, deleteLesson } = useLessonStore();
+  const theme = useTheme();
 
   const handlePress = () => {
     router.push({
@@ -71,53 +74,124 @@ const LessonCard: React.FC<LessonCardProps> = ({
 
   return (
     <TouchableOpacity 
-      style={styles.lessonCard} 
+      style={[
+        styles.lessonCard, 
+        { 
+          backgroundColor: theme.colors.cardElevated,
+          borderColor: theme.colors.borderLight,
+          ...theme.elevation.small
+        }
+      ]} 
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      <View style={styles.cardHeader}>
-        <Text style={styles.teacherText}>{teacher}</Text>
-        <Text style={styles.dateText}>{date}</Text>
-      </View>
-      
-      <Text style={styles.pieceText} numberOfLines={2}>{pieces[0] || '曲名なし'}</Text>
-      
-      <View style={styles.cardFooter}>
-        <View style={styles.tagsContainer}>
-          {tags.slice(0, 3).map((tag, index) => (
-            <View key={index} style={styles.tagChip}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
-          {tags.length > 3 && (
-            <Text style={styles.moreTagsText}>+{tags.length - 3}</Text>
-          )}
+      <LinearGradient
+        colors={[theme.colors.primary, theme.colors.primaryDark]}
+        style={styles.leftAccent}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+      />
+      <View style={styles.cardContent}>
+        <View style={styles.cardHeader}>
+          <Text style={[
+            styles.teacherText, 
+            { 
+              color: theme.colors.text,
+              fontFamily: theme.typography.fontFamily.medium
+            }
+          ]}>
+            {teacher}
+          </Text>
+          <Text style={[
+            styles.dateText, 
+            { 
+              color: theme.colors.textSecondary,
+              fontFamily: theme.typography.fontFamily.regular
+            }
+          ]}>
+            {date}
+          </Text>
         </View>
         
-        <View style={styles.actionButtons}>
-          {showFavoriteButton && (
+        <Text 
+          style={[
+            styles.pieceText, 
+            { 
+              color: theme.colors.text,
+              fontFamily: theme.typography.fontFamily.bold
+            }
+          ]} 
+          numberOfLines={2}
+        >
+          {pieces[0] || '曲名なし'}
+        </Text>
+        
+        <View style={styles.cardFooter}>
+          <View style={styles.tagsContainer}>
+            {tags.slice(0, 3).map((tag, index) => (
+              <View 
+                key={index} 
+                style={[
+                  styles.tagChip, 
+                  {
+                    backgroundColor: `${theme.colors.primaryLight}20`,
+                    borderColor: `${theme.colors.primaryLight}40`,
+                  }
+                ]}
+              >
+                <Text 
+                  style={[
+                    styles.tagText, 
+                    {
+                      color: theme.colors.primary,
+                      fontFamily: theme.typography.fontFamily.medium
+                    }
+                  ]}
+                >
+                  {tag}
+                </Text>
+              </View>
+            ))}
+            {tags.length > 3 && (
+              <Text 
+                style={[
+                  styles.moreTagsText, 
+                  {
+                    color: theme.colors.textTertiary,
+                    fontFamily: theme.typography.fontFamily.regular
+                  }
+                ]}
+              >
+                +{tags.length - 3}
+              </Text>
+            )}
+          </View>
+          
+          <View style={styles.actionButtons}>
+            {showFavoriteButton && (
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={handleFavoritePress}
+              >
+                <MaterialIcons 
+                  name={isFavorite ? "favorite" : "favorite-border"} 
+                  size={22} 
+                  color={isFavorite ? theme.colors.error : theme.colors.textTertiary} 
+                />
+              </TouchableOpacity>
+            )}
+            
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={handleFavoritePress}
+              onPress={handleDeletePress}
             >
               <MaterialIcons 
-                name={isFavorite ? "favorite" : "favorite-border"} 
-                size={24} 
-                color={isFavorite ? "#FF3B30" : "#8E8E93"} 
+                name="delete-outline" 
+                size={22} 
+                color={theme.colors.textTertiary} 
               />
             </TouchableOpacity>
-          )}
-          
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={handleDeletePress}
-          >
-            <MaterialIcons 
-              name="delete" 
-              size={24} 
-              color="#8E8E93" 
-            />
-          </TouchableOpacity>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -126,44 +200,40 @@ const LessonCard: React.FC<LessonCardProps> = ({
 
 const styles = StyleSheet.create({
   lessonCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  leftAccent: {
+    width: 6,
+  },
+  cardContent: {
+    flex: 1,
+    padding: 18,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   teacherText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#1C1C1E',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    lineHeight: 20,
   },
   dateText: {
-    fontSize: 14,
-    color: '#8E8E93',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    fontSize: 13,
+    lineHeight: 18,
   },
   pieceText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    marginBottom: 14,
+    lineHeight: 24,
+    letterSpacing: 0.2,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -176,24 +246,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tagChip: {
-    backgroundColor: '#E5E5EA',
     borderRadius: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    marginRight: 6,
+    marginRight: 8,
     marginBottom: 4,
+    borderWidth: 1,
   },
   tagText: {
     fontSize: 12,
-    color: '#636366',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    fontWeight: '500',
+    lineHeight: 16,
   },
   moreTagsText: {
     fontSize: 12,
-    color: '#8E8E93',
     marginLeft: 4,
     alignSelf: 'center',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    lineHeight: 16,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -201,7 +270,7 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     padding: 8,
-    marginLeft: 4,
+    marginLeft: 6,
   },
 });
 

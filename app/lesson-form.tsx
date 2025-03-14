@@ -140,36 +140,52 @@ export default function LessonForm() {
   const generateCalendarDays = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const days = [];
+    const firstDayOfMonth = new Date(year, month, 1);
+    // 月曜始まりとしてオフセット計算
+    const offset = (firstDayOfMonth.getDay() + 6) % 7;
 
-    for (let i = 0; i < firstDay.getDay(); i++) {
-      const prevMonthLastDay = new Date(year, month, 0);
+    // 当月の日数
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // 前月の計算（1月の場合は前年12月）
+    const prevMonth = month === 0 ? 11 : month - 1;
+    const prevYear = month === 0 ? year - 1 : year;
+    const prevMonthDays = new Date(prevYear, prevMonth + 1, 0).getDate();
+
+    const days: { date: Date; isCurrentMonth: boolean }[] = [];
+
+    // 前月の日付を追加
+    for (let i = offset; i > 0; i--) {
+      const day = prevMonthDays - i + 1;
       days.push({
-        date: new Date(year, month - 1, prevMonthLastDay.getDate() - i),
+        date: new Date(prevYear, prevMonth, day),
         isCurrentMonth: false,
       });
     }
-    days.reverse();
 
-    for (let i = 1; i <= lastDay.getDate(); i++) {
+    // 当月の日付を追加
+    for (let i = 1; i <= daysInMonth; i++) {
       days.push({
         date: new Date(year, month, i),
         isCurrentMonth: true,
       });
     }
 
-    const remainingDays = 7 - (days.length % 7);
-    if (remainingDays < 7) {
-      for (let i = 1; i <= remainingDays; i++) {
-        days.push({
-          date: new Date(year, month + 1, i),
-          isCurrentMonth: false,
-        });
-      }
-    }
+    // カレンダー全体のセル数を週単位に合わせる
+    const totalCells = Math.ceil(days.length / 7) * 7;
+    const nextDaysCount = totalCells - days.length;
 
+    // 翌月の計算（12月の場合は翌年1月）
+    const nextMonth = month === 11 ? 0 : month + 1;
+    const nextYear = month === 11 ? year + 1 : year;
+
+    // 翌月の日付を追加
+    for (let i = 1; i <= nextDaysCount; i++) {
+      days.push({
+        date: new Date(nextYear, nextMonth, i),
+        isCurrentMonth: false,
+      });
+    }
     return days;
   };
 

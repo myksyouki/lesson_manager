@@ -12,7 +12,6 @@ import { Lesson } from '../../../store/lessons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CALENDAR_WIDTH = SCREEN_WIDTH - 32;
-const DAY_SIZE = Math.floor(CALENDAR_WIDTH / 7) - 0.5;
 
 const colors = {
   primary: '#4285F4',
@@ -83,96 +82,174 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     transform: [{ translateX: translateX.value }],
   }));
 
-  const generateCalendarDays = useMemo(() => () => {
+  // カレンダーの日付を生成する関数
+  const generateCalendarDays = useCallback(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const days = [];
-
-    // 月の開始曜日を月曜日基準で計算
-    const firstDayOfWeek = (firstDay.getDay() + 6) % 7;
-    const prevMonthLastDay = new Date(year, month, 0);
     
-    // 前月分の日付を追加
+    // 月の最初の日と最後の日を取得
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    
+    // 日曜日を0とした場合の、月の最初の日の曜日
+    const firstDayOfWeek = firstDayOfMonth.getDay();
+    
+    // 前月の最後の日を取得
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    
+    const days = [];
+    
+    // 前月の日付を追加
     for (let i = 0; i < firstDayOfWeek; i++) {
-      const prevDate = new Date(year, month - 1, prevMonthLastDay.getDate() - (firstDayOfWeek - 1) + i);
-      days.push({ date: prevDate, isCurrentMonth: false });
+      const day = prevMonthLastDay - firstDayOfWeek + i + 1;
+      days.push({
+        date: new Date(year, month - 1, day),
+        isCurrentMonth: false
+      });
     }
-
-    // 今月分の日付を追加
-    for (let i = 1; i <= lastDay.getDate(); i++) {
-      days.push({ date: new Date(year, month, i), isCurrentMonth: true });
+    
+    // 現在の月の日付を追加
+    for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
+      days.push({
+        date: new Date(year, month, i),
+        isCurrentMonth: true
+      });
     }
-
-    // 翌月分の日付で埋める
-    const totalWeeks = Math.ceil(days.length / 7);
-    const remainingDays = totalWeeks * 7 - days.length;
-    for (let i = 0; i < remainingDays; i++) {
-      days.push({ date: new Date(year, month + 1, i), isCurrentMonth: false });
+    
+    // 次の月の日付を追加（6週間分になるように）
+    const daysNeeded = 42 - days.length;
+    for (let i = 1; i <= daysNeeded; i++) {
+      days.push({
+        date: new Date(year, month + 1, i),
+        isCurrentMonth: false
+      });
     }
-
+    
     return days;
   }, [currentMonth]);
 
   const calendarDays = useMemo(() => generateCalendarDays(), [generateCalendarDays]);
 
+  // レッスンがあるかどうかを確認する関数
   const hasLesson = useCallback((date: Date) => {
-    const targetDate = new Date(Date.UTC(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate()
-    ));
+    // 日付をYYYY年MM月DD日形式に変換
+    const formatDate = (d: Date) => {
+      return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+    };
     
+    const formattedDate = formatDate(date);
+    
+    // 日付が一致するレッスンを検索
     return lessons.some(lesson => {
-      const lessonDate = new Date(lesson.date);
-      return lessonDate.toISOString().split('T')[0] === targetDate.toISOString().split('T')[0];
+      // レッスンの日付が文字列形式の場合の処理
+      if (typeof lesson.date === 'string') {
+        // 直接比較
+        if (lesson.date === formattedDate) {
+          return true;
+        }
+        
+        // 日付形式が異なる可能性があるため、日付オブジェクトに変換して比較
+        try {
+          // "YYYY年MM月DD日" 形式の文字列をパース
+          const dateParts = lesson.date.match(/(\d+)年(\d+)月(\d+)日/);
+          if (dateParts) {
+            const lessonDate = new Date(
+              parseInt(dateParts[1]), // 年
+              parseInt(dateParts[2]) - 1, // 月（0-11）
+              parseInt(dateParts[3]) // 日
+            );
+            
+            return (
+              lessonDate.getFullYear() === date.getFullYear() &&
+              lessonDate.getMonth() === date.getMonth() &&
+              lessonDate.getDate() === date.getDate()
+            );
+          }
+        } catch (e) {
+          console.error('日付のパースエラー:', e);
+        }
+      }
+      
+      return false;
     });
   }, [lessons]);
 
-  const isSelectedDate = (date: Date) => 
-    date.toDateString() === selectedDate.toDateString();
+  // 選択された日付かどうかを確認する関数
+  const isSelectedDate = useCallback((date: Date) => {
+    return date.getFullYear() === selectedDate.getFullYear() &&
+           date.getMonth() === selectedDate.getMonth() &&
+           date.getDate() === selectedDate.getDate();
+  }, [selectedDate]);
 
-  const isTodayDate = useCallback((date: Date) => 
-    date.toDateString() === new Date().toDateString(),
-  []);
+  // 今日の日付かどうかを確認する関数
+  const isTodayDate = useCallback((date: Date) => {
+    const today = new Date();
+    return date.getFullYear() === today.getFullYear() &&
+           date.getMonth() === today.getMonth() &&
+           date.getDate() === today.getDate();
+  }, []);
+
+  // 週ごとに日付を分割する
+  const weeks = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < 6; i++) {
+      result.push(calendarDays.slice(i * 7, (i + 1) * 7));
+    }
+    return result;
+  }, [calendarDays]);
 
   return (
     <View style={styles.container}>
       <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.calendarGrid, animatedStyle]}>
-          {calendarDays.map((item, index) => {
-            const isSelected = isSelectedDate(item.date);
-            const isToday = isTodayDate(item.date);
-            const dayOfWeek = item.date.getDay();
-
-            return (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.dayCell,
-                  !item.isCurrentMonth && styles.otherMonthDay,
-                  isSelected && styles.selectedDay,
-                  isToday && styles.todayDay,
-                ]}
-                onPress={() => onDateSelect(item.date)}
-                disabled={!item.isCurrentMonth}
-              >
-                <View style={styles.dayCellContent}>
-                  <Text style={[
-                    styles.dayText,
-                    dayOfWeek === 0 && styles.sundayText,
-                    dayOfWeek === 6 && styles.saturdayText,
-                    isSelected && styles.selectedDayText,
-                    isToday && styles.todayDayText,
-                  ]}>
-                    {item.date.getDate()}
-                  </Text>
-                  {hasLesson(item.date) && <View style={styles.lessonIndicator} />}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+        <Animated.View style={[styles.calendarContainer, animatedStyle]}>
+          {weeks.map((week, weekIndex) => (
+            <View key={`week-${weekIndex}`} style={styles.weekRow}>
+              {week.map((day, dayIndex) => {
+                const isSelected = isSelectedDate(day.date);
+                const isToday = isTodayDate(day.date);
+                const dayOfWeek = day.date.getDay();
+                const hasLessonForDay = hasLesson(day.date);
+                
+                return (
+                  <View key={`day-${weekIndex}-${dayIndex}`} style={styles.dayCell}>
+                    <TouchableOpacity
+                      style={[
+                        styles.dayCellButton,
+                        !day.isCurrentMonth && styles.otherMonthDay,
+                      ]}
+                      onPress={() => onDateSelect(day.date)}
+                      disabled={!day.isCurrentMonth}
+                    >
+                      <View style={[
+                        styles.dayCellContent,
+                        isToday && styles.todayDay,
+                        isSelected && styles.selectedDay,
+                      ]}>
+                        <Text style={[
+                          styles.dayText,
+                          dayOfWeek === 0 && styles.sundayText,
+                          dayOfWeek === 6 && styles.saturdayText,
+                          isToday && styles.todayDayText,
+                          isSelected && styles.selectedDayText,
+                          !day.isCurrentMonth && styles.otherMonthDayText,
+                        ]}>
+                          {day.date.getDate()}
+                        </Text>
+                      </View>
+                      {hasLessonForDay && 
+                        <Text style={[
+                          styles.lessonIndicator,
+                          (isSelected || isToday) && styles.lessonIndicatorHighlighted
+                        ]}>
+                          ・
+                        </Text>
+                      }
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          ))}
         </Animated.View>
       </GestureDetector>
     </View>
@@ -182,8 +259,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 16,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -196,48 +274,72 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  calendarGrid: {
+  calendarContainer: {
+    width: '100%',
+  },
+  weekRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 8,
+    width: '100%',
+    height: 45, // 高さを40から45に増加
+    justifyContent: 'space-between',
   },
   dayCell: {
-    width: DAY_SIZE,
-    height: DAY_SIZE,
+    flex: 1,
+    padding: 1,
+    height: 45, // 高さを40から45に増加
+  },
+  dayCellButton: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    margin: 1,
+    height: 43, // 高さを38から43に増加
   },
   dayCellContent: {
-    width: '100%',
-    height: '100%',
+    width: 38, // 幅を34から38に増加
+    height: 38, // 高さを34から38に増加
+    borderRadius: 19, // 半径を17から19に増加
     justifyContent: 'center',
     alignItems: 'center',
   },
   dayText: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: 14, // フォントサイズを13から14に増加
+    fontWeight: '600', // フォントの太さを500から600に増加
     color: colors.textPrimary,
+    textAlign: 'center',
   },
   otherMonthDay: {
     opacity: 0.3,
   },
+  otherMonthDayText: {
+    color: colors.textTertiary,
+  },
   selectedDay: {
     backgroundColor: colors.primary,
-    borderRadius: DAY_SIZE / 2,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
   },
   selectedDayText: {
     color: colors.background,
-    fontWeight: '600',
+    fontWeight: '700', // フォントの太さを600から700に増加
   },
   todayDay: {
+    backgroundColor: colors.primaryLight,
     borderWidth: 1.5,
     borderColor: colors.primary,
-    borderRadius: DAY_SIZE / 2,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   todayDayText: {
-    color: colors.primary,
-    fontWeight: '600',
+    color: colors.background,
+    fontWeight: '700', // フォントの太さを600から700に増加
   },
   sundayText: {
     color: colors.error,
@@ -246,12 +348,15 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   lessonIndicator: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.secondary,
+    fontSize: 16, // フォントサイズを14から16に増加
+    color: colors.primary,
+    fontWeight: 'bold',
     position: 'absolute',
-    bottom: 6,
+    bottom: -3, // 位置を調整
+    lineHeight: 16, // 行の高さを調整
+  },
+  lessonIndicatorHighlighted: {
+    color: colors.background,
   },
 });
 

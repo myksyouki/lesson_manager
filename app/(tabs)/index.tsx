@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
   Alert,
   StatusBar,
   Dimensions,
+  ScrollView,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -17,11 +19,13 @@ import { Gesture } from 'react-native-gesture-handler';
 import { useLessonStore } from '../store/lessons';
 import { useTaskStore } from '../store/tasks';
 import { useAuthStore } from '../store/auth';
+import { useTheme } from '../theme/index';
 import HomeHeader from '../features/home/components/HomeHeader';
 import TaskCard from '../features/home/components/TaskCard';
 import TaskPagination from '../features/home/components/TaskPagination';
 import EmptyOrLoading from '../features/home/components/EmptyOrLoading';
 import ActionButton from '../features/home/components/ActionButton';
+import { FadeIn, SlideIn, StaggeredList } from '../components/AnimatedComponents';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = SCREEN_WIDTH * 0.9;
@@ -35,6 +39,21 @@ export default function HomeScreen() {
   const { tasks, fetchTasks, generateTasksFromLessons } = useTaskStore();
   const { user } = useAuthStore();
   const favoriteLesson = getFavorites();
+  const theme = useTheme();
+  
+  // スクロールアニメーション用
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0.9],
+    extrapolate: 'clamp',
+  });
+  
+  const headerTranslate = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, -10],
+    extrapolate: 'clamp',
+  });
 
   // タスクとレッスンデータの読み込み
   useEffect(() => {
@@ -101,35 +120,64 @@ export default function HomeScreen() {
   }));
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8F9FA" />
-      <View style={styles.container}>
-        <HomeHeader />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.backgroundSecondary }]} edges={['top']}>
+      <StatusBar barStyle={theme.colors.text === '#E8EAED' ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.backgroundSecondary} />
+      
+      <Animated.View 
+        style={[
+          styles.headerContainer, 
+          { 
+            backgroundColor: theme.colors.backgroundSecondary,
+            opacity: headerOpacity,
+            transform: [{ translateY: headerTranslate }]
+          }
+        ]}
+      >
+        <FadeIn duration={800}>
+          <HomeHeader />
+        </FadeIn>
+      </Animated.View>
 
+      <ScrollView 
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+      >
         <View style={styles.contentContainer}>
           {isLoading || tasks.length === 0 ? (
-            <EmptyOrLoading 
-              isLoading={isLoading} 
-              onGenerateTasks={handleGenerateTasks} 
-            />
+            <SlideIn from={{ x: 0, y: 50 }} duration={500}>
+              <EmptyOrLoading 
+                isLoading={isLoading} 
+                onGenerateTasks={handleGenerateTasks} 
+              />
+            </SlideIn>
           ) : (
-            <View style={styles.cardContainer}>
-              <TaskCard 
-                task={tasks[currentIndex]} 
-                gesture={gesture} 
-                animatedStyle={rStyle} 
-              />
+            <FadeIn duration={600}>
+              <View style={styles.cardContainer}>
+                <TaskCard 
+                  task={tasks[currentIndex]} 
+                  gesture={gesture} 
+                  animatedStyle={rStyle} 
+                />
 
-              <TaskPagination 
-                totalCount={tasks.length} 
-                currentIndex={currentIndex} 
-              />
-            </View>
+                <TaskPagination 
+                  totalCount={tasks.length} 
+                  currentIndex={currentIndex} 
+                />
+              </View>
+            </FadeIn>
           )}
         </View>
+      </ScrollView>
 
+      <SlideIn from={{ x: 0, y: 100 }} duration={800} delay={300}>
         <ActionButton />
-      </View>
+      </SlideIn>
     </SafeAreaView>
   );
 }
@@ -137,20 +185,28 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+  },
+  headerContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    zIndex: 10,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   contentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 20,
   },
   cardContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
   },
 });

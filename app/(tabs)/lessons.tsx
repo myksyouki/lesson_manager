@@ -4,12 +4,18 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  Text,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
 import ListHeader from '../features/lessons/components/list/ListHeader';
 import LessonCard from '../features/lessons/components/list/LessonCard';
 import { Lesson } from '../store/lessons';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { useTheme } from '../theme/index';
+import { StaggeredList } from '../components/AnimatedComponents';
 
 export default function LessonsScreen() {
   const [searchText, setSearchText] = useState('');
@@ -17,6 +23,22 @@ export default function LessonsScreen() {
   const availableTags = ['リズム', 'テクニック', '表現', 'ペダル', '音色', '強弱'];
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const theme = useTheme();
+
+  // マテリアルデザインの色を定義
+  const colors = {
+    primary: '#4285F4',
+    primaryLight: '#8AB4F8',
+    secondary: '#34A853',
+    error: '#EA4335',
+    warning: '#FBBC05',
+    background: '#F8F9FA',
+    surface: '#FFFFFF',
+    textPrimary: '#202124',
+    textSecondary: '#5F6368',
+    textTertiary: '#9AA0A6',
+    divider: '#DADCE0',
+  };
 
   // Firestoreからのリアルタイム更新を監視
   useEffect(() => {
@@ -67,66 +89,124 @@ export default function LessonsScreen() {
     };
   }, [auth.currentUser?.uid]);
 
+  // 検索とフィルタリングの関数
+  const filteredLessons = lessons.filter(lesson => {
+    // 検索テキストでフィルタリング
+    const searchMatch = searchText === '' || 
+      lesson.teacher.toLowerCase().includes(searchText.toLowerCase()) ||
+      (lesson.pieces && lesson.pieces.some(piece => piece.toLowerCase().includes(searchText.toLowerCase())));
+    
+    // タグでフィルタリング
+    const tagMatch = selectedTags.length === 0 || 
+      (lesson.tags && selectedTags.every(tag => lesson.tags.includes(tag)));
+    
+    return searchMatch && tagMatch;
+  });
+
+  // 検索テキスト変更ハンドラ
+  const handleSearchChange = (text: string) => {
+    setSearchText(text);
+  };
+
+  // タグ選択ハンドラ
   const handleTagPress = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    setSelectedTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag) 
+        : [...prev, tag]
     );
   };
 
-  const filteredLessons = lessons.filter((lesson) => {
-    const matchesSearch =
-      searchText === '' ||
-      lesson.teacher.includes(searchText) ||
-      (lesson.pieces && lesson.pieces.some(piece => piece.includes(searchText))) ||
-      lesson.summary.includes(searchText);
-
-    const matchesTags =
-      selectedTags.length === 0 ||
-      selectedTags.some((tag) => lesson.tags.includes(tag));
-
-    return matchesSearch && matchesTags;
-  });
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <ListHeader
-          searchText={searchText}
-          onSearchChange={setSearchText}
-          availableTags={availableTags}
-          selectedTags={selectedTags}
-          onTagPress={handleTagPress}
-        />
-
-        <ScrollView style={styles.lessonList}>
-          {filteredLessons.map((lesson) => (
-            <LessonCard
-              key={lesson.id}
-              id={lesson.id}
-              teacher={lesson.teacher}
-              date={lesson.date}
-              pieces={lesson.pieces || []}
-              tags={lesson.tags}
-              isFavorite={lesson.isFavorite}
-            />
-          ))}
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <ListHeader 
+        searchText={searchText}
+        onSearchChange={handleSearchChange}
+        availableTags={availableTags}
+        selectedTags={selectedTags}
+        onTagPress={handleTagPress}
+      />
+      
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+            レッスンを読み込み中...
+          </Text>
+        </View>
+      ) : filteredLessons.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+            {searchText || selectedTags.length > 0 
+              ? '検索条件に一致するレッスンがありません' 
+              : 'レッスンがまだ登録されていません'}
+          </Text>
+        </View>
+      ) : (
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <StaggeredList staggerDelay={50}>
+            {filteredLessons.map((lesson) => (
+              <Animated.View 
+                key={lesson.id}
+                entering={FadeIn.duration(300).delay(100)}
+              >
+                <LessonCard
+                  id={lesson.id}
+                  teacher={lesson.teacher}
+                  date={new Date(lesson.date).toLocaleDateString('ja-JP', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                  pieces={lesson.pieces || []}
+                  tags={lesson.tags || []}
+                  isFavorite={lesson.isFavorite}
+                />
+              </Animated.View>
+            ))}
+          </StaggeredList>
         </ScrollView>
-      </View>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
-  lessonList: {
+  scrollView: {
     flex: 1,
-    padding: 20,
+  },
+  scrollContent: {
+    paddingTop: 8,
+    paddingBottom: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 100,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingBottom: 100,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });
