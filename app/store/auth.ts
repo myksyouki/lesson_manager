@@ -32,6 +32,10 @@ const redirectUri = AuthSession.makeRedirectUri({
 // 初期化時に一度だけログ出力
 console.log("🔍 実際に使われるURI:", redirectUri);
 
+// テストユーザーの認証情報
+const TEST_USER_EMAIL = "test@example.com";
+const TEST_USER_PASSWORD = "testuser123";
+
 // ✅ Googleログイン用のフック
 export function useGoogleAuth() {
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
@@ -67,6 +71,7 @@ interface AuthState {
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (promptAsync: () => Promise<any>) => Promise<void>;
+  signInAsTestUser: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
 }
@@ -129,6 +134,31 @@ export const useAuthStore = create<AuthState>((set) => {
         }
       } catch (error: any) {
         set({ error: error.message, isLoading: false });
+      }
+    },
+
+    signInAsTestUser: async () => {
+      try {
+        set({ isLoading: true, error: null });
+        await signInWithEmailAndPassword(auth, TEST_USER_EMAIL, TEST_USER_PASSWORD);
+      } catch (error: any) {
+        // テストユーザーが存在しない場合は作成してからログイン
+        try {
+          await createUserWithEmailAndPassword(auth, TEST_USER_EMAIL, TEST_USER_PASSWORD);
+        } catch (createError: any) {
+          // ユーザーが既に存在する場合は無視（再度ログイン試行）
+          if (createError.code !== 'auth/email-already-in-use') {
+            set({ error: createError.message, isLoading: false });
+            return;
+          }
+        }
+        
+        // 再度ログイン試行
+        try {
+          await signInWithEmailAndPassword(auth, TEST_USER_EMAIL, TEST_USER_PASSWORD);
+        } catch (signInError: any) {
+          set({ error: signInError.message, isLoading: false });
+        }
       }
     },
 

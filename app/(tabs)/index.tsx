@@ -7,6 +7,9 @@ import {
   Dimensions,
   ScrollView,
   Animated,
+  Text,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -143,12 +146,20 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
+        onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+          scrollY.setValue(event.nativeEvent.contentOffset.y);
+        }}
       >
         <View style={styles.contentContainer}>
+          <FadeIn duration={600}>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                今日の課題
+              </Text>
+              <View style={[styles.sectionTitleLine, { backgroundColor: theme.colors.primary }]} />
+            </View>
+          </FadeIn>
+
           {isLoading || tasks.length === 0 ? (
             <SlideIn from={{ x: 0, y: 50 }} duration={500}>
               <EmptyOrLoading 
@@ -208,5 +219,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
+  },
+  sectionTitleContainer: {
+    width: '90%',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  sectionTitleLine: {
+    height: 3,
+    width: 60,
+    borderRadius: 2,
   },
 });

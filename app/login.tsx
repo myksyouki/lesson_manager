@@ -18,7 +18,7 @@ import { useGoogleAuth } from './store/auth';
 import { MaterialIcons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
-  const { signIn, signUp, signInWithGoogle, user, isLoading, error, clearError } = useAuthStore();
+  const { signIn, signUp, signInWithGoogle, signInAsTestUser, user, isLoading, error, clearError } = useAuthStore();
   const { request, response, promptAsync } = useGoogleAuth(); // ✅ Googleログインのフックを取得
 
   const [email, setEmail] = useState('');
@@ -43,6 +43,10 @@ export default function LoginScreen() {
       return;
     }
     await signInWithGoogle(promptAsync);
+  };
+
+  const handleTestUserSignIn = async () => {
+    await signInAsTestUser();
   };
 
   const toggleAuthMode = () => {
@@ -154,6 +158,16 @@ export default function LoginScreen() {
                 style={styles.googleIcon} 
               />
               <Text style={styles.googleButtonText}>Googleでログイン</Text>
+            </TouchableOpacity>
+
+            {/* テストユーザーログイン */}
+            <TouchableOpacity
+              style={styles.testUserButton}
+              onPress={handleTestUserSignIn}
+              disabled={isLoading}
+            >
+              <MaterialIcons name="person" size={22} color="#FFFFFF" style={styles.testUserIcon} />
+              <Text style={styles.testUserButtonText}>テストユーザーとしてログイン</Text>
             </TouchableOpacity>
 
             <View style={styles.switchContainer}>
@@ -313,6 +327,24 @@ const styles = StyleSheet.create({
   googleButtonText: {
     color: '#1C1C1E',
     fontSize: 18, // Larger font size
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  testUserButton: {
+    flexDirection: 'row',
+    backgroundColor: '#4CAF50',
+    borderRadius: 16,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  testUserIcon: {
+    marginRight: 12,
+  },
+  testUserButtonText: {
+    color: 'white',
+    fontSize: 18,
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
