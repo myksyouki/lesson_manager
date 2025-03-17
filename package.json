@@ -24,9 +24,11 @@
     "expo-file-system": "~18.0.11",
     "expo-font": "^13.0.3",
     "expo-haptics": "^14.0.1",
+    "expo-intent-launcher": "~12.0.2",
     "expo-linear-gradient": "^14.0.2",
     "expo-linking": "^7.0.5",
     "expo-router": "4.0.17",
+    "expo-sharing": "~13.0.1",
     "expo-splash-screen": "^0.29.21",
     "expo-status-bar": "^2.0.1",
     "expo-symbols": "^0.2.2",
@@ -34,6 +36,7 @@
     "expo-web-browser": "~14.0.2",
     "firebase": "^11.4.0",
     "firebase-admin": "^13.2.0",
+    "lottie-react-native": "^7.2.2",
     "openai": "^4.28.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
@@ -47,9 +50,7 @@
     "react-native-web": "^0.19.13",
     "react-native-webview": "13.12.5",
     "undefined": "expo-auth-session/providers/google",
-    "zustand": "^4.5.0",
-    "expo-sharing": "~13.0.1",
-    "expo-intent-launcher": "~12.0.2"
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

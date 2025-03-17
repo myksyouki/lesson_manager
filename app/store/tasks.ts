@@ -15,23 +15,34 @@ import {
   FieldValue 
 } from 'firebase/firestore';
 
+interface TaskCompletionHistory {
+  taskId: string;
+  taskTitle: string;
+  completedAt: string;
+  category?: string;
+}
+
 interface TaskStore {
   tasks: Task[];
+  taskCompletionHistory: TaskCompletionHistory[];
   isLoading: boolean;
   error: string | null;
   fetchTasks: (userId: string) => Promise<void>;
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
-  updateTask: (id: string, taskData: Partial<Task>) => Promise<void>;
+  addTask: (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Task>;
+  updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   generateTasksFromLessons: (userId: string, monthsBack: number) => Promise<void>;
   getCategoryCompletionCounts: () => Record<string, number>;
   getCategoryCompletionCount: (category: string) => number;
-  getTaskCompletionCount: (taskTitle: string, category?: string) => number;
+  getTaskCompletionCount: (taskTitle: string) => number;
   completeTask: (id: string) => Promise<{ taskTitle: string; category: string; completionCount: number }>;
+  toggleTaskCompletion: (taskId: string) => void;
+  getTaskStreakCount: () => number;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
+  taskCompletionHistory: [],
   isLoading: false,
   error: null,
 
@@ -64,7 +75,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  addTask: async (taskData): Promise<string> => {
+  addTask: async (taskData): Promise<Task> => {
     try {
       set({ isLoading: true, error: null });
 
@@ -93,7 +104,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         isLoading: false
       }));
 
-      return docRef.id;
+      return newTask;
     } catch (error: any) {
       console.error('タスク追加エラー:', error);
       set({ error: error.message, isLoading: false });
@@ -259,15 +270,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     return categories[category] || 0;
   },
 
-  getTaskCompletionCount: (taskTitle: string, category?: string) => {
-    const { tasks } = get();
-    const completedTasks = tasks.filter(task => 
-      (task.isCompleted || task.completed) && 
-      task.title === taskTitle &&
-      (!category || (task.tags && task.tags.includes(category)))
-    );
-    
-    return completedTasks.length;
+  getTaskCompletionCount: (taskTitle: string) => {
+    const state = get();
+    return state.taskCompletionHistory.filter(
+      history => history.taskTitle === taskTitle
+    ).length;
   },
 
   completeTask: async (id: string) => {
@@ -303,7 +310,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       
       // 完了したタスクの情報を返す
       const category = task.tags && task.tags.length > 0 ? task.tags[0] : '';
-      const completionCount = get().getTaskCompletionCount(task.title, category) + 1;
+      const completionCount = get().getTaskCompletionCount(task.title) + 1;
       
       return {
         taskTitle: task.title,
@@ -315,7 +322,82 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       set({ error: error.message, isLoading: false });
       throw error;
     }
-  }
+  },
+
+  // タスクの完了状態を切り替える
+  toggleTaskCompletion: (taskId: string) => {
+    set((state) => {
+      const updatedTasks = state.tasks.map((task) => {
+        if (task.id === taskId) {
+          // タスクが完了状態になる場合、完了日時を記録
+          const now = new Date();
+          const completedAt = task.completed ? undefined : now.toISOString();
+          
+          // タスク完了履歴に追加
+          if (!task.completed) {
+            const taskCompletionHistory = [...state.taskCompletionHistory];
+            taskCompletionHistory.push({
+              taskId,
+              taskTitle: task.title,
+              completedAt: now.toISOString(),
+              category: task.tags && task.tags.length > 0 ? task.tags[0] : undefined
+            });
+            state.taskCompletionHistory = taskCompletionHistory;
+          }
+          
+          return {
+            ...task,
+            completed: !task.completed,
+            completedAt
+          };
+        }
+        return task;
+      });
+      
+      return { ...state, tasks: updatedTasks };
+    });
+  },
+
+  // 連続達成日数を取得
+  getTaskStreakCount: () => {
+    const state = get();
+    if (state.taskCompletionHistory.length === 0) {
+      return 0;
+    }
+    
+    // 日付ごとにグループ化
+    const completionsByDate: Record<string, boolean> = {};
+    state.taskCompletionHistory.forEach(history => {
+      const date = new Date(history.completedAt).toISOString().split('T')[0];
+      completionsByDate[date] = true;
+    });
+    
+    // 日付の配列を作成して降順にソート
+    const dates = Object.keys(completionsByDate).sort((a, b) => 
+      new Date(b).getTime() - new Date(a).getTime()
+    );
+    
+    if (dates.length === 0) return 0;
+    
+    // 最新の日付
+    const latestDate = new Date(dates[0]);
+    let streakCount = 1;
+    
+    // 連続日数をカウント
+    for (let i = 1; i < 100; i++) { // 最大100日までチェック
+      const prevDate = new Date(latestDate);
+      prevDate.setDate(prevDate.getDate() - i);
+      const dateString = prevDate.toISOString().split('T')[0];
+      
+      if (completionsByDate[dateString]) {
+        streakCount++;
+      } else {
+        break;
+      }
+    }
+    
+    return streakCount;
+  },
 }));
 
 // レッスンのサマリーから練習ポイントを抽出する関数
