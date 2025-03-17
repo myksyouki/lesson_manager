@@ -2,45 +2,37 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
   TouchableOpacity,
   Platform,
   ScrollView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { LessonFormData } from '../../../../services/lessonService';
+import { TextField } from '../../../../components/ui/TextField';
+import { Button } from '../../../../components/ui/Button';
+import { Card, CardBody } from '../../../../components/ui/Card';
+import { useTheme } from '../../../../theme';
 
 interface FormInputsProps {
-  formData: {
-    teacherName: string;
-    date: string;
-    pieces: string[];
-    notes: string;
-    tags: string[];
-  };
-  setFormData: React.Dispatch<React.SetStateAction<{
-    teacherName: string;
-    date: string;
-    pieces: string[];
-    notes: string;
-    tags: string[];
-  }>>;
-  onDatePress: () => void;
+  formData: LessonFormData;
+  onUpdateFormData: (data: Partial<LessonFormData>) => void;
+  onShowCalendar: () => void;
 }
 
 const FormInputs: React.FC<FormInputsProps> = ({
   formData,
-  setFormData,
-  onDatePress,
+  onUpdateFormData,
+  onShowCalendar,
 }) => {
   const [newPiece, setNewPiece] = useState('');
   const [newTag, setNewTag] = useState('');
+  const theme = useTheme();
 
   // 曲目を追加する関数
   const addPiece = () => {
     if (newPiece.trim()) {
-      setFormData({
-        ...formData,
+      onUpdateFormData({
         pieces: [...formData.pieces, newPiece.trim()],
       });
       setNewPiece('');
@@ -51,8 +43,7 @@ const FormInputs: React.FC<FormInputsProps> = ({
   const removePiece = (index: number) => {
     const updatedPieces = [...formData.pieces];
     updatedPieces.splice(index, 1);
-    setFormData({
-      ...formData,
+    onUpdateFormData({
       pieces: updatedPieces,
     });
   };
@@ -60,8 +51,7 @@ const FormInputs: React.FC<FormInputsProps> = ({
   // タグを追加する関数
   const addTag = () => {
     if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      setFormData({
-        ...formData,
+      onUpdateFormData({
         tags: [...formData.tags, newTag.trim()],
       });
       setNewTag('');
@@ -72,8 +62,7 @@ const FormInputs: React.FC<FormInputsProps> = ({
   const removeTag = (index: number) => {
     const updatedTags = [...formData.tags];
     updatedTags.splice(index, 1);
-    setFormData({
-      ...formData,
+    onUpdateFormData({
       tags: updatedTags,
     });
   };
@@ -84,13 +73,11 @@ const FormInputs: React.FC<FormInputsProps> = ({
   // 定義済みタグを選択する関数
   const togglePredefinedTag = (tag: string) => {
     if (formData.tags.includes(tag)) {
-      setFormData({
-        ...formData,
+      onUpdateFormData({
         tags: formData.tags.filter(t => t !== tag),
       });
     } else {
-      setFormData({
-        ...formData,
+      onUpdateFormData({
         tags: [...formData.tags, tag],
       });
     }
@@ -98,76 +85,77 @@ const FormInputs: React.FC<FormInputsProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>講師名</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.teacherName}
-          onChangeText={(text) => setFormData({ ...formData, teacherName: text })}
-          placeholder="講師の名前を入力"
-          placeholderTextColor="#9AA0A6"
-        />
-      </View>
+      <TextField
+        label="講師名"
+        value={formData.teacherName}
+        onChangeText={(text) => onUpdateFormData({ teacherName: text })}
+        placeholder="講師の名前を入力"
+      />
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>レッスン日</Text>
         <TouchableOpacity
           style={styles.dateInput}
-          onPress={onDatePress}
+          onPress={onShowCalendar}
         >
           <Text style={styles.dateText}>{formData.date}</Text>
-          <MaterialIcons name="calendar-today" size={20} color="#4285F4" />
+          <MaterialIcons name="calendar-today" size={20} color={theme.colors.primary} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>曲目</Text>
-        <View style={styles.piecesContainer}>
-          {formData.pieces.map((piece, index) => (
-            <View key={index} style={styles.pieceItem}>
-              <Text style={styles.pieceText}>{piece}</Text>
-              <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => removePiece(index)}
-              >
-                <MaterialIcons name="close" size={16} color="#9AA0A6" />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+        <Card style={styles.listCard}>
+          <CardBody>
+            {formData.pieces.length > 0 ? (
+              <View style={styles.piecesContainer}>
+                {formData.pieces.map((piece, index) => (
+                  <View key={index} style={styles.pieceItem}>
+                    <Text style={styles.pieceText}>{piece}</Text>
+                    <TouchableOpacity
+                      style={styles.removeButton}
+                      onPress={() => removePiece(index)}
+                    >
+                      <MaterialIcons name="close" size={16} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.emptyText}>曲目が登録されていません</Text>
+            )}
+          </CardBody>
+        </Card>
+        
         <View style={styles.addItemContainer}>
-          <TextInput
-            style={styles.addItemInput}
+          <TextField
             value={newPiece}
             onChangeText={setNewPiece}
             placeholder="曲名を入力"
-            placeholderTextColor="#9AA0A6"
             onSubmitEditing={addPiece}
+            rightIcon={
+              <MaterialIcons
+                name="add"
+                size={20}
+                color={newPiece.trim() ? theme.colors.primary : theme.colors.textTertiary}
+              />
+            }
+            onRightIconPress={newPiece.trim() ? addPiece : undefined}
+            containerStyle={styles.addItemField}
           />
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={addPiece}
-            disabled={!newPiece.trim()}
-          >
-            <MaterialIcons
-              name="add"
-              size={20}
-              color={newPiece.trim() ? "#4285F4" : "#9AA0A6"}
-            />
-          </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>メモ</Text>
-        <TextInput
-          style={styles.notesInput}
+        <TextField
           value={formData.notes}
-          onChangeText={(text) => setFormData({ ...formData, notes: text })}
+          onChangeText={(text) => onUpdateFormData({ notes: text })}
           placeholder="レッスンの内容や気づきをメモしましょう"
-          placeholderTextColor="#9AA0A6"
           multiline
+          numberOfLines={4}
           textAlignVertical="top"
+          inputStyle={styles.notesInput}
         />
       </View>
 
@@ -199,39 +187,45 @@ const FormInputs: React.FC<FormInputsProps> = ({
             </TouchableOpacity>
           ))}
         </ScrollView>
-        <View style={styles.tagsContainer}>
-          {formData.tags.map((tag, index) => (
-            <View key={index} style={styles.tagItem}>
-              <Text style={styles.tagText}>{tag}</Text>
-              <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => removeTag(index)}
-              >
-                <MaterialIcons name="close" size={16} color="#9AA0A6" />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+        
+        <Card style={styles.listCard}>
+          <CardBody>
+            {formData.tags.length > 0 ? (
+              <View style={styles.tagsContainer}>
+                {formData.tags.map((tag, index) => (
+                  <View key={index} style={styles.tagItem}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                    <TouchableOpacity
+                      style={styles.removeButton}
+                      onPress={() => removeTag(index)}
+                    >
+                      <MaterialIcons name="close" size={16} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.emptyText}>タグが登録されていません</Text>
+            )}
+          </CardBody>
+        </Card>
+        
         <View style={styles.addItemContainer}>
-          <TextInput
-            style={styles.addItemInput}
+          <TextField
             value={newTag}
             onChangeText={setNewTag}
             placeholder="カスタムタグを追加"
-            placeholderTextColor="#9AA0A6"
             onSubmitEditing={addTag}
+            rightIcon={
+              <MaterialIcons
+                name="add"
+                size={20}
+                color={newTag.trim() && !formData.tags.includes(newTag.trim()) ? theme.colors.primary : theme.colors.textTertiary}
+              />
+            }
+            onRightIconPress={newTag.trim() && !formData.tags.includes(newTag.trim()) ? addTag : undefined}
+            containerStyle={styles.addItemField}
           />
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={addTag}
-            disabled={!newTag.trim() || formData.tags.includes(newTag.trim())}
-          >
-            <MaterialIcons
-              name="add"
-              size={20}
-              color={newTag.trim() && !formData.tags.includes(newTag.trim()) ? "#4285F4" : "#9AA0A6"}
-            />
-          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -252,88 +246,61 @@ const styles = StyleSheet.create({
     color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  input: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#DADCE0',
-    color: '#202124',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
   dateInput: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: '#DADCE0',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#F8F9FA',
   },
   dateText: {
     fontSize: 16,
     color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
+  listCard: {
+    padding: 0,
+    marginBottom: 8,
+  },
   piecesContainer: {
     marginBottom: 8,
   },
   pieceItem: {
-    backgroundColor: '#E8F0FE',
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    marginBottom: 8,
-    marginRight: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#DADCE0',
   },
   pieceText: {
-    color: '#4285F4',
-    marginRight: 4,
-    fontSize: 14,
-    fontWeight: '500',
+    flex: 1,
+    fontSize: 16,
+    color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   removeButton: {
-    padding: 2,
+    padding: 4,
   },
   addItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  addItemInput: {
+  addItemField: {
     flex: 1,
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#DADCE0',
-    color: '#202124',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  addButton: {
-    padding: 12,
-    marginLeft: 8,
+    marginBottom: 0,
   },
   notesInput: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#DADCE0',
-    color: '#202124',
     height: 120,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    textAlignVertical: 'top',
   },
   predefinedTagsContainer: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   predefinedTagsContent: {
     paddingVertical: 8,
@@ -341,43 +308,48 @@ const styles = StyleSheet.create({
   predefinedTag: {
     backgroundColor: '#F1F3F4',
     borderRadius: 16,
-    paddingVertical: 6,
     paddingHorizontal: 12,
+    paddingVertical: 6,
     marginRight: 8,
   },
   selectedPredefinedTag: {
     backgroundColor: '#E8F0FE',
   },
   predefinedTagText: {
-    color: '#5F6368',
     fontSize: 14,
-    fontWeight: '500',
+    color: '#5F6368',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   selectedPredefinedTagText: {
     color: '#4285F4',
+    fontWeight: '500',
   },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 8,
   },
   tagItem: {
-    backgroundColor: '#E8F0FE',
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    marginBottom: 8,
-    marginRight: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#E8F0FE',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
   },
   tagText: {
+    fontSize: 14,
     color: '#4285F4',
     marginRight: 4,
-    fontSize: 14,
-    fontWeight: '500',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#9AA0A6',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: 16,
   },
 });
 

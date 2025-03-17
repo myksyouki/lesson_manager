@@ -9,15 +9,15 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 
 interface AudioUploaderProps {
-  selectedFileName: string | null;
+  selectedFile: { uri: string; name: string } | null;
   onSelectFile: () => void;
-  onRemoveFile: () => void;
+  onClearFile: () => void;
 }
 
 const AudioUploader: React.FC<AudioUploaderProps> = ({
-  selectedFileName,
+  selectedFile,
   onSelectFile,
-  onRemoveFile,
+  onClearFile,
 }) => {
   return (
     <View style={styles.container}>
@@ -26,17 +26,17 @@ const AudioUploader: React.FC<AudioUploaderProps> = ({
         レッスン音声をアップロードすると、AIが自動で文字起こしと要約を行います
       </Text>
       
-      {selectedFileName ? (
+      {selectedFile ? (
         <View style={styles.selectedFileContainer}>
           <View style={styles.fileInfo}>
             <MaterialIcons name="audio-file" size={24} color="#4285F4" />
             <Text style={styles.fileName} numberOfLines={1} ellipsizeMode="middle">
-              {selectedFileName}
+              {selectedFile.name}
             </Text>
           </View>
           <TouchableOpacity
             style={styles.removeButton}
-            onPress={onRemoveFile}
+            onPress={onClearFile}
           >
             <MaterialIcons name="delete-outline" size={24} color="#5F6368" />
           </TouchableOpacity>

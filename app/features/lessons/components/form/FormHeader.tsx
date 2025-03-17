@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Platform,
   Alert,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { Button } from '../../../../components/ui/Button';
+import { useTheme } from '../../../../theme';
 
 interface FormHeaderProps {
   onSave?: () => void;
@@ -21,6 +21,8 @@ const FormHeader: React.FC<FormHeaderProps> = ({
   isValid = true,
   isProcessing = false,
 }) => {
+  const theme = useTheme();
+
   const handleCancel = () => {
     Alert.alert(
       'キャンセル',
@@ -38,30 +40,26 @@ const FormHeader: React.FC<FormHeaderProps> = ({
 
   return (
     <View style={styles.header}>
-      <TouchableOpacity
-        style={styles.cancelButton}
+      <Button
+        title="キャンセル"
+        variant="text"
+        size="medium"
         onPress={handleCancel}
         disabled={isProcessing}
-      >
-        <Text style={[styles.cancelText, isProcessing && styles.disabledText]}>
-          キャンセル
-        </Text>
-      </TouchableOpacity>
+        style={styles.cancelButton}
+      />
       
       <Text style={styles.title}>レッスン登録</Text>
       
-      <TouchableOpacity
-        style={styles.saveButton}
+      <Button
+        title="保存"
+        variant="primary"
+        size="medium"
         onPress={onSave}
         disabled={!isValid || isProcessing}
-      >
-        <Text style={[
-          styles.saveText,
-          (!isValid || isProcessing) && styles.disabledText
-        ]}>
-          保存
-        </Text>
-      </TouchableOpacity>
+        loading={isProcessing}
+        style={styles.saveButton}
+      />
     </View>
   );
 };
@@ -85,24 +83,10 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   cancelButton: {
-    padding: 8,
-  },
-  cancelText: {
-    fontSize: 16,
-    color: '#5F6368',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    minWidth: 80,
   },
   saveButton: {
-    padding: 8,
-  },
-  saveText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4285F4',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  disabledText: {
-    opacity: 0.5,
+    minWidth: 80,
   },
 });
 

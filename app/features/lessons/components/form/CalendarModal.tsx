@@ -1,11 +1,7 @@
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import Animated from 'react-native-reanimated';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 
-const DAYS = ['日', '月', '火', '水', '木', '金', '土'];
-const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CALENDAR_WIDTH = Math.min(SCREEN_WIDTH - 40, 400);
 const DAY_SIZE = Math.floor(CALENDAR_WIDTH / 7);
@@ -28,87 +24,98 @@ const colors = {
 };
 
 interface CalendarModalProps {
-  visible: boolean;
   onClose: () => void;
-  onDateSelect: (date: Date) => void;
+  onSelectDate: (date: Date) => void;
   selectedDate: Date;
   currentMonth: Date;
   onChangeMonth: (increment: number) => void;
-  calendarDays: Array<{ date: Date; isCurrentMonth: boolean }>;
-  gesture: ReturnType<typeof Gesture.Pan>;
-  animatedStyle: any;
+  generateCalendarDays: () => Array<{ date: Date; isCurrentMonth: boolean }>;
+  formatDate: (date: Date) => string;
+  days: string[];
+  daySize: number;
 }
 
 const CalendarModal: React.FC<CalendarModalProps> = ({
-  visible,
   onClose,
-  onDateSelect,
+  onSelectDate,
   selectedDate,
   currentMonth,
   onChangeMonth,
-  calendarDays,
-  gesture,
-  animatedStyle,
+  generateCalendarDays,
+  formatDate,
+  days,
+  daySize,
 }) => {
+  // 選択された日付かどうかを判定
   const isSelectedDate = (date: Date) => {
-    return (
-      date.getDate() === selectedDate.getDate() &&
+    return date.getDate() === selectedDate.getDate() &&
       date.getMonth() === selectedDate.getMonth() &&
-      date.getFullYear() === selectedDate.getFullYear()
-    );
+      date.getFullYear() === selectedDate.getFullYear();
   };
 
+  // 今日の日付かどうかを判定
   const isTodayDate = (date: Date) => {
     const today = new Date();
-    return (
-      date.getDate() === today.getDate() &&
+    return date.getDate() === today.getDate() &&
       date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    );
+      date.getFullYear() === today.getFullYear();
   };
 
-  // 週ごとに日付を分割する
-  const weeks = React.useMemo(() => {
-    const result = [];
-    for (let i = 0; i < Math.ceil(calendarDays.length / 7); i++) {
-      result.push(calendarDays.slice(i * 7, (i + 1) * 7));
-    }
-    return result;
-  }, [calendarDays]);
+  // カレンダーの日付を生成
+  const calendarDays = generateCalendarDays();
 
   return (
     <Modal
-      visible={visible}
-      transparent
       animationType="fade"
+      transparent={true}
+      visible={true}
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.calendarContainer}>
-          <View style={styles.calendarHeader}>
-            <TouchableOpacity 
+        <View style={styles.modalContent}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={onClose}
+            >
+              <MaterialIcons name="close" size={24} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <Text style={styles.title}>日付を選択</Text>
+            <View style={styles.placeholder} />
+          </View>
+          
+          <View style={styles.currentDateContainer}>
+            <Text style={styles.currentDate}>
+              {formatDate(selectedDate)}
+            </Text>
+          </View>
+          
+          <View style={styles.monthSelector}>
+            <TouchableOpacity
+              style={styles.monthButton}
               onPress={() => onChangeMonth(-1)}
-              style={styles.navButton}
             >
               <MaterialIcons name="chevron-left" size={24} color={colors.primary} />
             </TouchableOpacity>
-            <Text style={styles.calendarTitle}>
-              {currentMonth.getFullYear()}年 {MONTHS[currentMonth.getMonth()]}
+            
+            <Text style={styles.monthTitle}>
+              {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
             </Text>
-            <TouchableOpacity 
+            
+            <TouchableOpacity
+              style={styles.monthButton}
               onPress={() => onChangeMonth(1)}
-              style={styles.navButton}
             >
               <MaterialIcons name="chevron-right" size={24} color={colors.primary} />
             </TouchableOpacity>
           </View>
-
-          <View style={styles.weekDayHeader}>
-            {DAYS.map((day, index) => (
+          
+          <View style={styles.weekdayHeader}>
+            {days.map((day, index) => (
               <Text
                 key={index}
                 style={[
-                  styles.weekDayText,
+                  styles.weekdayText,
                   index === 0 && styles.sundayText,
                   index === 6 && styles.saturdayText,
                 ]}
@@ -117,66 +124,79 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
               </Text>
             ))}
           </View>
-
-          <GestureDetector gesture={gesture}>
-            <Animated.View style={[styles.calendarGrid, animatedStyle]}>
-              {weeks.map((week, weekIndex) => (
-                <View key={`week-${weekIndex}`} style={styles.weekRow}>
-                  {week.map((day, dayIndex) => {
-                    const isSelected = isSelectedDate(day.date);
-                    const isToday = isTodayDate(day.date);
-                    const dayOfWeek = day.date.getDay();
-                    
-                    return (
-                      <View key={`day-${weekIndex}-${dayIndex}`} style={styles.dayCell}>
-                        <TouchableOpacity
-                          style={[
-                            styles.dayCellButton,
-                            !day.isCurrentMonth && styles.otherMonthDay,
-                          ]}
-                          onPress={() => onDateSelect(day.date)}
-                          disabled={!day.isCurrentMonth}
-                        >
-                          <View style={[
-                            styles.dayCellContent,
-                            isToday && styles.todayDay,
-                            isSelected && styles.selectedDay,
-                          ]}>
-                            <Text style={[
-                              styles.dayText,
-                              dayOfWeek === 0 && styles.sundayText,
-                              dayOfWeek === 6 && styles.saturdayText,
-                              isToday && styles.todayDayText,
-                              isSelected && styles.selectedDayText,
-                              !day.isCurrentMonth && styles.otherMonthDayText,
-                            ]}>
-                              {day.date.getDate()}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })}
-                </View>
-              ))}
-            </Animated.View>
-          </GestureDetector>
-
+          
+          <View style={styles.calendarGrid}>
+            {calendarDays.map((item, index) => {
+              const isSelected = isSelectedDate(item.date);
+              const isToday = isTodayDate(item.date);
+              const dayOfWeek = item.date.getDay();
+              const isSunday = dayOfWeek === 0;
+              const isSaturday = dayOfWeek === 6;
+              
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.dayCell,
+                    { width: daySize, height: daySize },
+                    isSelected && styles.selectedDay,
+                  ]}
+                  onPress={() => onSelectDate(item.date)}
+                >
+                  <View
+                    style={[
+                      styles.dayContent,
+                      isToday && styles.todayCircle,
+                      isSelected && styles.selectedCircle,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dayText,
+                        !item.isCurrentMonth && styles.otherMonthText,
+                        isSunday && styles.sundayText,
+                        isSaturday && styles.saturdayText,
+                        isSelected && styles.selectedDayText,
+                        isToday && !isSelected && styles.todayText,
+                      ]}
+                    >
+                      {item.date.getDate()}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          
           <View style={styles.actionButtons}>
-            <TouchableOpacity 
-              style={styles.cancelButton}
-              onPress={onClose}
-            >
-              <Text style={styles.cancelButtonText}>キャンセル</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.okButton}
+            <TouchableOpacity
+              style={styles.todayButton}
               onPress={() => {
-                onDateSelect(selectedDate);
+                const today = new Date();
+                onSelectDate(today);
+                // 現在の月が表示されていない場合は、今月に移動
+                if (today.getMonth() !== currentMonth.getMonth() ||
+                    today.getFullYear() !== currentMonth.getFullYear()) {
+                  // 今月を設定する処理
+                  const newMonth = new Date(today);
+                  // 日付は1日に設定して月全体を表示
+                  newMonth.setDate(1);
+                  // currentMonthを更新する関数を呼び出す
+                  // この関数はpropsで渡す必要がある
+                }
+              }}
+            >
+              <Text style={styles.todayButtonText}>今日</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => {
+                onSelectDate(selectedDate);
                 onClose();
               }}
             >
-              <Text style={styles.okButtonText}>OK</Text>
+              <Text style={styles.selectButtonText}>選択</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -192,7 +212,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  calendarContainer: {
+  modalContent: {
     width: CALENDAR_WIDTH,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -209,23 +229,52 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  calendarHeader: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  navButton: {
+  closeButton: {
     padding: 8,
     borderRadius: 20,
   },
-  calendarTitle: {
+  title: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.textPrimary,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  weekDayHeader: {
+  placeholder: {
+    width: 24,
+    height: 24,
+  },
+  currentDateContainer: {
+    marginBottom: 12,
+  },
+  currentDate: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  monthSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  monthButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  monthTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  weekdayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 6,
@@ -233,7 +282,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.divider,
     paddingBottom: 6,
   },
-  weekDayText: {
+  weekdayText: {
     flex: 1,
     textAlign: 'center',
     fontSize: 14,
@@ -241,14 +290,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  calendarGrid: {
-    width: '100%',
+  sundayText: {
+    color: colors.sunday,
   },
-  weekRow: {
+  saturdayText: {
+    color: colors.saturday,
+  },
+  calendarGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     width: '100%',
-    height: 45,
-    marginBottom: 2,
   },
   dayCell: {
     flex: 1,
@@ -256,14 +307,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dayCellButton: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 18,
-  },
-  dayCellContent: {
+  dayContent: {
     width: 36,
     height: 36,
     justifyContent: 'center',
@@ -275,19 +319,15 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  otherMonthDay: {
+  otherMonthText: {
     opacity: 0.3,
   },
-  otherMonthDayText: {
-    color: colors.textTertiary,
-  },
-  todayDay: {
+  todayCircle: {
     borderWidth: 1,
     borderColor: colors.primary,
   },
-  todayDayText: {
-    color: colors.primary,
-    fontWeight: '600',
+  selectedCircle: {
+    backgroundColor: colors.primary,
   },
   selectedDay: {
     backgroundColor: colors.primary,
@@ -296,11 +336,30 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
   },
-  sundayText: {
-    color: colors.sunday,
+  todayText: {
+    color: colors.primary,
+    fontWeight: '600',
   },
-  saturdayText: {
-    color: colors.saturday,
+  todayButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginRight: 8,
+  },
+  todayButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  selectButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  selectButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -309,27 +368,6 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: colors.divider,
-  },
-  cancelButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8,
-  },
-  cancelButtonText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  okButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  okButtonText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 });
 
