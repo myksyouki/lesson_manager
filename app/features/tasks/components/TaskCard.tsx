@@ -1,412 +1,340 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Platform,
+  Animated,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import {
+  Ionicons,
+  MaterialCommunityIcons,
+  FontAwesome5,
+} from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Task } from '../../../types/task';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { RippleButton } from '../../../components/RippleButton';
+import { useTaskStore } from '../../../store/tasks';
 
 interface TaskCardProps {
   task: Task;
-  index?: number;
-  completionCount?: number; // 累積達成回数
-  category?: string; // タスクのカテゴリ
-  onComplete?: () => void; // タスク完了時のコールバック
+  onToggleComplete?: (id: string) => void;
+  showAnimation?: boolean;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ 
-  task, 
-  index = 0,
-  completionCount = 0,
-  category = '',
-  onComplete
-}) => {
-  // テーマの色を直接定義
-  const colors = {
-    primary: '#4285F4',
-    primaryLight: '#8AB4F8',
-    success: '#34A853',
-    warning: '#FBBC05',
-    error: '#EA4335',
-    text: '#202124',
-    textSecondary: '#5F6368',
-    textTertiary: '#9AA0A6',
-    textInverse: '#FFFFFF',
-    ripple: 'rgba(66, 133, 244, 0.12)',
-    completed: '#F1F3F4', // 完了タスクの背景色
-    completedBorder: '#E0E0E0', // 完了タスクのボーダー色
-  };
-  
-  // タスクが完了しているかどうか
-  const isCompleted = task.completed || task.isCompleted;
-  
-  // タスクの詳細ページに移動
+const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleComplete, showAnimation = false }) => {
+  const router = useRouter();
+  const { getTaskCompletionCount } = useTaskStore();
+  const [completionCount, setCompletionCount] = useState(0);
+  const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // タスクの完了回数を取得
+    const count = getTaskCompletionCount(task.title);
+    setCompletionCount(count);
+  }, [task, getTaskCompletionCount]);
+
+  useEffect(() => {
+    // タスクが完了状態になった場合にアニメーションを表示
+    if (showAnimation && task.completed) {
+      setShowCompletionAnimation(true);
+      
+      // アニメーションを実行
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.05,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        // 3秒後にアニメーションを非表示
+        setTimeout(() => {
+          Animated.timing(opacityAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }).start(() => {
+            setShowCompletionAnimation(false);
+          });
+        }, 3000);
+      });
+    }
+  }, [task.completed, showAnimation]);
+
   const handlePress = () => {
-    // タスクが完了していない場合は詳細ページに遷移
-    if (!isCompleted) {
-      try {
-        router.push({
-          pathname: '/task-detail',
-          params: { id: task.id }
-        });
-      } catch (error) {
-        console.error('ナビゲーションエラー:', error);
-        // フォールバック: 単純なパスのみを使用
-        router.push('/task-detail');
-      }
-    } else if (onComplete) {
-      // タスクが完了している場合はコールバックを実行
-      onComplete();
+    router.push(`/task-detail?id=${task.id}`);
+  };
+
+  const handleToggleComplete = () => {
+    if (onToggleComplete) {
+      onToggleComplete(task.id);
     }
   };
 
-  // 日付のフォーマット
-  const formatDate = (date: Date | { seconds: number; nanoseconds: number }) => {
-    if (date instanceof Date) {
-      return date.toLocaleDateString('ja-JP');
+  // カテゴリに基づいてアイコンを決定
+  const getCategoryIcon = () => {
+    if (!task.tags || task.tags.length === 0) {
+      return <Ionicons name="musical-notes" size={24} color="#888" />;
     }
-    return new Date(date.seconds * 1000).toLocaleDateString('ja-JP');
-  };
-
-  // 優先度に応じた色を返す
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case '高':
-        return colors.error;
-      case '中':
-        return colors.warning;
-      case '低':
-        return colors.success;
-      default:
-        return colors.textSecondary;
-    }
-  };
-  
-  // カテゴリに応じた色を返す
-  const getCategoryColor = (categoryName: string) => {
-    switch (categoryName.toLowerCase()) {
+    
+    const category = task.tags[0].toLowerCase();
+    
+    switch (category) {
       case 'ロングトーン':
-        return '#8E24AA'; // パープル
-      case 'スケール':
-        return '#D81B60'; // ピンク
-      case 'テクニック':
-        return '#F57C00'; // オレンジ
+        return <MaterialCommunityIcons name="lungs" size={24} color="#3F51B5" />;
+      case '音階':
+        return <MaterialCommunityIcons name="scale" size={24} color="#FF9800" />;
       case '曲練習':
-        return '#43A047'; // グリーン
+        return <Ionicons name="musical-note" size={24} color="#E91E63" />;
+      case 'アンサンブル':
+        return <Ionicons name="people" size={24} color="#9C27B0" />;
       case 'リズム':
-        return '#1E88E5'; // ブルー
-      case '表現':
-        return '#00ACC1'; // シアン
-      case 'ペダル':
-        return '#7CB342'; // ライトグリーン
-      case '音色':
-        return '#5E35B1'; // ディープパープル
-      case '強弱':
-        return '#039BE5'; // ライトブルー
+        return <FontAwesome5 name="drum" size={24} color="#FFC107" />;
       default:
-        return colors.primary;
-    }
-  };
-  
-  // カテゴリに応じたアイコンを返す
-  const getCategoryIcon = (categoryName: string) => {
-    switch (categoryName.toLowerCase()) {
-      case 'ロングトーン':
-        return 'music-note' as const;
-      case 'スケール':
-        return 'piano' as const;
-      case 'テクニック':
-        return 'build' as const;
-      case '曲練習':
-        return 'library-music' as const;
-      case 'リズム':
-        return 'timer' as const;
-      case '表現':
-        return 'brush' as const;
-      case 'ペダル':
-        return 'settings' as const;
-      case '音色':
-        return 'graphic-eq' as const;
-      case '強弱':
-        return 'trending-up' as const;
-      default:
-        return 'assignment' as const;
+        return <Ionicons name="musical-notes" size={24} color="#4CAF50" />;
     }
   };
 
-  // タスクのカテゴリを取得
-  const taskCategory = category || (task.tags && task.tags.length > 0 ? task.tags[0] : '');
-  
-  // カテゴリの色を取得
-  const categoryColor = getCategoryColor(taskCategory);
+  // カテゴリに基づいて色を決定
+  const getCategoryColor = () => {
+    if (!task.tags || task.tags.length === 0) return '#4CAF50';
+    
+    const category = task.tags[0].toLowerCase();
+    
+    switch (category) {
+      case 'ロングトーン':
+        return '#3F51B5';
+      case '音階':
+        return '#FF9800';
+      case '曲練習':
+        return '#E91E63';
+      case 'アンサンブル':
+        return '#9C27B0';
+      case 'リズム':
+        return '#FFC107';
+      default:
+        return '#4CAF50';
+    }
+  };
+
+  const categoryColor = getCategoryColor();
 
   return (
-    <Animated.View
-      entering={FadeIn.delay(index * 100).duration(400)}
-      style={styles.container}
+    <Animated.View 
+      style={[
+        styles.container, 
+        task.completed && styles.completedContainer,
+        { transform: [{ scale: scaleAnim }] }
+      ]}
     >
-      <RippleButton
-        style={[
-          styles.card,
-          isCompleted && { backgroundColor: colors.completed, borderColor: colors.completedBorder }
-        ]}
+      <TouchableOpacity 
+        style={styles.card}
         onPress={handlePress}
-        rippleColor={colors.ripple}
+        activeOpacity={0.7}
       >
-        <View 
-          style={[
-            styles.leftSection, 
-            { backgroundColor: isCompleted ? 'transparent' : 'transparent' }
-          ]}
-        >
-          <View 
-            style={[
-              styles.statusIndicator, 
-              { backgroundColor: isCompleted ? colors.success : categoryColor }
-            ]} 
-          />
+        <View style={styles.leftSection}>
+          {getCategoryIcon()}
         </View>
         
-        <View style={styles.contentSection}>
-          <View style={styles.titleRow}>
-            <Text 
-              style={[
-                styles.title, 
-                { color: isCompleted ? colors.textSecondary : colors.text },
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {task.title}
-            </Text>
-            
-            {isCompleted && (
-              <View style={styles.completedBadge}>
-                <MaterialIcons name={"check-circle" as const} size={14} color={colors.success} />
-                <Text style={styles.completedText}>完了済</Text>
-              </View>
-            )}
-          </View>
+        <View style={styles.middleSection}>
+          <Text 
+            style={[
+              styles.title, 
+              task.completed && styles.completedTitle
+            ]}
+            numberOfLines={1}
+          >
+            {task.title}
+          </Text>
           
-          <View style={styles.detailsRow}>
-            <View style={styles.tagContainer}>
-              {taskCategory ? (
-                <View style={[
-                  styles.categoryTag, 
-                  { backgroundColor: categoryColor + '20' }
-                ]}>
-                  <MaterialIcons 
-                    name={getCategoryIcon(taskCategory)} 
-                    size={12} 
-                    color={categoryColor} 
-                  />
-                  <Text 
-                    style={[styles.categoryText, { color: categoryColor }]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {taskCategory}
-                  </Text>
-                </View>
-              ) : null}
-              
-              {task.priority && (
-                <View style={[
-                  styles.priorityTag, 
-                  { backgroundColor: getPriorityColor(task.priority) + '20' }
-                ]}>
-                  <Text style={[
-                    styles.priorityText, 
-                    { color: getPriorityColor(task.priority) }
-                  ]}>
-                    {task.priority}
-                  </Text>
-                </View>
-              )}
-            </View>
-            
-            <Text 
-              style={[styles.date, { color: colors.textTertiary }]}
-              numberOfLines={1}
-            >
-              {isCompleted ? '完了日: ' : '期限: '}
-              {task.dueDate ? (
-                typeof task.dueDate === 'string' 
+          <Text 
+            style={[
+              styles.description, 
+              task.completed && styles.completedDescription
+            ]}
+            numberOfLines={2}
+          >
+            {task.description}
+          </Text>
+          
+          {task.dueDate && (
+            <View style={styles.dueDateContainer}>
+              <Ionicons name="calendar-outline" size={14} color={task.completed ? '#aaa' : '#666'} />
+              <Text style={[styles.dueDate, task.completed && styles.completedDueDate]}>
+                {typeof task.dueDate === 'string' 
                   ? task.dueDate 
-                  : formatDate(task.dueDate)
-              ) : '期限なし'}
-            </Text>
-          </View>
-          
-          {isCompleted && completionCount > 0 && (
-            <View style={styles.completionCountRow}>
-              <Text 
-                style={styles.completionCountText}
-                numberOfLines={1}
-              >
-                累積達成: {completionCount}回
+                  : typeof task.dueDate === 'object' && 'seconds' in task.dueDate
+                    ? new Date(task.dueDate.seconds * 1000).toLocaleDateString('ja-JP')
+                    : task.dueDate instanceof Date
+                      ? task.dueDate.toLocaleDateString('ja-JP')
+                      : '期限なし'
+                }
               </Text>
-              {taskCategory && (
-                <Text 
-                  style={[styles.categoryCountText, { color: categoryColor }]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  カテゴリ: {taskCategory}
-                </Text>
-              )}
             </View>
           )}
         </View>
         
         <View style={styles.rightSection}>
-          <MaterialIcons 
-            name={"chevron-right" as const} 
-            size={20} 
-            color={colors.textTertiary} 
-          />
+          {completionCount > 0 && (
+            <View style={[styles.countBadge, { backgroundColor: `${categoryColor}20` }]}>
+              <Text style={[styles.countText, { color: categoryColor }]}>
+                {completionCount}回
+              </Text>
+            </View>
+          )}
+          
+          <TouchableOpacity 
+            style={[
+              styles.checkButton,
+              task.completed && { backgroundColor: categoryColor }
+            ]}
+            onPress={handleToggleComplete}
+          >
+            <Ionicons 
+              name={task.completed ? "checkmark" : "checkmark-outline"} 
+              size={20} 
+              color={task.completed ? "white" : "#888"}
+            />
+          </TouchableOpacity>
         </View>
-      </RippleButton>
+        
+        {showCompletionAnimation && (
+          <Animated.View 
+            style={[
+              styles.completionAnimation,
+              { opacity: opacityAnim }
+            ]}
+          >
+            <View style={[styles.completionBadge, { backgroundColor: categoryColor }]}>
+              <Ionicons name="checkmark" size={16} color="white" />
+              <Text style={styles.completionText}>完了！</Text>
+            </View>
+          </Animated.View>
+        )}
+      </TouchableOpacity>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 12,
-    marginVertical: 6,
-    borderRadius: 10,
-    shadowColor: 'rgba(0, 0, 0, 0.08)',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.6,
-    shadowRadius: 3,
+    marginBottom: 12,
+    borderRadius: 12,
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 2,
-    overflow: 'hidden',
-    height: 90, // 固定の高さを設定
+  },
+  completedContainer: {
+    opacity: 0.8,
+    backgroundColor: '#f9f9f9',
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    width: '100%',
     flexDirection: 'row',
-    borderRadius: 10,
-    alignItems: 'center',
-    height: 90, // 固定の高さを設定
-    borderWidth: 1,
-    borderColor: 'transparent',
+    padding: 16,
+    borderRadius: 12,
   },
   leftSection: {
-    width: 8,
-    height: '100%',
+    marginRight: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 4,
+    width: 40,
   },
-  statusIndicator: {
-    width: 3,
-    height: '80%',
-    borderRadius: 1.5,
-  },
-  contentSection: {
+  middleSection: {
     flex: 1,
-    padding: 12,
-    paddingLeft: 10,
-    justifyContent: 'center', // 中央揃えに変更
-    height: '100%', // 高さを100%に設定
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: '600',
-    flex: 1,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  completedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  completedText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#34A853',
-    marginLeft: 2,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  detailsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tagContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    maxWidth: '60%', // 最大幅を制限
-  },
-  categoryTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginRight: 6,
-  },
-  categoryText: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginLeft: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  priorityTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  priorityText: {
-    fontSize: 11,
-    fontWeight: '500',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  date: {
-    fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    justifyContent: 'center',
   },
   rightSection: {
-    justifyContent: 'center',
-    paddingRight: 12,
-  },
-  completionCountRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingLeft: 8,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+    color: '#333',
+  },
+  completedTitle: {
+    color: '#888',
+    textDecorationLine: 'line-through',
+  },
+  description: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  completedDescription: {
+    color: '#aaa',
+  },
+  dueDateContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
-    paddingTop: 6,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E0E0E0',
   },
-  completionCountText: {
-    fontSize: 11,
-    color: '#5F6368',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  dueDate: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
   },
-  categoryCountText: {
-    fontSize: 11,
-    fontWeight: '500',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  completedDueDate: {
+    color: '#aaa',
+  },
+  checkButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    marginTop: 8,
+  },
+  countBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  countText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  completionAnimation: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 12,
+  },
+  completionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  completionText: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 4,
   },
 });
 

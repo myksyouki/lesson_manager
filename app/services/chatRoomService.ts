@@ -180,3 +180,27 @@ export const updateChatRoom = async (
     throw new Error('チャットルームの更新に失敗しました。後でもう一度お試しください。');
   }
 };
+
+/**
+ * 指定されたIDのチャットルームを取得する
+ * @param id チャットルームID
+ * @returns チャットルーム情報
+ */
+export const getChatRoomById = async (id: string) => {
+  try {
+    const chatRoomRef = doc(db, 'chatRooms', id);
+    const chatRoomSnap = await getDoc(chatRoomRef);
+    
+    if (chatRoomSnap.exists()) {
+      return {
+        id: chatRoomSnap.id,
+        ...chatRoomSnap.data()
+      } as ChatRoom;
+    }
+    
+    throw new Error('Chat room not found');
+  } catch (error) {
+    console.error('Error getting chat room:', error);
+    throw error;
+  }
+};
