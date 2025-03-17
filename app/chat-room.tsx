@@ -161,11 +161,14 @@ export default function ChatRoomScreen() {
       
       Alert.alert(
         '成功',
-        `${createdTasks.length}個の練習メニューをタスクとして保存しました。タスク画面で確認できます。`,
+        `${createdTasks.length}個の練習メニューをタスクとして保存しました。`,
         [
           {
-            text: 'OK',
-            onPress: () => console.log('練習メニュー保存完了'),
+            text: 'タスク画面へ',
+            onPress: () => {
+              // タスクタブに遷移
+              router.push('/(tabs)/task');
+            },
           },
         ]
       );
@@ -180,17 +183,20 @@ export default function ChatRoomScreen() {
   const handleEditPracticeMenu = () => {
     if (!rawPracticeMenu || !chatRoom) return;
     
-    // 編集画面に遷移
-    router.push({
-      pathname: '/task-form',
-      params: { 
-        practiceMenu: rawPracticeMenu,
-        chatRoomId: chatRoom.id 
-      }
-    });
-    
     // モーダルを閉じる
     setShowPracticeMenu(false);
+    
+    // 編集画面に遷移
+    setTimeout(() => {
+      router.push({
+        pathname: '/task-form',
+        params: { 
+          practiceMenu: rawPracticeMenu,
+          chatRoomId: chatRoom.id,
+          redirectTo: '/(tabs)/task' // タスク作成後にタスクタブに遷移するためのパラメータ
+        }
+      });
+    }, 300); // 少し遅延させてモーダルが閉じた後に遷移するようにする
   };
 
   return (

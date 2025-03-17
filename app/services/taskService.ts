@@ -74,6 +74,18 @@ export const createTaskFromPracticeMenu = async (
       
       console.log('タスクデータ準備:', { title });
       
+      // カテゴリを抽出（タイトルから推測）
+      let category = '練習メニュー';
+      if (title.includes('ロングトーン')) category = 'ロングトーン';
+      else if (title.includes('スケール')) category = 'スケール';
+      else if (title.includes('テクニック')) category = 'テクニック';
+      else if (title.includes('曲練習')) category = '曲練習';
+      else if (title.includes('リズム')) category = 'リズム';
+      else if (title.includes('表現')) category = '表現';
+      else if (title.includes('ペダル')) category = 'ペダル';
+      else if (title.includes('音色')) category = '音色';
+      else if (title.includes('強弱')) category = '強弱';
+      
       // タスクデータを作成
       const taskData = {
         title,
@@ -81,6 +93,7 @@ export const createTaskFromPracticeMenu = async (
         dueDate: '',
         isCompleted: false,
         userId,
+        tags: [category], // カテゴリをタグとして追加
         attachments: [{
           type: 'text' as const,
           url: `/chatRooms/${chatRoomId}` // チャットルームへの参照
