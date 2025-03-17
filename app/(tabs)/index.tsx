@@ -7,6 +7,7 @@ import {
   Dimensions,
   Text,
   FlatList,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -26,8 +27,9 @@ import TaskPagination from '../features/home/components/TaskPagination';
 import EmptyOrLoading from '../features/home/components/EmptyOrLoading';
 import TaskCategorySummary from '../features/tasks/components/TaskCategorySummary';
 import { FadeIn, SlideIn } from '../components/AnimatedComponents';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -39,7 +41,7 @@ export default function HomeScreen() {
   const translateX = useSharedValue(0);
   const context = useSharedValue({ x: 0 });
   const { getFavorites } = useLessonStore();
-  const { tasks, fetchTasks, generateTasksFromLessons, getMonthlyPracticeCount } = useTaskStore();
+  const { tasks, fetchTasks, generateTasksFromLessons, getMonthlyPracticeCount, getPinnedTasks } = useTaskStore();
   const { user } = useAuthStore();
   const favoriteLesson = getFavorites();
   const theme = useTheme();
@@ -49,6 +51,9 @@ export default function HomeScreen() {
   const [totalCompleted, setTotalCompleted] = useState(0);
   const [totalTasks, setTotalTasks] = useState(0);
   const [monthlyPracticeCount, setMonthlyPracticeCount] = useState(0);
+  
+  // ピン留めされたタスク
+  const pinnedTasks = getPinnedTasks();
   
   // フラットリスト参照
   const flatListRef = useRef<FlatList>(null);
@@ -167,19 +172,15 @@ export default function HomeScreen() {
     }
   };
 
-  // FlatListでのカードスライド
-  const handleCardScroll = (index: number) => {
-    setCurrentIndex(index);
+  const navigateToAllTasks = () => {
+    router.push('/task');
   };
 
-  const renderTaskCard = ({ item, index }: { item: any, index: number }) => {
+  // ピン留めされたタスクカードをレンダリング
+  const renderPinnedTaskCard = ({ item }: { item: any }) => {
     return (
-      <View style={styles.taskCardContainer}>
-        <TaskCard 
-          task={item} 
-          gesture={undefined} 
-          animatedStyle={undefined} 
-        />
+      <View style={styles.pinnedTaskCardContainer}>
+        <TaskCard task={item} />
       </View>
     );
   };
@@ -208,48 +209,53 @@ export default function HomeScreen() {
 
           <FadeIn duration={600}>
             <View style={styles.sectionTitleContainer}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                今日の課題
-              </Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                  ピックアップタスク
+                </Text>
+                <TouchableOpacity onPress={navigateToAllTasks} style={styles.viewAllButton}>
+                  <Text style={[styles.viewAllText, { color: theme.colors.primary }]}>すべて表示</Text>
+                  <MaterialIcons name="arrow-forward" size={16} color={theme.colors.primary} />
+                </TouchableOpacity>
+              </View>
               <View style={[styles.sectionTitleLine, { backgroundColor: theme.colors.primary }]} />
             </View>
           </FadeIn>
 
-          {isLoading || tasks.length === 0 ? (
+          {isLoading ? (
             <SlideIn from={{ x: 0, y: 50 }} duration={500}>
               <EmptyOrLoading 
                 isLoading={isLoading} 
                 onGenerateTasks={handleGenerateTasks} 
               />
             </SlideIn>
+          ) : pinnedTasks.length === 0 ? (
+            <SlideIn from={{ x: 0, y: 50 }} duration={500}>
+              <View style={styles.emptyPinnedContainer}>
+                <MaterialIcons name="bookmark-border" size={32} color={theme.colors.borderLight} />
+                <Text style={[styles.emptyPinnedText, { color: theme.colors.textSecondary }]}>
+                  タスクを最大3つまでピックアップできます
+                </Text>
+                <TouchableOpacity 
+                  style={[styles.goToTaskButton, { backgroundColor: theme.colors.primary }]}
+                  onPress={navigateToAllTasks}
+                >
+                  <Text style={[styles.goToTaskButtonText, { color: theme.colors.textInverse }]}>
+                    タスク一覧へ
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </SlideIn>
           ) : (
             <FadeIn duration={600}>
-              <View style={styles.carouselContainer}>
-                <FlatList
-                  ref={flatListRef}
-                  data={tasks}
-                  renderItem={renderTaskCard}
-                  keyExtractor={(item) => item.id}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  pagingEnabled
-                  snapToInterval={CARD_WIDTH + 16}
-                  snapToAlignment="center"
-                  decelerationRate="fast"
-                  contentContainerStyle={styles.flatListContent}
-                  onMomentumScrollEnd={(event) => {
-                    const index = Math.round(
-                      event.nativeEvent.contentOffset.x / (CARD_WIDTH + 16)
-                    );
-                    handleCardScroll(index);
-                  }}
-                />
-                
-                <TaskPagination 
-                  totalCount={tasks.length} 
-                  currentIndex={currentIndex} 
-                />
-              </View>
+              <FlatList
+                data={pinnedTasks}
+                renderItem={renderPinnedTaskCard}
+                keyExtractor={(item) => item.id}
+                horizontal={false}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.pinnedTasksContainer}
+              />
             </FadeIn>
           )}
         </View>
@@ -276,31 +282,82 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     flex: 1,
   },
-  carouselContainer: {
-    height: 320,
-    width: '100%',
-    marginTop: 0,
-  },
-  flatListContent: {
-    paddingHorizontal: 8,
-  },
-  taskCardContainer: {
-    width: CARD_WIDTH,
-    marginHorizontal: 8,
-  },
   sectionTitleContainer: {
-    width: '90%',
+    width: '100%',
     marginBottom: 8,
-    marginTop: 16,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+    width: '100%',
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 16,
     fontWeight: '700',
-    marginBottom: 8,
+    letterSpacing: 0.3,
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginRight: 2,
   },
   sectionTitleLine: {
-    height: 3,
-    width: 60,
-    borderRadius: 2,
+    height: 2,
+    width: 40,
+    borderRadius: 1,
+    alignSelf: 'flex-start',
+    marginTop: 0,
+    marginBottom: 10,
+  },
+  pinnedTasksContainer: {
+    width: SCREEN_WIDTH,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    alignItems: 'center',
+  },
+  pinnedTaskCardContainer: {
+    marginBottom: 16,
+    width: '100%',
+  },
+  emptyPinnedContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  emptyPinnedText: {
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 20,
+    fontSize: 14,
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  goToTaskButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  goToTaskButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

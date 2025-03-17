@@ -39,6 +39,9 @@ interface TaskStore {
   toggleTaskCompletion: (taskId: string) => void;
   getTaskStreakCount: () => number;
   getMonthlyPracticeCount: () => number;
+  togglePin: (taskId: string) => Promise<boolean>;
+  getPinnedTasks: () => Task[];
+  canPinMoreTasks: () => boolean;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
@@ -426,6 +429,68 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     
     // ユニークな日付の数をカウント（= 今月の練習日数）
     return Object.keys(completionsByDate).length;
+  },
+
+  // 課題のピン留め状態を切り替える
+  togglePin: async (taskId: string) => {
+    try {
+      const { tasks } = get();
+      const task = tasks.find(t => t.id === taskId);
+      
+      if (!task) {
+        console.error('タスクが見つかりません:', taskId);
+        return false;
+      }
+      
+      // すでにピン留めされている場合は解除する
+      if (task.isPinned) {
+        await get().updateTask(taskId, { isPinned: false });
+        return true;
+      }
+      
+      // ピン留めされたタスクの数をチェック
+      const pinnedTasks = get().getPinnedTasks();
+      if (pinnedTasks.length >= 3) {
+        // 上限に達している場合はエラーを返す
+        return false;
+      }
+      
+      // ピン留めする
+      await get().updateTask(taskId, { isPinned: true });
+      return true;
+    } catch (error: any) {
+      console.error('ピン留め状態の切り替えエラー:', error);
+      set({ error: error.message });
+      return false;
+    }
+  },
+  
+  // ピン留めされたタスクを取得
+  getPinnedTasks: () => {
+    const { tasks } = get();
+    return tasks.filter(task => task.isPinned)
+                .sort((a, b) => {
+                  // 更新日時でソート（新しい順）
+                  const getTimestamp = (date: any) => {
+                    if (!date) return 0;
+                    if (date instanceof Date) return date.getTime();
+                    if (typeof date === 'string') return new Date(date).getTime();
+                    if (date && typeof date === 'object' && 'seconds' in date) {
+                      return date.seconds * 1000;
+                    }
+                    return 0;
+                  };
+                  
+                  const dateA = getTimestamp(a.updatedAt);
+                  const dateB = getTimestamp(b.updatedAt);
+                  return dateB - dateA;
+                });
+  },
+  
+  // さらにピン留めできるかチェック
+  canPinMoreTasks: () => {
+    const pinnedTasks = get().getPinnedTasks();
+    return pinnedTasks.length < 3;
   },
 }));
 

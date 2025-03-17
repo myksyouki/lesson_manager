@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform, ScrollView, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform, ScrollView, Animated, Alert } from 'react-native';
 import { router } from 'expo-router';
 import ReAnimated, { useAnimatedStyle, withTiming, Easing as ReEasing } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
@@ -27,7 +27,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   animatedStyle,
 }) => {
   const theme = useTheme();
-  const { updateTask } = useTaskStore();
+  const { updateTask, togglePin, canPinMoreTasks } = useTaskStore();
   
   // カードのシャドウアニメーション
   const shadowAnim = new Animated.Value(0);
@@ -154,6 +154,54 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   
   const { goal, content } = extractGoalAndContent(task?.description || '');
 
+  // ピン留め状態を切り替える
+  const handleTogglePin = async () => {
+    // すでにピン留めされていて、解除する場合
+    if (task.isPinned) {
+      const result = await togglePin(task.id);
+      if (!result) {
+        Alert.alert('エラー', 'ピン留めの解除に失敗しました。');
+      }
+    } else {
+      // ピン留めする場合
+      if (!canPinMoreTasks() && !task.isPinned) {
+        Alert.alert(
+          'ピン留め上限',
+          'ピン留めできるタスクは最大3つまでです。他のタスクのピン留めを解除してから再試行してください。'
+        );
+        return;
+      }
+      
+      const result = await togglePin(task.id);
+      if (!result) {
+        Alert.alert('エラー', 'タスクのピン留めに失敗しました。');
+      }
+    }
+  };
+
+  // カードヘッダー部分の共通コンポーネント
+  const renderCardHeader = () => (
+    <View style={[styles.cardHeader, { borderBottomColor: theme.colors.borderLight }]}>
+      <Text style={[styles.cardTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]} numberOfLines={1} ellipsizeMode="tail">
+        {task?.title || ''}
+      </Text>
+      <TouchableOpacity
+        style={[
+          styles.pinButton,
+          task.isPinned && { backgroundColor: `${theme.colors.primary}15` }
+        ]}
+        onPress={handleTogglePin}
+        activeOpacity={0.7}
+      >
+        <MaterialIcons 
+          name={task.isPinned ? "push-pin" : "bookmark-border"} 
+          size={22} 
+          color={task.isPinned ? theme.colors.primary : theme.colors.textTertiary} 
+        />
+      </TouchableOpacity>
+    </View>
+  );
+
   return gesture ? (
     <GestureDetector gesture={gesture}>
       <ReAnimated.View style={[animatedStyle]}>
@@ -165,11 +213,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             borderColor: theme.colors.borderLight,
           }
         ]}>
-          <View style={[styles.cardHeader, { borderBottomColor: theme.colors.borderLight }]}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]} numberOfLines={1} ellipsizeMode="tail">
-              {task?.title || ''}
-            </Text>
-          </View>
+          {renderCardHeader()}
           
           {goal ? (
             <View style={[styles.goalContainer, { backgroundColor: theme.colors.primaryLight }]}>
@@ -233,11 +277,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         borderColor: theme.colors.borderLight,
       }
     ]}>
-      <View style={[styles.cardHeader, { borderBottomColor: theme.colors.borderLight }]}>
-        <Text style={[styles.cardTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]} numberOfLines={1} ellipsizeMode="tail">
-          {task?.title || ''}
-        </Text>
-      </View>
+      {renderCardHeader()}
       
       {goal ? (
         <View style={[styles.goalContainer, { backgroundColor: theme.colors.primaryLight }]}>
@@ -292,10 +332,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: CARD_WIDTH,
-    height: 260,
+    height: 240,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 14,
+    padding: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -307,13 +347,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
+    flex: 1,
+    marginRight: 4,
   },
   goalContainer: {
     flexDirection: 'row',
@@ -438,6 +480,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
     zIndex: 10,
+  },
+  pinButton: {
+    padding: 8,
+    borderRadius: 20,
+    marginLeft: 8,
   },
 });
 
