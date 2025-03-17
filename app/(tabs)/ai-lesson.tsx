@@ -41,6 +41,9 @@ const colors = {
   error: '#EA4335',
 };
 
+// AIレッスンタブのテーマカラー
+const AI_THEME_COLOR = '#7C4DFF';
+
 export default function AILessonScreen() {
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,34 +150,34 @@ export default function AILessonScreen() {
           <Ionicons 
             name="chatbubbles-outline" 
             size={100} 
-            color={theme.colors.borderLight} 
+            color="#CCCCCC" 
             style={styles.emptyIcon}
           />
-          <View style={[styles.chatBubble, { backgroundColor: theme.colors.primary }]}>
-            <MaterialIcons name="music-note" size={24} color={theme.colors.textInverse} />
+          <View style={styles.chatBubble}>
+            <MaterialIcons name="music-note" size={24} color="#FFFFFF" />
           </View>
         </View>
         
-        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+        <Text style={styles.emptyText}>
           AIレッスンルームがありません
         </Text>
         
-        <Text style={[styles.emptySubtext, { color: theme.colors.textTertiary }]}>
-          AIコーチとチャットして練習メニューを作成しましょう
+        <Text style={styles.emptySubtext}>
+          AIコーチとチャットして{'\n'}練習メニューを作成しましょう
         </Text>
         
         <TouchableOpacity
-          style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
+          style={styles.createButton}
           onPress={handleCreateRoom}
         >
-          <Text style={[styles.createButtonText, { color: theme.colors.textInverse }]}>
+          <Text style={styles.createButtonText}>
             最初のチャットを始める
           </Text>
-          <MaterialIcons name="arrow-forward" size={20} color={theme.colors.textInverse} style={styles.buttonIcon} />
+          <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" style={styles.buttonIcon} />
         </TouchableOpacity>
       </View>
     );
-  }, [theme.colors, handleCreateRoom]);
+  }, [handleCreateRoom]);
 
   console.log('Render state:', { loading, refreshing, chatRoomsLength: chatRooms.length, error });
 
@@ -183,10 +186,10 @@ export default function AILessonScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>AIレッスン</Text>
-          <Text style={styles.subtitle}>
-            AIコーチと会話して練習メニューを作成しましょう
-          </Text>
+          <View style={styles.headerContent}>
+            <MaterialIcons name="smart-toy" size={24} color={AI_THEME_COLOR} />
+            <Text style={styles.headerTitle}>AIレッスン</Text>
+          </View>
         </View>
 
         {error && (
@@ -200,7 +203,7 @@ export default function AILessonScreen() {
 
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4285F4" />
+            <ActivityIndicator size="large" color={AI_THEME_COLOR} />
             <Text style={styles.loadingText}>読み込み中...</Text>
           </View>
         ) : (
@@ -216,8 +219,8 @@ export default function AILessonScreen() {
                   <RefreshControl
                     refreshing={refreshing}
                     onRefresh={handleRefresh}
-                    colors={["#4285F4"]}
-                    tintColor="#4285F4"
+                    colors={[AI_THEME_COLOR]}
+                    tintColor={AI_THEME_COLOR}
                   />
                 }
               />
@@ -243,29 +246,33 @@ export default function AILessonScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f5f5f5',
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f5f5f5',
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 20 : 30,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8EAED',
+    borderBottomColor: '#EEEEEE',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  title: {
-    fontSize: 32,
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 22,
     fontWeight: '700',
-    color: '#202124',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#5F6368',
+    color: '#333333',
+    marginLeft: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   loadingContainer: {
@@ -292,7 +299,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   retryButton: {
-    backgroundColor: '#4285F4',
+    backgroundColor: AI_THEME_COLOR,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 4,
@@ -338,7 +345,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#8AB4F8',
+    backgroundColor: '#9575CD',
     color: '#FFFFFF',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
@@ -373,7 +380,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#4285F4',
+    backgroundColor: '#7C4DFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -382,7 +389,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     marginTop: 16,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: '#5F6368',
     textAlign: 'center',
@@ -390,10 +397,11 @@ const styles = StyleSheet.create({
   },
   emptySubtext: {
     marginTop: 8,
-    fontSize: 16,
+    fontSize: 14,
     color: '#9AA0A6',
     textAlign: 'center',
     marginBottom: 32,
+    lineHeight: 20,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   createButton: {
@@ -403,7 +411,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderRadius: 30,
-    backgroundColor: '#4285F4',
+    backgroundColor: '#7C4DFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -428,7 +436,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#4285F4',
+    backgroundColor: '#7C4DFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,

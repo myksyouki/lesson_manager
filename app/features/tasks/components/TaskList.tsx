@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Task } from '../../../types/task';
 import TaskCard from './TaskCard';
 import { useTaskStore } from '../../../store/tasks';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 interface TaskListProps {
   tasks: Task[];
@@ -69,9 +70,28 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
   if (tasks.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="checkmark-done-circle-outline" size={64} color="#CCCCCC" />
+        <View style={styles.emptyIconContainer}>
+          <Ionicons name="checkmark-done-circle-outline" size={100} color="#CCCCCC" style={styles.emptyIcon} />
+          <View style={styles.iconBubble}>
+            <MaterialIcons name="check" size={24} color="#FFFFFF" />
+          </View>
+        </View>
+        
         <Text style={styles.emptyText}>タスクがありません</Text>
-        <Text style={styles.emptySubText}>新しいタスクを追加してみましょう</Text>
+        
+        <Text style={styles.emptySubText}>
+          新しいタスクを追加して{'\n'}練習を記録しましょう
+        </Text>
+        
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={() => router.push('/task-form')}
+        >
+          <Text style={styles.createButtonText}>
+            最初のタスクを作成
+          </Text>
+          <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" style={styles.buttonIcon} />
+        </TouchableOpacity>
       </View>
     );
   }
@@ -187,19 +207,74 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 32,
+  },
+  emptyIconContainer: {
+    position: 'relative',
+    width: 150,
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyIcon: {
+    opacity: 0.7,
+  },
+  iconBubble: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   emptyText: {
+    marginTop: 16,
     fontSize: 18,
     fontWeight: '600',
-    color: '#757575',
-    marginTop: 16,
+    color: '#5F6368',
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   emptySubText: {
-    fontSize: 14,
-    color: '#9E9E9E',
     marginTop: 8,
+    fontSize: 14,
+    color: '#9AA0A6',
     textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 20,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 30,
+    backgroundColor: '#4CAF50',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  createButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  buttonIcon: {
+    marginLeft: 8,
   },
 });
 

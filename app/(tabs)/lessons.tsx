@@ -23,6 +23,9 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useLessonStore } from '../store/lessons';
 
+// レッスンタブのテーマカラー
+const LESSON_THEME_COLOR = '#4285F4';
+
 export default function LessonsScreen() {
   const [searchText, setSearchText] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -208,72 +211,98 @@ export default function LessonsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#f5f5f5' }]}>
       <ListHeader />
       
-      {/* 検索バーとタグフィルター */}
-      <View style={styles.searchCardContainer}>
-        <View style={styles.searchCard}>
-          <SearchBar
-            searchText={searchText}
-            onSearchChange={handleSearchChange}
-            theme={theme}
-          />
-          <TagFilter
-            availableTags={availableTags}
-            selectedTags={selectedTags}
-            onTagPress={handleTagPress}
-            theme={theme}
-          />
-        </View>
-      </View>
-      
-      {/* セレクションモード切り替えボタン */}
-      <View style={[styles.selectionButtonContainer, { borderBottomColor: theme.colors.borderLight }]}>
-        <TouchableOpacity
-          style={[
-            styles.selectionButton,
-            isSelectionMode && { backgroundColor: theme.colors.primaryLight }
-          ]}
-          onPress={toggleSelectionMode}
-        >
-          <MaterialIcons 
-            name={isSelectionMode ? "close" : "check-box-outline-blank"} 
-            size={24} 
-            color={isSelectionMode ? theme.colors.primary : theme.colors.textSecondary} 
-          />
-          <Text style={[
-            styles.selectionButtonText,
-            { color: isSelectionMode ? theme.colors.primary : theme.colors.textSecondary }
-          ]}>
-            {isSelectionMode ? '選択解除' : '複数選択'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <View style={styles.content}>
+        {/* 検索バーとタグフィルター - レッスンがある場合のみ表示 */}
+        {filteredLessons.length > 0 && (
+          <>
+            <View style={styles.searchCardContainer}>
+              <View style={styles.searchCard}>
+                <View style={styles.searchCardHeader}>
+                  <Text style={styles.searchCardTitle}>レッスン検索</Text>
+                </View>
+                
+                <View style={styles.searchBarContainer}>
+                  <SearchBar
+                    searchText={searchText}
+                    onSearchChange={handleSearchChange}
+                    theme={theme}
+                  />
+                </View>
+                
+                <TagFilter
+                  availableTags={availableTags}
+                  selectedTags={selectedTags}
+                  onTagPress={handleTagPress}
+                  theme={theme}
+                />
+              </View>
+            </View>
+            
+            {/* セレクションモード切り替えボタン - レッスンがある場合のみ表示 */}
+            <View style={[styles.selectionButtonContainer, { borderBottomColor: theme.colors.borderLight }]}>
+              <TouchableOpacity
+                style={[
+                  styles.selectionButton,
+                  isSelectionMode && { backgroundColor: LESSON_THEME_COLOR + '20' }
+                ]}
+                onPress={toggleSelectionMode}
+              >
+                <MaterialIcons 
+                  name={isSelectionMode ? "close" : "check-box-outline-blank"} 
+                  size={24} 
+                  color={isSelectionMode ? LESSON_THEME_COLOR : theme.colors.textSecondary} 
+                />
+                <Text style={[
+                  styles.selectionButtonText,
+                  { color: isSelectionMode ? LESSON_THEME_COLOR : theme.colors.textSecondary }
+                ]}>
+                  {isSelectionMode ? '選択解除' : '複数選択'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-            レッスンを読み込み中...
-          </Text>
-        </View>
-      ) : filteredLessons.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconContainer}>
-            <Ionicons name="musical-notes" size={80} color="#E5E5EA" />
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={LESSON_THEME_COLOR} />
+            <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+              レッスンを読み込み中...
+            </Text>
           </View>
-          <Text style={styles.emptyText}>
-            {searchText || selectedTags.length > 0 
-              ? '検索条件に一致するレッスンがありません' 
-              : 'レッスンがありません'}
-          </Text>
-          <Text style={styles.emptySubtext}>
-            新しいレッスンを追加してみましょう
-          </Text>
-        </View>
-      ) : (
-        <>
+        ) : filteredLessons.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="musical-notes" size={100} color="#CCCCCC" style={styles.emptyIcon} />
+              <View style={[styles.iconBubble, { backgroundColor: LESSON_THEME_COLOR }]}>
+                <MaterialIcons name="music-note" size={24} color="#FFFFFF" />
+              </View>
+            </View>
+            
+            <Text style={styles.emptyText}>
+              {searchText || selectedTags.length > 0 
+                ? '検索結果がありません' 
+                : 'レッスンがありません'}
+            </Text>
+            
+            <Text style={styles.emptySubText}>
+              新しいレッスンを追加して{'\n'}練習を記録しましょう
+            </Text>
+            
+            <TouchableOpacity
+              style={[styles.createButton, { backgroundColor: LESSON_THEME_COLOR }]}
+              onPress={() => router.push('/lesson-form')}
+            >
+              <Text style={styles.createButtonText}>
+                最初のレッスンを記録
+              </Text>
+              <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" style={styles.buttonIcon} />
+            </TouchableOpacity>
+          </View>
+        ) : (
           <ScrollView 
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
@@ -299,33 +328,33 @@ export default function LessonsScreen() {
               ))}
             </StaggeredList>
           </ScrollView>
-          
-          {isSelectionMode && selectedLessons.length > 0 && (
-            <View style={styles.selectionActionsContainer}>
-              <TouchableOpacity 
-                style={[styles.selectionActionButton, { backgroundColor: theme.colors.primary }]}
-                onPress={generateTasksFromSelectedLessons}
-              >
-                <MaterialIcons name="assignment" size={24} color="#FFFFFF" />
-                <Text style={styles.selectionActionText}>タスク生成</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.selectionActionButton, { backgroundColor: theme.colors.secondary }]}
-                onPress={consultAIWithSelectedLessons}
-              >
-                <MaterialIcons name="smart-toy" size={24} color="#FFFFFF" />
-                <Text style={styles.selectionActionText}>AIに相談</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </>
-      )}
+        )}
+        
+        {isSelectionMode && selectedLessons.length > 0 && (
+          <View style={styles.selectionActionsContainer}>
+            <TouchableOpacity 
+              style={[styles.selectionActionButton, { backgroundColor: LESSON_THEME_COLOR }]}
+              onPress={generateTasksFromSelectedLessons}
+            >
+              <MaterialIcons name="assignment" size={24} color="#FFFFFF" />
+              <Text style={styles.selectionActionText}>タスク生成</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.selectionActionButton, { backgroundColor: theme.colors.secondary }]}
+              onPress={consultAIWithSelectedLessons}
+            >
+              <MaterialIcons name="smart-toy" size={24} color="#FFFFFF" />
+              <Text style={styles.selectionActionText}>AIに相談</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
       
       {/* 新規レッスン追加ボタン */}
-      {!isSelectionMode && (
+      {!isSelectionMode && filteredLessons.length > 0 && (
         <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
+          style={[styles.addButton, { backgroundColor: LESSON_THEME_COLOR }]}
           onPress={() => router.push('/lesson-form')}
         >
           <MaterialIcons name="add" size={24} color="#FFFFFF" />
@@ -338,6 +367,8 @@ export default function LessonsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: 'relative',
+    overflow: 'hidden',
   },
   searchCardContainer: {
     paddingHorizontal: 16,
@@ -345,13 +376,27 @@ const styles = StyleSheet.create({
   },
   searchCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 8,
+    borderRadius: 8,
+    padding: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 2,
+    elevation: 1,
+  },
+  searchCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  searchCardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#202124',
+  },
+  searchBarContainer: {
+    marginBottom: 10,
   },
   selectionButtonContainer: {
     flexDirection: 'row',
@@ -376,13 +421,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    paddingTop: 8,
     paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingBottom: 100,
   },
   loadingText: {
     marginTop: 16,
@@ -396,25 +442,71 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#F8F8FA',
+    position: 'relative',
+    width: 150,
+    height: 150,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  emptyIcon: {
+    opacity: 0.7,
+  },
+  iconBubble: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#4285F4',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   emptyText: {
+    marginTop: 16,
     fontSize: 18,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#5F6368',
     textAlign: 'center',
-    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  emptySubtext: {
-    fontSize: 16,
-    color: '#8E8E93',
+  emptySubText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#9AA0A6',
     textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 20,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 30,
+    backgroundColor: '#4285F4',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  createButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  buttonIcon: {
+    marginLeft: 8,
   },
   selectionActionsContainer: {
     position: 'absolute',
@@ -455,5 +547,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  content: {
+    flex: 1,
   },
 });

@@ -27,6 +27,7 @@ interface TaskCategorySummaryProps {
   onCategoryPress?: (category: string) => void;
   onViewAllPress?: () => void;
   hideCategories?: boolean;
+  monthlyPracticeCount?: number;
 }
 
 const TaskCategorySummary: React.FC<TaskCategorySummaryProps> = ({
@@ -36,9 +37,11 @@ const TaskCategorySummary: React.FC<TaskCategorySummaryProps> = ({
   onCategoryPress,
   onViewAllPress,
   hideCategories = false,
+  monthlyPracticeCount: externalMonthlyPracticeCount,
 }) => {
-  const { tasks, getCategoryCompletionCount } = useTaskStore();
+  const { tasks, getCategoryCompletionCount, getMonthlyPracticeCount } = useTaskStore();
   const [streakCount, setStreakCount] = useState(0);
+  const [monthlyPracticeCount, setMonthlyPracticeCount] = useState(0);
 
   useEffect(() => {
     // カテゴリごとのタスク数を集計
@@ -77,8 +80,16 @@ const TaskCategorySummary: React.FC<TaskCategorySummaryProps> = ({
       return bRate - aRate;
     });
     
+    // 今月の練習日数を取得（外部から渡された値があればそれを使う）
+    if (externalMonthlyPracticeCount !== undefined) {
+      setMonthlyPracticeCount(externalMonthlyPracticeCount);
+    } else {
+      const monthlyCount = getMonthlyPracticeCount();
+      setMonthlyPracticeCount(monthlyCount);
+    }
+    
     setStreakCount(3);
-  }, [tasks]);
+  }, [tasks, getMonthlyPracticeCount, externalMonthlyPracticeCount]);
 
   // カテゴリに基づいてアイコンを決定
   const getCategoryIcon = (category: string) => {
@@ -157,9 +168,9 @@ const TaskCategorySummary: React.FC<TaskCategorySummaryProps> = ({
         contentContainerStyle={styles.categoriesScrollContainer}
       >
         <TaskAchievementBadge 
-          type="streak" 
-          count={streakCount} 
-          label={`${streakCount}日連続達成中`}
+          type="monthly" 
+          count={monthlyPracticeCount} 
+          label={`今月${monthlyPracticeCount}日練習`}
         />
         
         <TaskAchievementBadge 
