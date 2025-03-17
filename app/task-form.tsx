@@ -20,7 +20,12 @@ import { useAuth } from './services/auth';
 import { Task } from './types/task';
 
 export default function TaskForm() {
-  const params = useLocalSearchParams<{ practiceMenu?: string, chatRoomId?: string }>();
+  const params = useLocalSearchParams<{ 
+    practiceMenu?: string, 
+    chatRoomId?: string,
+    redirectTo?: string,
+    category?: string
+  }>();
   const { user } = useAuth();
   const { addTask } = useTaskStore();
   const [isLoading, setIsLoading] = useState(false);
@@ -62,6 +67,8 @@ export default function TaskForm() {
     try {
       setIsLoading(true);
 
+      const tags = params.category ? [params.category] : [];
+
       const taskData: Task = {
         id: `task_${Date.now()}`, // 一意のIDを生成
         title: formData.title,
@@ -70,6 +77,7 @@ export default function TaskForm() {
         isCompleted: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        tags: tags,
         attachments: params.chatRoomId ? [
           {
             type: 'text' as const,
@@ -82,6 +90,7 @@ export default function TaskForm() {
       
       setTimeout(() => {
         setIsLoading(false);
+        // 型安全のため、常にタスク画面に遷移する
         router.replace('/(tabs)/task');
       }, 500);
       

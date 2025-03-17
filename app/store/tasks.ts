@@ -24,6 +24,10 @@ interface TaskStore {
   updateTask: (id: string, taskData: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   generateTasksFromLessons: (userId: string, monthsBack: number) => Promise<void>;
+  getCategoryCompletionCounts: () => Record<string, number>;
+  getCategoryCompletionCount: (category: string) => number;
+  getTaskCompletionCount: (taskTitle: string, category?: string) => number;
+  completeTask: (id: string) => Promise<{ taskTitle: string; category: string; completionCount: number }>;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
@@ -220,6 +224,96 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     } catch (error: any) {
       console.error('課題生成エラー:', error);
       set({ error: error.message, isLoading: false });
+    }
+  },
+
+  getCategoryCompletionCounts: () => {
+    const { tasks } = get();
+    const completedTasks = tasks.filter(task => task.isCompleted || task.completed);
+    
+    // カテゴリごとにグループ化
+    const categories: Record<string, number> = {};
+    
+    completedTasks.forEach(task => {
+      if (task.tags && task.tags.length > 0) {
+        task.tags.forEach(tag => {
+          if (!categories[tag]) {
+            categories[tag] = 0;
+          }
+          categories[tag]++;
+        });
+      } else {
+        // タグがない場合は「その他」に分類
+        if (!categories['その他']) {
+          categories['その他'] = 0;
+        }
+        categories['その他']++;
+      }
+    });
+    
+    return categories;
+  },
+
+  getCategoryCompletionCount: (category: string) => {
+    const categories = get().getCategoryCompletionCounts();
+    return categories[category] || 0;
+  },
+
+  getTaskCompletionCount: (taskTitle: string, category?: string) => {
+    const { tasks } = get();
+    const completedTasks = tasks.filter(task => 
+      (task.isCompleted || task.completed) && 
+      task.title === taskTitle &&
+      (!category || (task.tags && task.tags.includes(category)))
+    );
+    
+    return completedTasks.length;
+  },
+
+  completeTask: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      // タスクの情報を取得
+      const task = get().tasks.find(t => t.id === id);
+      if (!task) {
+        throw new Error('タスクが見つかりません');
+      }
+      
+      // Firestoreのタスクを更新
+      const taskRef = doc(db, 'tasks', id);
+      await updateDoc(taskRef, {
+        isCompleted: true,
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      // ローカルのタスクを更新
+      set((state) => ({
+        tasks: state.tasks.map((t) =>
+          t.id === id ? { 
+            ...t, 
+            isCompleted: true, 
+            completedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString() 
+          } : t
+        ),
+        isLoading: false
+      }));
+      
+      // 完了したタスクの情報を返す
+      const category = task.tags && task.tags.length > 0 ? task.tags[0] : '';
+      const completionCount = get().getTaskCompletionCount(task.title, category) + 1;
+      
+      return {
+        taskTitle: task.title,
+        category,
+        completionCount
+      };
+    } catch (error: any) {
+      console.error('タスク完了エラー:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
     }
   }
 }));
