@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,21 +9,23 @@ import {
 import { router } from 'expo-router';
 import { Button } from '../../../../components/ui/Button';
 import { useTheme } from '../../../../theme';
+import { useNavigation } from '@react-navigation/native';
 
 interface FormHeaderProps {
-  onSave?: () => void;
-  isValid?: boolean;
+  onSave: () => void;
   isProcessing?: boolean;
+  isValid?: boolean;
 }
 
 const FormHeader: React.FC<FormHeaderProps> = ({
   onSave,
-  isValid = true,
   isProcessing = false,
+  isValid = true,
 }) => {
+  const navigation = useNavigation();
   const theme = useTheme();
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     Alert.alert(
       'キャンセル',
       '入力内容が破棄されますが、よろしいですか？',
@@ -36,30 +38,41 @@ const FormHeader: React.FC<FormHeaderProps> = ({
         },
       ]
     );
-  };
+  }, []);
 
   return (
-    <View style={styles.header}>
-      <Button
-        title="キャンセル"
-        variant="text"
-        size="medium"
-        onPress={handleCancel}
-        disabled={isProcessing}
-        style={styles.cancelButton}
-      />
+    <View style={[
+      styles.header,
+      { 
+        backgroundColor: theme.colors.background,
+        borderBottomColor: theme.colors.border 
+      }
+    ]}>
+      <View style={styles.buttonContainer}>
+        <Button
+          title="キャンセル"
+          variant="text"
+          size="medium"
+          onPress={handleCancel}
+          accessibilityLabel="キャンセルして戻る"
+          accessibilityHint="フォームの入力をキャンセルして前の画面に戻ります"
+        />
+      </View>
       
       <Text style={styles.title}>レッスン登録</Text>
       
-      <Button
-        title="保存"
-        variant="primary"
-        size="medium"
-        onPress={onSave}
-        disabled={!isValid || isProcessing}
-        loading={isProcessing}
-        style={styles.saveButton}
-      />
+      <View style={styles.buttonContainer}>
+        <Button
+          title="保存"
+          variant="primary"
+          size="medium"
+          onPress={onSave}
+          disabled={!isValid || isProcessing}
+          loading={isProcessing}
+          accessibilityLabel="レッスンを保存"
+          accessibilityHint="入力したレッスン情報を保存します"
+        />
+      </View>
     </View>
   );
 };
@@ -72,9 +85,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'ios' ? 60 : 20,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#DADCE0',
   },
   title: {
     fontSize: 18,
@@ -82,11 +93,9 @@ const styles = StyleSheet.create({
     color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  cancelButton: {
+  buttonContainer: {
     minWidth: 80,
-  },
-  saveButton: {
-    minWidth: 80,
+    alignItems: 'center',
   },
 });
 

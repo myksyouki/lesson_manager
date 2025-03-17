@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -29,49 +29,52 @@ const FormInputs: React.FC<FormInputsProps> = ({
   const [newTag, setNewTag] = useState('');
   const theme = useTheme();
 
+  // 定義済みのタグリスト
+  const predefinedTags = useMemo(() => 
+    ['リズム', 'テクニック', '表現', 'ペダル', '音色', '強弱'],
+    []
+  );
+
   // 曲目を追加する関数
-  const addPiece = () => {
+  const addPiece = useCallback(() => {
     if (newPiece.trim()) {
       onUpdateFormData({
         pieces: [...formData.pieces, newPiece.trim()],
       });
       setNewPiece('');
     }
-  };
+  }, [newPiece, formData.pieces, onUpdateFormData]);
 
   // 曲目を削除する関数
-  const removePiece = (index: number) => {
+  const removePiece = useCallback((index: number) => {
     const updatedPieces = [...formData.pieces];
     updatedPieces.splice(index, 1);
     onUpdateFormData({
       pieces: updatedPieces,
     });
-  };
+  }, [formData.pieces, onUpdateFormData]);
 
   // タグを追加する関数
-  const addTag = () => {
+  const addTag = useCallback(() => {
     if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
       onUpdateFormData({
         tags: [...formData.tags, newTag.trim()],
       });
       setNewTag('');
     }
-  };
+  }, [newTag, formData.tags, onUpdateFormData]);
 
   // タグを削除する関数
-  const removeTag = (index: number) => {
+  const removeTag = useCallback((index: number) => {
     const updatedTags = [...formData.tags];
     updatedTags.splice(index, 1);
     onUpdateFormData({
       tags: updatedTags,
     });
-  };
-
-  // 定義済みのタグリスト
-  const predefinedTags = ['リズム', 'テクニック', '表現', 'ペダル', '音色', '強弱'];
+  }, [formData.tags, onUpdateFormData]);
 
   // 定義済みタグを選択する関数
-  const togglePredefinedTag = (tag: string) => {
+  const togglePredefinedTag = useCallback((tag: string) => {
     if (formData.tags.includes(tag)) {
       onUpdateFormData({
         tags: formData.tags.filter(t => t !== tag),
@@ -81,48 +84,91 @@ const FormInputs: React.FC<FormInputsProps> = ({
         tags: [...formData.tags, tag],
       });
     }
-  };
+  }, [formData.tags, onUpdateFormData]);
+
+  // テキスト変更ハンドラー
+  const handleTeacherNameChange = useCallback((text: string) => {
+    onUpdateFormData({ teacherName: text });
+  }, [onUpdateFormData]);
+
+  const handleNotesChange = useCallback((text: string) => {
+    onUpdateFormData({ notes: text });
+  }, [onUpdateFormData]);
+
+  // 追加ボタンを無効にするかどうかの計算
+  const isAddTagDisabled = useMemo(() => 
+    !newTag.trim() || formData.tags.includes(newTag.trim()),
+    [newTag, formData.tags]
+  );
 
   return (
     <View style={styles.container}>
       <TextField
         label="講師名"
         value={formData.teacherName}
-        onChangeText={(text) => onUpdateFormData({ teacherName: text })}
+        onChangeText={handleTeacherNameChange}
         placeholder="講師の名前を入力"
       />
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>レッスン日</Text>
+        <Text style={[styles.label, { color: theme.colors.text }]}>レッスン日</Text>
         <TouchableOpacity
-          style={styles.dateInput}
+          style={[styles.dateInput, { 
+            borderColor: theme.colors.border,
+            backgroundColor: theme.colors.backgroundSecondary,
+            borderRadius: theme.borderRadius.md
+          }]}
           onPress={onShowCalendar}
+          accessibilityLabel="レッスン日を選択"
+          accessibilityHint="カレンダーから日付を選択するために押します"
         >
-          <Text style={styles.dateText}>{formData.date}</Text>
-          <MaterialIcons name="calendar-today" size={20} color={theme.colors.primary} />
+          <Text style={[styles.dateText, { color: theme.colors.text }]}>
+            {formData.date}
+          </Text>
+          <MaterialIcons 
+            name="calendar-today" 
+            size={20} 
+            color={theme.colors.primary} 
+          />
         </TouchableOpacity>
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>曲目</Text>
+        <Text style={[styles.label, { color: theme.colors.text }]}>曲目</Text>
         <Card style={styles.listCard}>
           <CardBody>
             {formData.pieces.length > 0 ? (
               <View style={styles.piecesContainer}>
                 {formData.pieces.map((piece, index) => (
-                  <View key={index} style={styles.pieceItem}>
-                    <Text style={styles.pieceText}>{piece}</Text>
+                  <View key={index} style={[styles.pieceItem, { 
+                    borderBottomColor: theme.colors.borderLight 
+                  }]}>
+                    <Text style={[styles.pieceText, { 
+                      color: theme.colors.text 
+                    }]}>
+                      {piece}
+                    </Text>
                     <TouchableOpacity
                       style={styles.removeButton}
                       onPress={() => removePiece(index)}
+                      accessibilityLabel={`${piece}を削除`}
+                      accessibilityHint="タップすると曲目を削除します"
                     >
-                      <MaterialIcons name="close" size={16} color={theme.colors.textSecondary} />
+                      <MaterialIcons 
+                        name="close" 
+                        size={16} 
+                        color={theme.colors.textSecondary} 
+                      />
                     </TouchableOpacity>
                   </View>
                 ))}
               </View>
             ) : (
-              <Text style={styles.emptyText}>曲目が登録されていません</Text>
+              <Text style={[styles.emptyText, { 
+                color: theme.colors.textTertiary 
+              }]}>
+                曲目が登録されていません
+              </Text>
             )}
           </CardBody>
         </Card>
@@ -147,10 +193,10 @@ const FormInputs: React.FC<FormInputsProps> = ({
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>メモ</Text>
+        <Text style={[styles.label, { color: theme.colors.text }]}>メモ</Text>
         <TextField
           value={formData.notes}
-          onChangeText={(text) => onUpdateFormData({ notes: text })}
+          onChangeText={handleNotesChange}
           placeholder="レッスンの内容や気づきをメモしましょう"
           multiline
           numberOfLines={4}
@@ -160,7 +206,7 @@ const FormInputs: React.FC<FormInputsProps> = ({
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>タグ</Text>
+        <Text style={[styles.label, { color: theme.colors.text }]}>タグ</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -172,14 +218,26 @@ const FormInputs: React.FC<FormInputsProps> = ({
               key={tag}
               style={[
                 styles.predefinedTag,
-                formData.tags.includes(tag) && styles.selectedPredefinedTag,
+                { backgroundColor: theme.colors.backgroundTertiary },
+                formData.tags.includes(tag) && [
+                  styles.selectedPredefinedTag,
+                  { backgroundColor: theme.colors.primaryLight }
+                ],
               ]}
               onPress={() => togglePredefinedTag(tag)}
+              accessibilityLabel={formData.tags.includes(tag) ? `${tag}（選択済み）` : tag}
+              accessibilityHint={formData.tags.includes(tag) ? 
+                "タップするとタグ選択を解除します" : 
+                "タップするとタグを選択します"}
             >
               <Text
                 style={[
                   styles.predefinedTagText,
-                  formData.tags.includes(tag) && styles.selectedPredefinedTagText,
+                  { color: theme.colors.textSecondary },
+                  formData.tags.includes(tag) && [
+                    styles.selectedPredefinedTagText,
+                    { color: theme.colors.primary }
+                  ],
                 ]}
               >
                 {tag}
@@ -193,19 +251,35 @@ const FormInputs: React.FC<FormInputsProps> = ({
             {formData.tags.length > 0 ? (
               <View style={styles.tagsContainer}>
                 {formData.tags.map((tag, index) => (
-                  <View key={index} style={styles.tagItem}>
-                    <Text style={styles.tagText}>{tag}</Text>
+                  <View key={index} style={[styles.tagItem, { 
+                    backgroundColor: theme.colors.primaryLight 
+                  }]}>
+                    <Text style={[styles.tagText, { 
+                      color: theme.colors.primary 
+                    }]}>
+                      {tag}
+                    </Text>
                     <TouchableOpacity
                       style={styles.removeButton}
                       onPress={() => removeTag(index)}
+                      accessibilityLabel={`${tag}を削除`}
+                      accessibilityHint="タップするとタグを削除します"
                     >
-                      <MaterialIcons name="close" size={16} color={theme.colors.textSecondary} />
+                      <MaterialIcons 
+                        name="close" 
+                        size={16} 
+                        color={theme.colors.textSecondary} 
+                      />
                     </TouchableOpacity>
                   </View>
                 ))}
               </View>
             ) : (
-              <Text style={styles.emptyText}>タグが登録されていません</Text>
+              <Text style={[styles.emptyText, { 
+                color: theme.colors.textTertiary 
+              }]}>
+                タグが登録されていません
+              </Text>
             )}
           </CardBody>
         </Card>
@@ -220,10 +294,12 @@ const FormInputs: React.FC<FormInputsProps> = ({
               <MaterialIcons
                 name="add"
                 size={20}
-                color={newTag.trim() && !formData.tags.includes(newTag.trim()) ? theme.colors.primary : theme.colors.textTertiary}
+                color={!isAddTagDisabled 
+                  ? theme.colors.primary 
+                  : theme.colors.textTertiary}
               />
             }
-            onRightIconPress={newTag.trim() && !formData.tags.includes(newTag.trim()) ? addTag : undefined}
+            onRightIconPress={!isAddTagDisabled ? addTag : undefined}
             containerStyle={styles.addItemField}
           />
         </View>
@@ -243,7 +319,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   dateInput: {
@@ -251,15 +326,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#F8F9FA',
   },
   dateText: {
     fontSize: 16,
-    color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   listCard: {
@@ -276,12 +347,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#DADCE0',
   },
   pieceText: {
     flex: 1,
     fontSize: 16,
-    color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   removeButton: {
@@ -306,22 +375,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   predefinedTag: {
-    backgroundColor: '#F1F3F4',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginRight: 8,
   },
-  selectedPredefinedTag: {
-    backgroundColor: '#E8F0FE',
-  },
+  selectedPredefinedTag: {},
   predefinedTagText: {
     fontSize: 14,
-    color: '#5F6368',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   selectedPredefinedTagText: {
-    color: '#4285F4',
     fontWeight: '500',
   },
   tagsContainer: {
@@ -331,7 +395,6 @@ const styles = StyleSheet.create({
   tagItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F0FE',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -340,13 +403,11 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 14,
-    color: '#4285F4',
     marginRight: 4,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   emptyText: {
     fontSize: 14,
-    color: '#9AA0A6',
     fontStyle: 'italic',
     textAlign: 'center',
     padding: 16,
