@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import LoadingOverlay from './components/LoadingOverlay';
 import FormHeader from './features/lessons/components/form/FormHeader';
@@ -21,18 +22,18 @@ const DAY_SIZE = Math.floor(CALENDAR_WIDTH / 7);
 export default function LessonForm() {
   // カスタムフックを使用
   const {
-    formData,
+    formData, 
     isProcessing,
     processingStep,
     uploadProgress,
     processingStatus,
-    updateFormData,
+    updateFormData, 
     handleSave,
     isFormValid,
   } = useLessonForm();
   
   const {
-    selectedFile,
+    selectedFile, 
     selectFile,
     clearFile,
   } = useFileUpload();
@@ -51,23 +52,33 @@ export default function LessonForm() {
   });
 
   // 保存ハンドラー
-  const onSave = async () => {
+  const onSave = useCallback(async () => {
     await handleSave(selectedFile);
-  };
+  }, [handleSave, selectedFile]);
+
+  // カレンダー表示トグル
+  const toggleCalendar = useCallback(() => {
+    setShowCalendar(!showCalendar);
+  }, [setShowCalendar, showCalendar]);
+
+  // 日付選択ハンドラー（コールバック最適化）
+  const onDateSelect = useCallback((date: Date) => {
+    handleDateSelect(date);
+  }, [handleDateSelect]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <FormHeader 
+      <FormHeader
         onSave={onSave}
         isValid={isFormValid()}
         isProcessing={isProcessing}
       />
       
       <ScrollView style={styles.scrollView}>
-        <FormInputs 
+        <FormInputs
           formData={formData}
           onUpdateFormData={updateFormData}
-          onShowCalendar={() => setShowCalendar(true)}
+          onShowCalendar={toggleCalendar}
         />
         
         <AudioUploader
@@ -79,8 +90,8 @@ export default function LessonForm() {
       
       {showCalendar && (
         <CalendarModal
-          onClose={() => setShowCalendar(false)}
-          onSelectDate={handleDateSelect}
+          onClose={toggleCalendar}
+          onSelectDate={onDateSelect}
           selectedDate={selectedDate}
           currentMonth={currentMonth}
           onChangeMonth={changeMonth}
