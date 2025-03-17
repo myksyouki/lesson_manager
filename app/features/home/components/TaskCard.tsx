@@ -167,14 +167,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         ]}>
           <View style={[styles.cardHeader, { borderBottomColor: theme.colors.borderLight }]}>
             <Text style={[styles.cardTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]} numberOfLines={1} ellipsizeMode="tail">
-              今日の課題: {task?.title || ''}
+              {task?.title || ''}
             </Text>
           </View>
           
           {goal ? (
             <View style={[styles.goalContainer, { backgroundColor: theme.colors.primaryLight }]}>
               <Text style={[styles.goalLabel, { color: theme.colors.primary }]}>目標</Text>
-              <Text style={[styles.goalText, { color: theme.colors.text }]}>{goal}</Text>
+              <Text style={[styles.goalText, { color: theme.colors.text }]} numberOfLines={1} ellipsizeMode="tail">{goal}</Text>
             </View>
           ) : null}
           
@@ -217,17 +217,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               />
             </View>
           </View>
-          
-          {/* スワイプヒントのインジケーター */}
-          <View style={styles.swipeIndicatorContainer}>
-            <View style={styles.swipeIndicatorWrapper}>
-              <MaterialIcons name="swipe" size={20} color={theme.colors.textTertiary} />
-              <Text style={[styles.swipeIndicatorText, { color: theme.colors.textTertiary }]}>
-                スワイプして次のタスクを表示
-              </Text>
-            </View>
-          </View>
         </Animated.View>
+        {/* 右側のスライド示唆アイコン */}
+        <View style={styles.slideIndicator}>
+          <MaterialIcons name="chevron-right" size={24} color={theme.colors.textTertiary} />
+        </View>
       </ReAnimated.View>
     </GestureDetector>
   ) : (
@@ -241,14 +235,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     ]}>
       <View style={[styles.cardHeader, { borderBottomColor: theme.colors.borderLight }]}>
         <Text style={[styles.cardTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]} numberOfLines={1} ellipsizeMode="tail">
-          今日の課題: {task?.title || ''}
+          {task?.title || ''}
         </Text>
       </View>
       
       {goal ? (
         <View style={[styles.goalContainer, { backgroundColor: theme.colors.primaryLight }]}>
           <Text style={[styles.goalLabel, { color: theme.colors.primary }]}>目標</Text>
-          <Text style={[styles.goalText, { color: theme.colors.text }]}>{goal}</Text>
+          <Text style={[styles.goalText, { color: theme.colors.text }]} numberOfLines={1} ellipsizeMode="tail">{goal}</Text>
         </View>
       ) : null}
       
@@ -291,16 +285,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           />
         </View>
       </View>
-      
-      {/* スワイプヒントのインジケーター */}
-      <View style={styles.swipeIndicatorContainer}>
-        <View style={styles.swipeIndicatorWrapper}>
-          <MaterialIcons name="swipe" size={20} color={theme.colors.textTertiary} />
-          <Text style={[styles.swipeIndicatorText, { color: theme.colors.textTertiary }]}>
-            スワイプして次のタスクを表示
-          </Text>
-        </View>
-      </View>
     </Animated.View>
   );
 };
@@ -308,7 +292,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: CARD_WIDTH,
-    height: 250,
+    height: 260,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
@@ -320,32 +304,36 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cardHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
   },
   goalContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   goalLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 4,
+    marginRight: 8,
   },
   goalText: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 13,
+    flex: 1,
   },
   contentLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -363,27 +351,27 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   paragraph: {
-    fontSize: 15,
-    marginBottom: 8,
-    lineHeight: 22,
+    fontSize: 13,
+    marginBottom: 6,
+    lineHeight: 18,
   },
   listItemContainer: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 6,
     paddingLeft: 2,
   },
   bulletPoint: {
-    fontSize: 15,
+    fontSize: 13,
     width: 14,
   },
   numberPoint: {
-    fontSize: 15,
+    fontSize: 13,
     width: 22,
   },
   listItemText: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 18,
   },
   divider: {
     height: 1,
@@ -394,7 +382,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 4,
     paddingTop: 8,
   },
   dateContainer: {
@@ -414,24 +402,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  swipeIndicatorContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: 4,
-    alignItems: 'center',
-  },
-  swipeIndicatorWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  swipeIndicatorText: {
-    fontSize: 12,
-    marginLeft: 4,
-  },
   aiAdviceContainer: {
     marginTop: 16,
     padding: 12,
@@ -450,6 +420,24 @@ const styles = StyleSheet.create({
   aiAdviceText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  slideIndicator: {
+    position: 'absolute',
+    right: -12,
+    top: '50%',
+    transform: [{ translateY: -12 }],
+    backgroundColor: '#FFFFFF',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+    zIndex: 10,
   },
 });
 
