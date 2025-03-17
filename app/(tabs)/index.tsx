@@ -39,7 +39,7 @@ export default function HomeScreen() {
   const translateX = useSharedValue(0);
   const context = useSharedValue({ x: 0 });
   const { getFavorites } = useLessonStore();
-  const { tasks, fetchTasks, generateTasksFromLessons } = useTaskStore();
+  const { tasks, fetchTasks, generateTasksFromLessons, getMonthlyPracticeCount } = useTaskStore();
   const { user } = useAuthStore();
   const favoriteLesson = getFavorites();
   const theme = useTheme();
@@ -48,6 +48,7 @@ export default function HomeScreen() {
   const [categories, setCategories] = useState<any[]>([]);
   const [totalCompleted, setTotalCompleted] = useState(0);
   const [totalTasks, setTotalTasks] = useState(0);
+  const [monthlyPracticeCount, setMonthlyPracticeCount] = useState(0);
   
   // フラットリスト参照
   const flatListRef = useRef<FlatList>(null);
@@ -94,7 +95,11 @@ export default function HomeScreen() {
     
     const categoryList = Object.values(categoryMap);
     setCategories(categoryList);
-  }, [tasks]);
+    
+    // 今月の練習日数を取得
+    const monthlyCount = getMonthlyPracticeCount();
+    setMonthlyPracticeCount(monthlyCount);
+  }, [tasks, getMonthlyPracticeCount]);
 
   // カテゴリに基づいてアイコンを決定
   const getCategoryIcon = (category: string) => {
@@ -197,6 +202,7 @@ export default function HomeScreen() {
               totalCompleted={totalCompleted}
               totalTasks={totalTasks}
               hideCategories={true}
+              monthlyPracticeCount={monthlyPracticeCount}
             />
           </FadeIn>
 

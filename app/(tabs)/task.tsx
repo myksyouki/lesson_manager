@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTaskStore } from '../store/tasks';
 import TaskHeader from '../features/tasks/components/list/TaskHeader';
@@ -10,6 +10,9 @@ import TaskCompletionAnimation from '../features/tasks/components/TaskCompletion
 import { useFocusEffect } from '@react-navigation/native';
 import { auth } from '../config/firebase';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+
+// タスクタブのテーマカラー
+const TASK_THEME_COLOR = '#4CAF50';
 
 // カテゴリサマリーの型定義
 interface CategorySummary {
@@ -202,24 +205,30 @@ export default function TaskScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>タスク一覧</Text>
+        <View style={styles.headerContent}>
+          <MaterialCommunityIcons name="checkbox-marked-outline" size={24} color={TASK_THEME_COLOR} />
+          <Text style={styles.headerTitle}>タスク一覧</Text>
+        </View>
       </View>
       
       <View style={styles.content}>
-        <TaskCategorySummaryMini 
-          categories={categories}
-          totalCompleted={totalCompleted}
-          totalTasks={totalTasks}
-        />
+        {tasks.length > 0 && (
+          <TaskCategorySummaryMini 
+            categories={categories}
+            totalCompleted={totalCompleted}
+            totalTasks={totalTasks}
+          />
+        )}
         
         <TaskList 
           tasks={filteredTasks}
           isLoading={refreshing}
           error={null}
+          themeColor={TASK_THEME_COLOR}
         />
       </View>
 
-      <TaskActionButton />
+      {tasks.length > 0 && <TaskActionButton themeColor={TASK_THEME_COLOR} />}
       
       <TaskCompletionAnimation
         visible={completionPopup.visible}
@@ -228,6 +237,7 @@ export default function TaskScreen() {
         category={completionPopup.category}
         completionCount={completionPopup.completionCount}
         streakCount={completionPopup.streakCount}
+        themeColor={TASK_THEME_COLOR}
       />
     </SafeAreaView>
   );
@@ -242,15 +252,26 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#333333',
+    marginLeft: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   content: {
     flex: 1,

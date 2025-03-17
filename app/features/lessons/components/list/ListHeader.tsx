@@ -1,31 +1,43 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { useTheme } from '../../../../theme/index';
+import { MaterialIcons } from '@expo/vector-icons';
 
-export const ListHeader: React.FC = () => {
-  const theme = useTheme();
+// レッスンタブのテーマカラー
+const LESSON_THEME_COLOR = '#4285F4';
 
+const ListHeader = () => {
   return (
     <View style={styles.headerContainer}>
-      <Text style={styles.headerTitle}>レッスン</Text>
+      <View style={styles.headerContent}>
+        <MaterialIcons name="music-note" size={24} color={LESSON_THEME_COLOR} />
+        <Text style={styles.headerTitle}>レッスン</Text>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   headerContainer: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: '#EEEEEE',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: '#333333',
+    marginLeft: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 });

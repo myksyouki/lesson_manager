@@ -38,6 +38,7 @@ interface TaskStore {
   completeTask: (id: string) => Promise<{ taskTitle: string; category: string; completionCount: number }>;
   toggleTaskCompletion: (taskId: string) => void;
   getTaskStreakCount: () => number;
+  getMonthlyPracticeCount: () => number;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
@@ -397,6 +398,34 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
     
     return streakCount;
+  },
+
+  // 今月の練習日数を取得
+  getMonthlyPracticeCount: () => {
+    const state = get();
+    if (state.taskCompletionHistory.length === 0) {
+      return 0;
+    }
+    
+    // 現在の月の最初と最後の日を取得
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    // 日付ごとにグループ化
+    const completionsByDate: Record<string, boolean> = {};
+    state.taskCompletionHistory.forEach(history => {
+      const completionDate = new Date(history.completedAt);
+      
+      // 今月のデータのみをフィルタリング
+      if (completionDate >= firstDayOfMonth && completionDate <= lastDayOfMonth) {
+        const dateString = completionDate.toISOString().split('T')[0];
+        completionsByDate[dateString] = true;
+      }
+    });
+    
+    // ユニークな日付の数をカウント（= 今月の練習日数）
+    return Object.keys(completionsByDate).length;
   },
 }));
 

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 
 interface TaskAchievementBadgeProps {
-  type: 'streak' | 'completion' | 'level' | 'category';
+  type: 'streak' | 'completion' | 'level' | 'category' | 'monthly';
   count: number;
   label: string;
   color?: string;
@@ -26,6 +26,8 @@ const TaskAchievementBadge: React.FC<TaskAchievementBadgeProps> = ({
         return <MaterialCommunityIcons name="trophy" size={24} color="#FFC107" />;
       case 'category':
         return <FontAwesome5 name="award" size={24} color={color || '#3F51B5'} />;
+      case 'monthly':
+        return <Ionicons name="calendar" size={24} color="#5C6BC0" />;
       default:
         return <Ionicons name="star" size={24} color="#3F51B5" />;
     }
@@ -42,6 +44,8 @@ const TaskAchievementBadge: React.FC<TaskAchievementBadgeProps> = ({
         return '#FFFDE7';
       case 'category':
         return color ? `${color}15` : '#E8EAF6';
+      case 'monthly':
+        return '#E8EAF6';
       default:
         return '#E8EAF6';
     }
@@ -58,6 +62,8 @@ const TaskAchievementBadge: React.FC<TaskAchievementBadgeProps> = ({
         return '#FFC107';
       case 'category':
         return color || '#3F51B5';
+      case 'monthly':
+        return '#5C6BC0';
       default:
         return '#3F51B5';
     }
