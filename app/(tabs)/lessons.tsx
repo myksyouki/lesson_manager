@@ -16,7 +16,7 @@ import LessonCard from '../features/lessons/components/list/LessonCard';
 import { Lesson } from '../store/lessons';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useTheme } from '../theme/index';
-import { StaggeredList } from '../components/AnimatedComponents';
+import { StaggeredList, AnimatedButton } from '../components/AnimatedComponents';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useLessonStore } from '../store/lessons';
@@ -251,44 +251,71 @@ export default function LessonsScreen() {
                     date={formatDate(lesson.date)}
                     pieces={lesson.pieces || []}
                     tags={lesson.tags || []}
-                    isFavorite={lesson.isFavorite}
                     isSelectionMode={isSelectionMode}
                     isSelected={selectedLessons.includes(lesson.id)}
-                    onSelect={toggleLessonSelection}
+                    onSelect={() => toggleLessonSelection(lesson.id)}
                   />
                 </Animated.View>
               ))}
             </StaggeredList>
           </ScrollView>
           
-          {/* 選択モード時のアクションボタン */}
-          {isSelectionMode && selectedLessons.length > 0 && (
-            <View style={[styles.actionBar, { backgroundColor: theme.colors.cardElevated }]}>
-              <Text style={[styles.selectedCount, { color: theme.colors.text }]}>
-                {selectedLessons.length}件選択中
-              </Text>
+          {isSelectionMode && (
+            <View style={styles.selectionActionsContainer}>
+              <TouchableOpacity 
+                style={[styles.selectionActionButton, { backgroundColor: theme.colors.primary }]}
+                onPress={generateTasksFromSelectedLessons}
+                disabled={selectedLessons.length === 0}
+              >
+                <MaterialIcons name="assignment" size={24} color="#FFFFFF" />
+                <Text style={styles.selectionActionText}>タスク生成</Text>
+              </TouchableOpacity>
               
-              <View style={styles.actionButtons}>
-                <TouchableOpacity 
-                  style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
-                  onPress={generateTasksFromSelectedLessons}
-                >
-                  <MaterialIcons name="assignment" size={22} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>練習メニュー生成</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[styles.actionButton, { backgroundColor: theme.colors.secondary }]}
-                  onPress={consultAIWithSelectedLessons}
-                >
-                  <MaterialIcons name="chat" size={22} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>AIに相談</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity 
+                style={[styles.selectionActionButton, { backgroundColor: theme.colors.secondary }]}
+                onPress={consultAIWithSelectedLessons}
+                disabled={selectedLessons.length === 0}
+              >
+                <MaterialIcons name="smart-toy" size={24} color="#FFFFFF" />
+                <Text style={styles.selectionActionText}>AIに相談</Text>
+              </TouchableOpacity>
             </View>
           )}
         </>
       )}
+      
+      {/* レッスンを記録ボタン */}
+      <View style={styles.actionButtonContainer}>
+        <AnimatedButton
+          title="レッスンを記録"
+          onPress={() => router.push('/lesson-form')}
+          style={{
+            backgroundColor: theme.colors.primary,
+            paddingVertical: 14,
+            paddingHorizontal: 24,
+            borderRadius: 28,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+          activeScale={0.92}
+        >
+          <Text style={{
+            color: theme.colors.textInverse,
+            fontSize: 16,
+            fontWeight: '600',
+            marginRight: 8
+          }}>
+            レッスンを記録
+          </Text>
+          <MaterialIcons name="add" size={24} color={theme.colors.textInverse} />
+        </AnimatedButton>
+      </View>
     </SafeAreaView>
   );
 }
@@ -327,7 +354,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  actionBar: {
+  selectionActionsContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -336,39 +363,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
   },
-  selectedCount: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-  },
-  actionButton: {
+  selectionActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    marginLeft: 8,
   },
-  actionButtonText: {
+  selectionActionText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 4,
+  },
+  actionButtonContainer: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    zIndex: 100,
   },
 });

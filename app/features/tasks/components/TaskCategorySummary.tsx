@@ -26,6 +26,7 @@ interface TaskCategorySummaryProps {
   totalTasks: number;
   onCategoryPress?: (category: string) => void;
   onViewAllPress?: () => void;
+  hideCategories?: boolean;
 }
 
 const TaskCategorySummary: React.FC<TaskCategorySummaryProps> = ({
@@ -34,6 +35,7 @@ const TaskCategorySummary: React.FC<TaskCategorySummaryProps> = ({
   totalTasks,
   onCategoryPress,
   onViewAllPress,
+  hideCategories = false,
 }) => {
   const { tasks, getCategoryCompletionCount } = useTaskStore();
   const [streakCount, setStreakCount] = useState(0);
@@ -176,30 +178,32 @@ const TaskCategorySummary: React.FC<TaskCategorySummaryProps> = ({
         )}
       </ScrollView>
       
-      <View style={styles.categoryList}>
-        {categories.map((category, index) => (
-          <View key={index} style={styles.categoryItem}>
-            <View style={styles.categoryHeader}>
-              <View style={[styles.iconContainer, { backgroundColor: `${category.color}20` }]}>
-                {category.icon}
+      {!hideCategories && categories.length > 0 && (
+        <View style={styles.categoryList}>
+          {categories.map((category, index) => (
+            <View key={index} style={styles.categoryItem}>
+              <View style={styles.categoryHeader}>
+                <View style={[styles.iconContainer, { backgroundColor: `${category.color}20` }]}>
+                  {category.icon}
+                </View>
+                
+                <View style={styles.categoryInfo}>
+                  <Text style={styles.categoryName}>{category.name}</Text>
+                  <Text style={styles.categoryCount}>
+                    {category.completedCount}/{category.totalCount} 完了
+                  </Text>
+                </View>
               </View>
               
-              <View style={styles.categoryInfo}>
-                <Text style={styles.categoryName}>{category.name}</Text>
-                <Text style={styles.categoryCount}>
-                  {category.completedCount}/{category.totalCount} 完了
-                </Text>
-              </View>
+              <TaskProgressBar 
+                progress={(category.completedCount / category.totalCount) * 100} 
+                color={category.color}
+                height={6}
+              />
             </View>
-            
-            <TaskProgressBar 
-              progress={(category.completedCount / category.totalCount) * 100} 
-              color={category.color}
-              height={6}
-            />
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      )}
       
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
@@ -228,15 +232,16 @@ const TaskCategorySummary: React.FC<TaskCategorySummaryProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
     marginHorizontal: 16,
-    marginBottom: 20,
+    marginBottom: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 2,
     elevation: 2,
+    width: '90%',
   },
   headerContainer: {
     flexDirection: 'row',
@@ -260,7 +265,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   overallContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   overallTextContainer: {
     flexDirection: 'row',
@@ -269,34 +274,37 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   overallTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#202124',
+    fontSize: 16,
+    color: '#5F6368',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   overallPercentage: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
     color: '#4285F4',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   overallProgressContainer: {
-    height: 10,
+    height: 8,
     backgroundColor: '#E8EAED',
-    borderRadius: 5,
+    borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 8,
   },
   overallProgressBar: {
     height: '100%',
     backgroundColor: '#4285F4',
-    borderRadius: 5,
+    borderRadius: 4,
   },
   overallCount: {
     fontSize: 12,
     color: '#5F6368',
     alignSelf: 'flex-end',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  categoriesContainer: {
+    marginBottom: 16,
+    maxHeight: 200,
   },
   categoriesScrollContainer: {
     paddingBottom: 8,

@@ -17,8 +17,8 @@ const CARD_HEIGHT = SCREEN_HEIGHT * 0.5;
 
 interface TaskCardProps {
   task: Task;
-  gesture: ReturnType<typeof Gesture.Pan>;
-  animatedStyle: any;
+  gesture?: ReturnType<typeof Gesture.Pan> | undefined;
+  animatedStyle?: any;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -154,11 +154,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   
   const { goal, content } = extractGoalAndContent(task?.description || '');
 
-  return (
+  return gesture ? (
     <GestureDetector gesture={gesture}>
       <ReAnimated.View style={[animatedStyle]}>
         <Animated.View style={[
-          styles.card, 
+          styles.container, 
           cardShadow,
           { 
             backgroundColor: theme.colors.cardElevated,
@@ -230,19 +230,94 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </Animated.View>
       </ReAnimated.View>
     </GestureDetector>
+  ) : (
+    <Animated.View style={[
+      styles.container, 
+      cardShadow,
+      { 
+        backgroundColor: theme.colors.cardElevated,
+        borderColor: theme.colors.borderLight,
+      }
+    ]}>
+      <View style={[styles.cardHeader, { borderBottomColor: theme.colors.borderLight }]}>
+        <Text style={[styles.cardTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]} numberOfLines={1} ellipsizeMode="tail">
+          今日の課題: {task?.title || ''}
+        </Text>
+      </View>
+      
+      {goal ? (
+        <View style={[styles.goalContainer, { backgroundColor: theme.colors.primaryLight }]}>
+          <Text style={[styles.goalLabel, { color: theme.colors.primary }]}>目標</Text>
+          <Text style={[styles.goalText, { color: theme.colors.text }]}>{goal}</Text>
+        </View>
+      ) : null}
+      
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.cardContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[styles.contentLabel, { color: theme.colors.primary }]}>練習内容</Text>
+        {renderFormattedText(content)}
+        
+        {/* AIワンポイントアドバイス（予定） */}
+        <View style={[styles.aiAdviceContainer, { backgroundColor: theme.colors.secondaryLight }]}>
+          <View style={styles.aiAdviceHeader}>
+            <Ionicons name="bulb-outline" size={18} color={theme.colors.secondary} />
+            <Text style={[styles.aiAdviceLabel, { color: theme.colors.secondary }]}>AIワンポイントアドバイス</Text>
+          </View>
+          <Text style={[styles.aiAdviceText, { color: theme.colors.textSecondary }]}>
+            今後実装予定の機能です。AIがあなたの練習をサポートします。
+          </Text>
+        </View>
+      </ScrollView>
+      
+      <View style={styles.cardFooter}>
+        <View style={styles.buttonContainer}>
+          <AnimatedButton 
+            title="詳細を見る"
+            onPress={() => navigateToTaskDetail(task?.id || '')}
+            style={{ backgroundColor: theme.colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }}
+            textStyle={styles.buttonText}
+            activeScale={0.95}
+          />
+          
+          <AnimatedButton 
+            title="期日設定"
+            onPress={handleSetDueDate}
+            style={{ backgroundColor: theme.colors.secondary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16, marginLeft: 8 }}
+            textStyle={styles.buttonText}
+            activeScale={0.95}
+          />
+        </View>
+      </View>
+      
+      {/* スワイプヒントのインジケーター */}
+      <View style={styles.swipeIndicatorContainer}>
+        <View style={styles.swipeIndicatorWrapper}>
+          <MaterialIcons name="swipe" size={20} color={theme.colors.textTertiary} />
+          <Text style={[styles.swipeIndicatorText, { color: theme.colors.textTertiary }]}>
+            スワイプして次のタスクを表示
+          </Text>
+        </View>
+      </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
     width: CARD_WIDTH,
-    height: CARD_HEIGHT,
-    borderRadius: 20,
-    overflow: 'hidden',
+    height: 250,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    borderWidth: 1,
-    marginHorizontal: SCREEN_WIDTH * 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 16,
   },
   cardHeader: {
     paddingHorizontal: 20,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Platform, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTaskStore } from './store/tasks';
 import { Task } from './types/task';
@@ -119,12 +119,14 @@ export default function TaskDetail() {
         onToggleComplete={handleToggleComplete}
       />
       
-      <TaskDetailContent
-        task={task}
-        loading={loading}
-        chatRoomTitle={chatRoom?.title || null}
-        onOpenChatRoom={handleOpenChatRoom}
-      />
+      <ScrollView style={styles.contentContainer}>
+        <TaskDetailContent
+          task={task}
+          loading={loading}
+          chatRoomTitle={chatRoom?.title || null}
+          onOpenChatRoom={handleOpenChatRoom}
+        />
+      </ScrollView>
       
       <View style={styles.swipeButtonContainer}>
         <TaskCompletionSwipeButton
@@ -150,6 +152,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  contentContainer: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

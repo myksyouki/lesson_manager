@@ -9,6 +9,8 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Lesson } from '../../../store/lessons';
+import { Task } from '../../../types/task';
+import { Ionicons } from '@expo/vector-icons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CALENDAR_WIDTH = SCREEN_WIDTH - 32;
@@ -33,6 +35,7 @@ interface CalendarGridProps {
   onDateSelect: (date: Date) => void;
   onMonthChange: (increment: number) => void;
   lessons: Lesson[];
+  tasks?: Task[];
 }
 
 export const CalendarGrid: React.FC<CalendarGridProps> = ({
@@ -41,6 +44,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   onDateSelect,
   onMonthChange,
   lessons,
+  tasks = [],
 }) => {
   const translateX = useSharedValue(0);
 
@@ -130,13 +134,13 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 
   const calendarDays = useMemo(() => generateCalendarDays(), [generateCalendarDays]);
 
+  // 日付をYYYY年MM月DD日形式に変換
+  const formatDate = (d: Date) => {
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  };
+
   // レッスンがあるかどうかを確認する関数
   const hasLesson = useCallback((date: Date) => {
-    // 日付をYYYY年MM月DD日形式に変換
-    const formatDate = (d: Date) => {
-      return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-    };
-    
     const formattedDate = formatDate(date);
     
     // 日付が一致するレッスンを検索
@@ -174,6 +178,64 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     });
   }, [lessons]);
 
+  // タスクの練習日があるかどうかを確認する関数
+  const hasPracticeTask = useCallback((date: Date) => {
+    // 日付が一致するタスクを検索
+    return tasks.some(task => {
+      if (!task.practiceDate) return false;
+      
+      // 練習日の形式に応じて比較
+      if (typeof task.practiceDate === 'string') {
+        // 文字列形式の場合
+        if (task.practiceDate === formatDate(date)) {
+          return true;
+        }
+        
+        // 日付形式が異なる可能性があるため、日付オブジェクトに変換して比較
+        try {
+          // "YYYY年MM月DD日" 形式の文字列をパース
+          const dateParts = task.practiceDate.match(/(\d+)年(\d+)月(\d+)日/);
+          if (dateParts) {
+            const practiceDate = new Date(
+              parseInt(dateParts[1]), // 年
+              parseInt(dateParts[2]) - 1, // 月（0-11）
+              parseInt(dateParts[3]) // 日
+            );
+            
+            return (
+              practiceDate.getFullYear() === date.getFullYear() &&
+              practiceDate.getMonth() === date.getMonth() &&
+              practiceDate.getDate() === date.getDate()
+            );
+          }
+        } catch (e) {
+          console.error('日付のパースエラー:', e);
+        }
+      } else if ('seconds' in (task.practiceDate as any)) {
+        // Firestore Timestamp形式の場合
+        const timestamp = (task.practiceDate as any).seconds * 1000;
+        const practiceDate = new Date(timestamp);
+        
+        return (
+          practiceDate.getFullYear() === date.getFullYear() &&
+          practiceDate.getMonth() === date.getMonth() &&
+          practiceDate.getDate() === date.getDate()
+        );
+      } else if (task.practiceDate instanceof Date) {
+        // Date型の場合
+        const practiceDate = task.practiceDate as Date;
+        
+        return (
+          practiceDate.getFullYear() === date.getFullYear() &&
+          practiceDate.getMonth() === date.getMonth() &&
+          practiceDate.getDate() === date.getDate()
+        );
+      }
+      
+      return false;
+    });
+  }, [tasks]);
+
   // 選択された日付かどうかを確認する関数
   const isSelectedDate = useCallback((date: Date) => {
     return date.getFullYear() === selectedDate.getFullYear() &&
@@ -189,70 +251,113 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
            date.getDate() === today.getDate();
   }, []);
 
-  // 週ごとに日付を分割する
-  const weeks = useMemo(() => {
-    const result = [];
-    for (let i = 0; i < 6; i++) {
-      result.push(calendarDays.slice(i * 7, (i + 1) * 7));
-    }
-    return result;
-  }, [calendarDays]);
+  // 曜日ヘッダーをレンダリング
+  const renderWeekdayHeader = () => (
+    <View style={styles.weekdayHeader}>
+      {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
+        <View key={index} style={styles.weekdayCell}>
+          <Text
+            style={[
+              styles.weekdayText,
+              index === 0 && styles.sundayText,
+              index === 6 && styles.saturdayText,
+            ]}
+          >
+            {day}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+
+  // 日付セルをレンダリング
+  const renderDayCell = (dayInfo: { date: Date; isCurrentMonth: boolean }, dayIndex: number) => {
+    const { date, isCurrentMonth } = dayInfo;
+    const isSelected = isSelectedDate(date);
+    const isToday = isTodayDate(date);
+    const hasLessonForDay = hasLesson(date);
+    const hasPracticeTaskForDay = hasPracticeTask(date);
+    
+    return (
+      <View
+        key={dayIndex}
+        style={[
+          styles.dayCell,
+          !isCurrentMonth && styles.otherMonthDay,
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.dayButton,
+            isSelected && styles.selectedDay,
+            isToday && styles.todayDay,
+          ]}
+          onPress={() => onDateSelect(date)}
+        >
+          <View style={styles.dayCellContent}>
+            <Text
+              style={[
+                styles.dayText,
+                !isCurrentMonth && styles.otherMonthDayText,
+                dayIndex === 0 && styles.sundayText,
+                dayIndex === 6 && styles.saturdayText,
+                isSelected && styles.selectedDayText,
+                isToday && styles.todayDayText,
+              ]}
+            >
+              {date.getDate()}
+            </Text>
+            
+            <View style={styles.indicatorContainer}>
+              {hasLessonForDay && 
+                <View style={styles.lessonIndicator}>
+                  <Ionicons 
+                    name="school" 
+                    size={12} 
+                    color={(isSelected || isToday) ? "#FFFFFF" : "#4285F4"} 
+                  />
+                </View>
+              }
+              
+              {hasPracticeTaskForDay && 
+                <View style={styles.practiceIndicator}>
+                  <Ionicons 
+                    name="musical-notes" 
+                    size={12} 
+                    color={(isSelected || isToday) ? "#FFFFFF" : "#34A853"} 
+                  />
+                </View>
+              }
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // 週ごとの行をレンダリング
+  const renderWeekRow = (weekIndex: number) => (
+    <View key={weekIndex} style={styles.weekRow}>
+      {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((dayInfo, dayIndex) => 
+        renderDayCell(dayInfo, dayIndex)
+      )}
+    </View>
+  );
+
+  // カレンダーグリッドを直接レンダリング
+  const renderCalendarGrid = () => (
+    <Animated.View style={[styles.calendarContainer, animatedStyle]}>
+      {renderWeekdayHeader()}
+      {Array.from({ length: 6 }).map((_, weekIndex) => renderWeekRow(weekIndex))}
+    </Animated.View>
+  );
 
   return (
-    <View style={styles.container}>
-      <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.calendarContainer, animatedStyle]}>
-          {weeks.map((week, weekIndex) => (
-            <View key={`week-${weekIndex}`} style={styles.weekRow}>
-              {week.map((day, dayIndex) => {
-                const isSelected = isSelectedDate(day.date);
-                const isToday = isTodayDate(day.date);
-                const dayOfWeek = day.date.getDay();
-                const hasLessonForDay = hasLesson(day.date);
-                
-                return (
-                  <View key={`day-${weekIndex}-${dayIndex}`} style={styles.dayCell}>
-                    <TouchableOpacity
-                      style={[
-                        styles.dayCellButton,
-                        !day.isCurrentMonth && styles.otherMonthDay,
-                      ]}
-                      onPress={() => onDateSelect(day.date)}
-                      disabled={!day.isCurrentMonth}
-                    >
-                      <View style={[
-                        styles.dayCellContent,
-                        isToday && styles.todayDay,
-                        isSelected && styles.selectedDay,
-                      ]}>
-                        <Text style={[
-                          styles.dayText,
-                          dayOfWeek === 0 && styles.sundayText,
-                          dayOfWeek === 6 && styles.saturdayText,
-                          isToday && styles.todayDayText,
-                          isSelected && styles.selectedDayText,
-                          !day.isCurrentMonth && styles.otherMonthDayText,
-                        ]}>
-                          {day.date.getDate()}
-                        </Text>
-                      </View>
-                      {hasLessonForDay && 
-                        <Text style={[
-                          styles.lessonIndicator,
-                          (isSelected || isToday) && styles.lessonIndicatorHighlighted
-                        ]}>
-                          ・
-                        </Text>
-                      }
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </View>
-          ))}
-        </Animated.View>
-      </GestureDetector>
-    </View>
+    <GestureDetector gesture={gesture}>
+      <View style={styles.container}>
+        {renderCalendarGrid()}
+      </View>
+    </GestureDetector>
   );
 };
 
@@ -277,35 +382,53 @@ const styles = StyleSheet.create({
   calendarContainer: {
     width: '100%',
   },
+  weekdayHeader: {
+    flexDirection: 'row',
+    width: '100%',
+    height: 40,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  weekdayCell: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  weekdayText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
   weekRow: {
     flexDirection: 'row',
     width: '100%',
-    height: 45, // 高さを40から45に増加
+    height: 45,
     justifyContent: 'space-between',
   },
   dayCell: {
     flex: 1,
     padding: 1,
-    height: 45, // 高さを40から45に増加
+    height: 45,
   },
-  dayCellButton: {
+  dayButton: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    height: 43, // 高さを38から43に増加
+    height: 43,
   },
   dayCellContent: {
-    width: 38, // 幅を34から38に増加
-    height: 38, // 高さを34から38に増加
-    borderRadius: 19, // 半径を17から19に増加
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
   },
   dayText: {
-    fontSize: 14, // フォントサイズを13から14に増加
-    fontWeight: '600', // フォントの太さを500から600に増加
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.textPrimary,
     textAlign: 'center',
+    height: 20,
+    lineHeight: 20,
   },
   otherMonthDay: {
     opacity: 0.3,
@@ -325,7 +448,7 @@ const styles = StyleSheet.create({
   },
   selectedDayText: {
     color: colors.background,
-    fontWeight: '700', // フォントの太さを600から700に増加
+    fontWeight: '700',
   },
   todayDay: {
     backgroundColor: colors.primaryLight,
@@ -339,7 +462,7 @@ const styles = StyleSheet.create({
   },
   todayDayText: {
     color: colors.background,
-    fontWeight: '700', // フォントの太さを600から700に増加
+    fontWeight: '700',
   },
   sundayText: {
     color: colors.error,
@@ -348,15 +471,18 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   lessonIndicator: {
-    fontSize: 16, // フォントサイズを14から16に増加
-    color: colors.primary,
-    fontWeight: 'bold',
-    position: 'absolute',
-    bottom: -3, // 位置を調整
-    lineHeight: 16, // 行の高さを調整
+    marginHorizontal: 2,
   },
-  lessonIndicatorHighlighted: {
-    color: colors.background,
+  practiceIndicator: {
+    marginHorizontal: 2,
+  },
+  indicatorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 16,
+    marginTop: 2,
+    minHeight: 16,
   },
 });
 

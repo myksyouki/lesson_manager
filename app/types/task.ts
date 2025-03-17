@@ -16,4 +16,5 @@ export interface Task {
   userId?: string; // ユーザーID
   lessonId?: string; // 関連するレッスンID（存在する場合）
   chatRoomId?: string; // 関連するチャットルームID（存在する場合）
+  practiceDate?: string | Date | { seconds: number; nanoseconds: number }; // 練習予定日
 }

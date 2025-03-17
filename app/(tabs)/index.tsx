@@ -5,11 +5,8 @@ import {
   Alert,
   StatusBar,
   Dimensions,
-  ScrollView,
-  Animated,
   Text,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -18,7 +15,7 @@ import {
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
-import { Gesture } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useLessonStore } from '../store/lessons';
 import { useTaskStore } from '../store/tasks';
 import { useAuthStore } from '../store/auth';
@@ -27,10 +24,13 @@ import HomeHeader from '../features/home/components/HomeHeader';
 import TaskCard from '../features/home/components/TaskCard';
 import TaskPagination from '../features/home/components/TaskPagination';
 import EmptyOrLoading from '../features/home/components/EmptyOrLoading';
-import ActionButton from '../features/home/components/ActionButton';
-import { FadeIn, SlideIn, StaggeredList } from '../components/AnimatedComponents';
+import TaskCategorySummary from '../features/tasks/components/TaskCategorySummary';
+import { FadeIn, SlideIn } from '../components/AnimatedComponents';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 const CARD_WIDTH = SCREEN_WIDTH * 0.9;
 
 export default function HomeScreen() {
@@ -44,19 +44,13 @@ export default function HomeScreen() {
   const favoriteLesson = getFavorites();
   const theme = useTheme();
   
-  // スクロールアニメーション用
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [1, 0.9],
-    extrapolate: 'clamp',
-  });
+  // カテゴリ情報の状態
+  const [categories, setCategories] = useState<any[]>([]);
+  const [totalCompleted, setTotalCompleted] = useState(0);
+  const [totalTasks, setTotalTasks] = useState(0);
   
-  const headerTranslate = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, -10],
-    extrapolate: 'clamp',
-  });
+  // フラットリスト参照
+  const flatListRef = useRef<FlatList>(null);
 
   // タスクとレッスンデータの読み込み
   useEffect(() => {
@@ -64,6 +58,79 @@ export default function HomeScreen() {
       loadData();
     }
   }, [user]);
+
+  // タスクデータが変更されたときにカテゴリ情報を更新
+  useEffect(() => {
+    // タスクの集計
+    let completed = 0;
+    tasks.forEach(task => {
+      if (task.completed) {
+        completed++;
+      }
+    });
+    setTotalCompleted(completed);
+    setTotalTasks(tasks.length);
+
+    // カテゴリの集計
+    const categoryMap: Record<string, any> = {};
+    tasks.forEach(task => {
+      const categoryName = task.tags && task.tags.length > 0 ? task.tags[0] : 'その他';
+      
+      if (!categoryMap[categoryName]) {
+        categoryMap[categoryName] = {
+          name: categoryName,
+          completedCount: 0,
+          totalCount: 0,
+          icon: getCategoryIcon(categoryName),
+          color: getCategoryColor(categoryName)
+        };
+      }
+      
+      categoryMap[categoryName].totalCount++;
+      if (task.completed) {
+        categoryMap[categoryName].completedCount++;
+      }
+    });
+    
+    const categoryList = Object.values(categoryMap);
+    setCategories(categoryList);
+  }, [tasks]);
+
+  // カテゴリに基づいてアイコンを決定
+  const getCategoryIcon = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'ロングトーン':
+        return <MaterialCommunityIcons name="lungs" size={24} color="#3F51B5" />;
+      case '音階':
+        return <MaterialCommunityIcons name="scale" size={24} color="#FF9800" />;
+      case '曲練習':
+        return <Ionicons name="musical-note" size={24} color="#E91E63" />;
+      case 'アンサンブル':
+        return <Ionicons name="people" size={24} color="#9C27B0" />;
+      case 'リズム':
+        return <FontAwesome5 name="drum" size={24} color="#FFC107" />;
+      default:
+        return <Ionicons name="musical-notes" size={24} color="#4CAF50" />;
+    }
+  };
+
+  // カテゴリに基づいて色を決定
+  const getCategoryColor = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'ロングトーン':
+        return '#3F51B5';
+      case '音階':
+        return '#FF9800';
+      case '曲練習':
+        return '#E91E63';
+      case 'アンサンブル':
+        return '#9C27B0';
+      case 'リズム':
+        return '#FFC107';
+      default:
+        return '#4CAF50';
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -95,62 +162,44 @@ export default function HomeScreen() {
     }
   };
 
-  const gesture = Gesture.Pan()
-    .onStart(() => {
-      context.value = { x: translateX.value };
-    })
-    .onUpdate((event) => {
-      translateX.value = event.translationX + context.value.x;
-    })
-    .onEnd((event) => {
-      const threshold = CARD_WIDTH / 4;
-      if (Math.abs(event.translationX) > threshold) {
-        if (event.translationX > 0 && currentIndex > 0) {
-          translateX.value = withSpring(CARD_WIDTH, {}, () => {
-            runOnJS(setCurrentIndex)(currentIndex - 1);
-          });
-        } else if (event.translationX < 0 && currentIndex < tasks.length - 1) {
-          translateX.value = withSpring(-CARD_WIDTH, {}, () => {
-            runOnJS(setCurrentIndex)(currentIndex + 1);
-          });
-        }
-      }
-      translateX.value = withSpring(0);
-    });
+  // FlatListでのカードスライド
+  const handleCardScroll = (index: number) => {
+    setCurrentIndex(index);
+  };
 
-  const rStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
+  const renderTaskCard = ({ item, index }: { item: any, index: number }) => {
+    return (
+      <View style={styles.taskCardContainer}>
+        <TaskCard 
+          task={item} 
+          gesture={undefined} 
+          animatedStyle={undefined} 
+        />
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.backgroundSecondary }]} edges={['top']}>
       <StatusBar barStyle={theme.colors.text === '#E8EAED' ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.backgroundSecondary} />
       
-      <Animated.View 
-        style={[
-          styles.headerContainer, 
-          { 
-            backgroundColor: theme.colors.backgroundSecondary,
-            opacity: headerOpacity,
-            transform: [{ translateY: headerTranslate }]
-          }
-        ]}
-      >
-        <FadeIn duration={800}>
-          <HomeHeader />
-        </FadeIn>
-      </Animated.View>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={[styles.headerContainer, { backgroundColor: theme.colors.backgroundSecondary }]}>
+          <FadeIn duration={800}>
+            <HomeHeader />
+          </FadeIn>
+        </View>
 
-      <ScrollView 
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
-          scrollY.setValue(event.nativeEvent.contentOffset.y);
-        }}
-      >
         <View style={styles.contentContainer}>
+          <FadeIn duration={600}>
+            <TaskCategorySummary 
+              categories={[]}
+              totalCompleted={totalCompleted}
+              totalTasks={totalTasks}
+              hideCategories={true}
+            />
+          </FadeIn>
+
           <FadeIn duration={600}>
             <View style={styles.sectionTitleContainer}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
@@ -169,13 +218,27 @@ export default function HomeScreen() {
             </SlideIn>
           ) : (
             <FadeIn duration={600}>
-              <View style={styles.cardContainer}>
-                <TaskCard 
-                  task={tasks[currentIndex]} 
-                  gesture={gesture} 
-                  animatedStyle={rStyle} 
+              <View style={styles.carouselContainer}>
+                <FlatList
+                  ref={flatListRef}
+                  data={tasks}
+                  renderItem={renderTaskCard}
+                  keyExtractor={(item) => item.id}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  pagingEnabled
+                  snapToInterval={CARD_WIDTH + 16}
+                  snapToAlignment="center"
+                  decelerationRate="fast"
+                  contentContainerStyle={styles.flatListContent}
+                  onMomentumScrollEnd={(event) => {
+                    const index = Math.round(
+                      event.nativeEvent.contentOffset.x / (CARD_WIDTH + 16)
+                    );
+                    handleCardScroll(index);
+                  }}
                 />
-
+                
                 <TaskPagination 
                   totalCount={tasks.length} 
                   currentIndex={currentIndex} 
@@ -184,11 +247,7 @@ export default function HomeScreen() {
             </FadeIn>
           )}
         </View>
-      </ScrollView>
-
-      <SlideIn from={{ x: 0, y: 100 }} duration={800} delay={300}>
-        <ActionButton />
-      </SlideIn>
+      </View>
     </SafeAreaView>
   );
 }
@@ -205,24 +264,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
   contentContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  cardContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     width: '100%',
+    alignItems: 'center',
+    paddingVertical: 16,
+    flex: 1,
+  },
+  carouselContainer: {
+    height: 320,
+    width: '100%',
+    marginTop: 0,
+  },
+  flatListContent: {
+    paddingHorizontal: 8,
+  },
+  taskCardContainer: {
+    width: CARD_WIDTH,
+    marginHorizontal: 8,
   },
   sectionTitleContainer: {
     width: '90%',
-    marginBottom: 16,
+    marginBottom: 8,
+    marginTop: 16,
   },
   sectionTitle: {
     fontSize: 24,
