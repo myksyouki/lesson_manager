@@ -6,9 +6,11 @@ import { useTheme } from '../../../theme/index';
 import { RippleButton } from '../../../components/AnimatedComponents';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { useAuthStore } from '../../../store/auth';
 
 export const HomeHeader: React.FC = () => {
   const theme = useTheme();
+  const { user } = useAuthStore();
   
   const navigateToProfile = () => {
     router.push('/profile');
@@ -27,6 +29,14 @@ export const HomeHeader: React.FC = () => {
     } else {
       return 'こんばんは';
     }
+  };
+
+  // ユーザー名を取得（ない場合はデフォルト値）
+  const getUserName = () => {
+    if (user && user.displayName) {
+      return user.displayName;
+    }
+    return 'ミュージシャン';
   };
 
   const renderBackground = () => {
@@ -56,11 +66,11 @@ export const HomeHeader: React.FC = () => {
           <Text style={[styles.greeting, { color: theme.colors.textSecondary }]}>
             {getGreeting()}
           </Text>
-          <Text style={[styles.title, { 
+          <Text style={[styles.userName, { 
             color: theme.colors.text,
             fontFamily: theme.typography.fontFamily.bold,
           }]}>
-            今日の課題
+            {getUserName()}さん
           </Text>
         </View>
         
@@ -120,8 +130,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     letterSpacing: 0.3,
   },
-  title: {
-    fontSize: 28,
+  userName: {
+    fontSize: 24,
     fontWeight: '700',
     letterSpacing: 0.5,
   },

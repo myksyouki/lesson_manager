@@ -7,6 +7,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Task } from '../../../types/task';
 import { useTheme } from '../../../theme/index';
 import { AnimatedButton } from '../../../components/AnimatedComponents';
+import { useTaskStore } from '../../../store/tasks';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -26,6 +27,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   animatedStyle,
 }) => {
   const theme = useTheme();
+  const { updateTask } = useTaskStore();
   
   // カードのシャドウアニメーション
   const shadowAnim = new Animated.Value(0);
@@ -60,6 +62,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     router.push({
       pathname: '/task-detail',
       params: { id: taskId }
+    });
+  };
+
+  // 期日設定ボタンのハンドラー
+  const handleSetDueDate = () => {
+    router.push({
+      pathname: '/task-form',
+      params: { id: task?.id, mode: 'edit' }
     });
   };
 
@@ -112,6 +122,38 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     });
   };
 
+  // 目標と練習内容を分離する
+  const extractGoalAndContent = (description: string) => {
+    if (!description) return { goal: '', content: '' };
+    
+    const lines = description.split('\n');
+    let goal = '';
+    let content = '';
+    
+    // 目標を探す（「目標」や「ゴール」という単語を含む行）
+    const goalIndex = lines.findIndex(line => 
+      line.includes('目標') || line.includes('ゴール') || line.toLowerCase().includes('goal')
+    );
+    
+    if (goalIndex !== -1) {
+      goal = lines[goalIndex].replace(/目標[:：]|ゴール[:：]|goal[:：]/i, '').trim();
+      // 目標行を除いた残りを練習内容とする
+      content = lines.filter((_, i) => i !== goalIndex).join('\n');
+    } else {
+      // 目標が明示されていない場合は、最初の行を目標として扱う
+      if (lines.length > 0) {
+        goal = lines[0];
+        content = lines.slice(1).join('\n');
+      } else {
+        content = description;
+      }
+    }
+    
+    return { goal, content };
+  };
+  
+  const { goal, content } = extractGoalAndContent(task?.description || '');
+
   return (
     <GestureDetector gesture={gesture}>
       <ReAnimated.View style={[animatedStyle]}>
@@ -125,33 +167,55 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         ]}>
           <View style={[styles.cardHeader, { borderBottomColor: theme.colors.borderLight }]}>
             <Text style={[styles.cardTitle, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.bold }]} numberOfLines={1} ellipsizeMode="tail">
-              {task?.title || ''}
+              今日の課題: {task?.title || ''}
             </Text>
           </View>
+          
+          {goal ? (
+            <View style={[styles.goalContainer, { backgroundColor: theme.colors.primaryLight }]}>
+              <Text style={[styles.goalLabel, { color: theme.colors.primary }]}>目標</Text>
+              <Text style={[styles.goalText, { color: theme.colors.text }]}>{goal}</Text>
+            </View>
+          ) : null}
           
           <ScrollView 
             style={styles.scrollContainer}
             contentContainerStyle={styles.cardContent}
             showsVerticalScrollIndicator={false}
           >
-            {renderFormattedText(task?.description || '')}
+            <Text style={[styles.contentLabel, { color: theme.colors.primary }]}>練習内容</Text>
+            {renderFormattedText(content)}
+            
+            {/* AIワンポイントアドバイス（予定） */}
+            <View style={[styles.aiAdviceContainer, { backgroundColor: theme.colors.secondaryLight }]}>
+              <View style={styles.aiAdviceHeader}>
+                <Ionicons name="bulb-outline" size={18} color={theme.colors.secondary} />
+                <Text style={[styles.aiAdviceLabel, { color: theme.colors.secondary }]}>AIワンポイントアドバイス</Text>
+              </View>
+              <Text style={[styles.aiAdviceText, { color: theme.colors.textSecondary }]}>
+                今後実装予定の機能です。AIがあなたの練習をサポートします。
+              </Text>
+            </View>
           </ScrollView>
           
           <View style={styles.cardFooter}>
-            <View style={styles.dateContainer}>
-              <MaterialIcons name="event" size={18} color={theme.colors.primary} />
-              <Text style={[styles.cardDate, { color: theme.colors.textSecondary }]}>
-                {task?.dueDate || '期日未設定'}
-              </Text>
+            <View style={styles.buttonContainer}>
+              <AnimatedButton 
+                title="詳細を見る"
+                onPress={() => navigateToTaskDetail(task?.id || '')}
+                style={{ backgroundColor: theme.colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }}
+                textStyle={styles.buttonText}
+                activeScale={0.95}
+              />
+              
+              <AnimatedButton 
+                title="期日設定"
+                onPress={handleSetDueDate}
+                style={{ backgroundColor: theme.colors.secondary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16, marginLeft: 8 }}
+                textStyle={styles.buttonText}
+                activeScale={0.95}
+              />
             </View>
-            
-            <AnimatedButton 
-              title="詳細を見る"
-              onPress={() => navigateToTaskDetail(task?.id || '')}
-              style={{ backgroundColor: theme.colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 }}
-              textStyle={styles.viewDetailButtonText}
-              activeScale={0.95}
-            />
           </View>
           
           {/* スワイプヒントのインジケーター */}
@@ -189,6 +253,26 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
+  },
+  goalContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  goalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  goalText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  contentLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   scrollContainer: {
     flex: 1,
@@ -232,7 +316,7 @@ const styles = StyleSheet.create({
   },
   cardFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -246,35 +330,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 6,
   },
-  viewDetailButton: {
+  buttonContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    justifyContent: 'flex-end',
   },
-  viewDetailButtonText: {
+  buttonText: {
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   swipeIndicatorContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    alignItems: 'center',
     paddingBottom: 4,
+    alignItems: 'center',
   },
   swipeIndicatorWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 4,
   },
   swipeIndicatorText: {
     fontSize: 12,
     marginLeft: 4,
+  },
+  aiAdviceContainer: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 8,
+  },
+  aiAdviceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  aiAdviceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  aiAdviceText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });
 
