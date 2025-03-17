@@ -23,6 +23,8 @@ const colors = {
   textSecondary: '#5F6368',
   textTertiary: '#9AA0A6',
   divider: '#DADCE0',
+  sunday: '#EA4335', // 日曜日の色（赤）
+  saturday: '#4285F4', // 土曜日の色（青）
 };
 
 interface CalendarModalProps {
@@ -37,7 +39,7 @@ interface CalendarModalProps {
   animatedStyle: any;
 }
 
-export const CalendarModal: React.FC<CalendarModalProps> = ({
+const CalendarModal: React.FC<CalendarModalProps> = ({
   visible,
   onClose,
   onDateSelect,
@@ -246,30 +248,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     width: '100%',
     height: 45,
+    marginBottom: 2,
   },
   dayCell: {
     flex: 1,
-    padding: 2,
-    height: 45,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dayCellButton: {
-    flex: 1,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    height: 41,
+    borderRadius: 18,
   },
   dayCellContent: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 18,
   },
   dayText: {
     fontSize: 14,
-    fontWeight: '500',
     color: colors.textPrimary,
-    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   otherMonthDay: {
     opacity: 0.3,
@@ -277,44 +281,31 @@ const styles = StyleSheet.create({
   otherMonthDayText: {
     color: colors.textTertiary,
   },
-  selectedDay: {
-    backgroundColor: colors.primary,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  selectedDayText: {
-    color: colors.background,
-    fontWeight: '600',
-  },
   todayDay: {
-    backgroundColor: colors.primaryLight,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
   },
   todayDayText: {
-    color: colors.background,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  selectedDay: {
+    backgroundColor: colors.primary,
+  },
+  selectedDayText: {
+    color: 'white',
     fontWeight: '600',
   },
   sundayText: {
-    color: colors.error,
+    color: colors.sunday,
   },
   saturdayText: {
-    color: colors.primary,
+    color: colors.saturday,
   },
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 12,
+    marginTop: 16,
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: colors.divider,

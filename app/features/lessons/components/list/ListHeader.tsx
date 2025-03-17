@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '../../../../theme/index';
 import SearchBar from './SearchBar';
 import TagFilter from './TagFilter';
+import { MaterialIcons } from '@expo/vector-icons';
 
 interface ListHeaderProps {
   searchText: string;
@@ -12,6 +13,8 @@ interface ListHeaderProps {
   availableTags: string[];
   selectedTags: string[];
   onTagPress: (tag: string) => void;
+  isSelectionMode?: boolean;
+  toggleSelectionMode?: () => void;
 }
 
 export const ListHeader: React.FC<ListHeaderProps> = ({
@@ -20,6 +23,8 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
   availableTags,
   selectedTags,
   onTagPress,
+  isSelectionMode = false,
+  toggleSelectionMode = () => {},
 }) => {
   const theme = useTheme();
 
@@ -46,12 +51,35 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
     <View style={[styles.headerContainer, { borderBottomColor: theme.colors.borderLight }]}>
       {renderBackground()}
       <View style={styles.header}>
-        <Text style={[styles.title, { 
-          color: theme.colors.text,
-          fontFamily: theme.typography.fontFamily.bold
-        }]}>
-          レッスン一覧
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { 
+            color: theme.colors.text,
+            fontFamily: theme.typography.fontFamily.bold
+          }]}>
+            レッスン一覧
+          </Text>
+          
+          <TouchableOpacity
+            style={[
+              styles.selectionButton,
+              isSelectionMode && { backgroundColor: theme.colors.primaryLight }
+            ]}
+            onPress={toggleSelectionMode}
+          >
+            <MaterialIcons 
+              name={isSelectionMode ? "close" : "check-box-outline-blank"} 
+              size={24} 
+              color={isSelectionMode ? theme.colors.primary : theme.colors.textSecondary} 
+            />
+            <Text style={[
+              styles.selectionButtonText,
+              { color: isSelectionMode ? theme.colors.primary : theme.colors.textSecondary }
+            ]}>
+              {isSelectionMode ? '選択解除' : '複数選択'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
         <SearchBar 
           searchText={searchText} 
           onSearchChange={onSearchChange} 
@@ -79,11 +107,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   title: {
     fontSize: 32,
     fontWeight: '700',
-    marginBottom: 20,
     letterSpacing: 0.5,
+  },
+  selectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  selectionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });
 
