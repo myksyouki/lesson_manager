@@ -1,8 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Dimensions } from 'react-native';
-import LottieView from 'lottie-react-native';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 
 interface TaskCompletionAnimationProps {
   visible: boolean;
@@ -13,7 +13,7 @@ interface TaskCompletionAnimationProps {
   streakCount: number;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const TaskCompletionAnimation: React.FC<TaskCompletionAnimationProps> = ({
   visible,
@@ -21,53 +21,18 @@ const TaskCompletionAnimation: React.FC<TaskCompletionAnimationProps> = ({
   taskTitle,
   category,
   completionCount,
-  streakCount
+  streakCount,
 }) => {
-  const lottieRef = useRef<LottieView>(null);
-
   useEffect(() => {
-    if (visible && lottieRef.current) {
-      lottieRef.current.play();
+    if (visible) {
+      // 5秒後に自動的に閉じる
+      const timer = setTimeout(() => {
+        onClose();
+      }, 5000);
+      
+      return () => clearTimeout(timer);
     }
-  }, [visible]);
-
-  // カテゴリに基づいて色を決定
-  const getCategoryColor = () => {
-    if (!category) return '#4CAF50'; // デフォルト色
-    
-    switch (category.toLowerCase()) {
-      case 'ロングトーン':
-        return '#3F51B5'; // 青
-      case '音階':
-        return '#FF9800'; // オレンジ
-      case '曲練習':
-        return '#E91E63'; // ピンク
-      case 'アンサンブル':
-        return '#9C27B0'; // 紫
-      case 'リズム':
-        return '#FFC107'; // 黄色
-      default:
-        return '#4CAF50'; // デフォルト緑
-    }
-  };
-
-  const buttonColor = getCategoryColor();
-
-  // 達成メッセージを取得
-  const getAchievementMessage = () => {
-    if (streakCount >= 7) {
-      return '素晴らしい連続達成！';
-    } else if (completionCount >= 10) {
-      return '継続は力なり！';
-    } else if (completionCount >= 5) {
-      return '着実に進歩しています！';
-    } else if (streakCount >= 3) {
-      return '連続達成中！';
-    } else if (completionCount >= 1) {
-      return 'よく頑張りました！';
-    }
-    return 'タスク完了！';
-  };
+  }, [visible, onClose]);
 
   if (!visible) return null;
 
@@ -78,164 +43,140 @@ const TaskCompletionAnimation: React.FC<TaskCompletionAnimationProps> = ({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <BlurView intensity={20} style={styles.blurContainer}>
-        <View style={styles.container}>
-          <View style={[styles.card, { borderColor: buttonColor }]}>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={24} color="#888" />
-            </TouchableOpacity>
-            
-            <View style={styles.confettiContainer}>
-              <LottieView
-                ref={lottieRef}
-                source={require('../../../assets/animations/confetti.json')}
-                style={styles.confetti}
-                loop={false}
-                autoPlay
-              />
+      <View style={styles.container}>
+        <BlurView intensity={50} style={StyleSheet.absoluteFill} tint="dark" />
+        
+        <View style={styles.content}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <MaterialIcons name="close" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          
+          <View style={styles.animationContainer}>
+            <LottieView
+              source={require('../../../assets/animations/confetti.json')}
+              autoPlay
+              loop={false}
+              style={styles.animation}
+            />
+          </View>
+          
+          <Text style={styles.congratsText}>おめでとう！</Text>
+          <Text style={styles.taskTitle}>{taskTitle}</Text>
+          {category && <Text style={styles.category}>{category}</Text>}
+          
+          <Text style={styles.completedText}>タスクを完了しました</Text>
+          
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{completionCount}</Text>
+              <Text style={styles.statLabel}>完了回数</Text>
             </View>
             
-            <View style={styles.contentContainer}>
-              <Text style={styles.completedText}>完了！</Text>
-              <Text style={styles.taskTitle} numberOfLines={2}>{taskTitle}</Text>
-              <Text style={[styles.achievementMessage, { color: buttonColor }]}>
-                {getAchievementMessage()}
-              </Text>
-              
-              <View style={styles.statsContainer}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{completionCount}</Text>
-                  <Text style={styles.statLabel}>完了回数</Text>
-                </View>
-                
-                <View style={[styles.divider, { backgroundColor: buttonColor }]} />
-                
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{streakCount}</Text>
-                  <Text style={styles.statLabel}>連続日数</Text>
-                </View>
-              </View>
-              
-              <TouchableOpacity 
-                style={[styles.closeButtonBottom, { backgroundColor: buttonColor }]}
-                onPress={onClose}
-              >
-                <Text style={styles.closeButtonText}>閉じる</Text>
-              </TouchableOpacity>
+            <View style={styles.statDivider} />
+            
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{streakCount}</Text>
+              <Text style={styles.statLabel}>連続達成</Text>
             </View>
           </View>
+          
+          <TouchableOpacity style={styles.button} onPress={onClose}>
+            <Text style={styles.buttonText}>閉じる</Text>
+          </TouchableOpacity>
         </View>
-      </BlurView>
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  blurContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
-  card: {
-    width: SCREEN_WIDTH * 0.85,
-    maxWidth: 340,
-    backgroundColor: 'white',
+  content: {
+    width: width * 0.85,
+    maxWidth: 400,
+    backgroundColor: 'rgba(66, 133, 244, 0.95)',
     borderRadius: 20,
-    padding: 20,
+    padding: 24,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
-    borderWidth: 2,
-    borderColor: '#4CAF50',
+    overflow: 'hidden',
   },
   closeButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 16,
+    right: 16,
     zIndex: 10,
   },
-  confettiContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+  animationContainer: {
+    width: 200,
+    height: 200,
+    marginBottom: 16,
   },
-  confetti: {
-    width: 300,
-    height: 300,
-  },
-  contentContainer: {
+  animation: {
     width: '100%',
-    alignItems: 'center',
-    marginTop: 20,
+    height: '100%',
   },
-  completedText: {
+  congratsText: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333',
+    color: '#FFFFFF',
+    marginBottom: 8,
   },
   taskTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 15,
-    color: '#333',
-  },
-  achievementMessage: {
     fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    fontWeight: '600',
+    color: '#FFFFFF',
     textAlign: 'center',
-    color: '#4CAF50',
+    marginBottom: 4,
+  },
+  category: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 16,
+  },
+  completedText: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    marginBottom: 24,
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    marginBottom: 25,
+    marginBottom: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    padding: 16,
   },
   statItem: {
     alignItems: 'center',
-    flex: 1,
   },
   statValue: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
   },
   statLabel: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 5,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
   },
-  divider: {
+  statDivider: {
     width: 1,
-    height: '80%',
-    backgroundColor: '#4CAF50',
-    marginHorizontal: 10,
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
-  closeButtonBottom: {
-    backgroundColor: '#4CAF50',
+  button: {
+    backgroundColor: '#FFFFFF',
     paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 25,
-    marginTop: 10,
+    paddingHorizontal: 24,
+    borderRadius: 24,
   },
-  closeButtonText: {
-    color: 'white',
+  buttonText: {
+    color: '#4285F4',
     fontSize: 16,
     fontWeight: '600',
   },

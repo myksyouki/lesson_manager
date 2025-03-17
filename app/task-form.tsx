@@ -6,18 +6,23 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
-  ScrollView,
   SafeAreaView,
   KeyboardAvoidingView,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTaskStore } from './store/tasks';
 import { useAuth } from './services/auth';
 import { Task } from './types/task';
+import CalendarModal from './features/lessons/components/form/CalendarModal';
+import { useCalendar, DAYS } from './hooks/useCalendar';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CALENDAR_WIDTH = Math.min(SCREEN_WIDTH - 40, 600);
+const DAY_SIZE = Math.floor(CALENDAR_WIDTH / 7);
 
 export default function TaskForm() {
   const params = useLocalSearchParams<{ 
@@ -30,33 +35,27 @@ export default function TaskForm() {
   const { addTask } = useTaskStore();
   const [isLoading, setIsLoading] = useState(false);
 
+  const {
+    selectedDate,
+    currentMonth,
+    showCalendar,
+    setShowCalendar,
+    handleDateSelect,
+    changeMonth,
+    generateCalendarDays,
+    formatDate,
+  } = useCalendar(new Date(), (_, formattedDate) => {
+    setFormData({
+      ...formData,
+      dueDate: formattedDate
+    });
+  });
+
   const [formData, setFormData] = useState({
     title: '',
     description: params.practiceMenu || '',
-    dueDate: new Date().toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }).replace(/\s/g, ''),
+    dueDate: formatDate(new Date()),
   });
-
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-
-  const handleDateChange = (event: any, date?: Date) => {
-    setShowDatePicker(false);
-    if (date) {
-      setSelectedDate(date);
-      setFormData({
-        ...formData,
-        dueDate: date.toLocaleDateString('ja-JP', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        }).replace(/\s/g, '')
-      });
-    }
-  };
 
   const handleSubmit = async () => {
     if (!formData.title.trim()) {
@@ -128,7 +127,7 @@ export default function TaskForm() {
           </View>
         ) : (
           <>
-            <ScrollView style={styles.form}>
+            <View style={styles.form}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>タイトル *</Text>
                 <TextInput
@@ -143,7 +142,7 @@ export default function TaskForm() {
                 <Text style={styles.label}>期日</Text>
                 <TouchableOpacity
                   style={[styles.input, styles.dateInput]}
-                  onPress={() => setShowDatePicker(true)}
+                  onPress={() => setShowCalendar(true)}
                 >
                   <Text style={styles.dateText}>{formData.dueDate}</Text>
                   <MaterialIcons name="calendar-today" size={22} color="#5f6368" />
@@ -158,31 +157,34 @@ export default function TaskForm() {
                   onChangeText={(text) => setFormData({ ...formData, description: text })}
                   placeholder="詳細を入力"
                   multiline
-                  numberOfLines={8}
+                  numberOfLines={4}
                   textAlignVertical="top"
                 />
               </View>
-            </ScrollView>
+            </View>
 
-            <TouchableOpacity 
-              style={[
-                styles.submitButton,
-                !formData.title && styles.submitButtonDisabled
-              ]} 
-              onPress={handleSubmit}
-              disabled={!formData.title}
-            >
-              <Text style={styles.submitButtonText}>タスクを保存</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.submitButton}
+                onPress={handleSubmit}
+              >
+                <Text style={styles.submitButtonText}>保存</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
 
-        {showDatePicker && (
-          <DateTimePicker
-            value={selectedDate}
-            mode="date"
-            display="default"
-            onChange={handleDateChange}
+        {showCalendar && (
+          <CalendarModal
+            onClose={() => setShowCalendar(false)}
+            onSelectDate={handleDateSelect}
+            selectedDate={selectedDate}
+            currentMonth={currentMonth}
+            onChangeMonth={changeMonth}
+            generateCalendarDays={generateCalendarDays}
+            formatDate={formatDate}
+            days={DAYS}
+            daySize={DAY_SIZE}
           />
         )}
       </KeyboardAvoidingView>
@@ -298,5 +300,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1C1C1E',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  buttonContainer: {
+    marginTop: 20,
+    alignItems: 'center',
   },
 });

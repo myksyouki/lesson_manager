@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CALENDAR_WIDTH = Math.min(SCREEN_WIDTH - 40, 400);
-const DAY_SIZE = Math.floor(CALENDAR_WIDTH / 7);
+const DAY_SIZE = Math.floor((CALENDAR_WIDTH - 12) / 7); // マージンを考慮して調整
 
 // マテリアルデザインの色を定義
 const colors = {
@@ -61,41 +61,100 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
       date.getFullYear() === today.getFullYear();
   };
 
+  // 一時的な選択状態を管理
+  const [tempSelectedDate, setTempSelectedDate] = React.useState<Date>(selectedDate);
+
   // カレンダーの日付を生成
   const calendarDays = generateCalendarDays();
 
+  // 日付選択時の処理
+  const handleDateSelect = (date: Date) => {
+    // 既に一時選択されている日付をもう一度タップした場合は確定
+    if (date.getDate() === tempSelectedDate.getDate() &&
+        date.getMonth() === tempSelectedDate.getMonth() &&
+        date.getFullYear() === tempSelectedDate.getFullYear()) {
+      onSelectDate(date);
+      onClose();
+    } else {
+      // 一時選択状態に設定
+      setTempSelectedDate(date);
+    }
+  };
+
+  // 一時選択されている日付かどうかを判定
+  const isTempSelectedDate = (date: Date) => {
+    return date.getDate() === tempSelectedDate.getDate() &&
+      date.getMonth() === tempSelectedDate.getMonth() &&
+      date.getFullYear() === tempSelectedDate.getFullYear();
+  };
+
+  // 週ごとの行をレンダリング
+  const renderWeekRow = (weekIndex: number) => (
+    <View key={weekIndex} style={styles.weekRow}>
+      {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((item, dayIndex) => {
+        const isSelected = isSelectedDate(item.date);
+        const isTempSelected = isTempSelectedDate(item.date);
+        const isToday = isTodayDate(item.date);
+        const dayOfWeek = item.date.getDay();
+        const isSunday = dayOfWeek === 0;
+        const isSaturday = dayOfWeek === 6;
+        
+        return (
+          <View key={dayIndex} style={styles.dayCell}>
+            <TouchableOpacity
+              style={[
+                styles.dayButton,
+                isTempSelected && styles.tempSelectedDay,
+                isSelected && styles.selectedDay,
+                isToday && !isSelected && !isTempSelected && styles.todayDay,
+              ]}
+              onPress={() => handleDateSelect(item.date)}
+            >
+              <View style={styles.dayCellContent}>
+                <Text
+                  style={[
+                    styles.dayText,
+                    !item.isCurrentMonth && styles.otherMonthDayText,
+                    isSunday && styles.sundayText,
+                    isSaturday && styles.saturdayText,
+                    (isSelected || isTempSelected) && styles.selectedDayText,
+                    isToday && !isSelected && !isTempSelected && styles.todayDayText,
+                  ]}
+                >
+                  {item.date.getDate()}
+                </Text>
+                <View style={styles.indicatorContainer} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        );
+      })}
+    </View>
+  );
+
   return (
     <Modal
-      animationType="fade"
       transparent={true}
       visible={true}
+      animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
+      <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
           <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={onClose}
-            >
+            <Text style={styles.title}>日付を選択</Text>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <MaterialIcons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
-            <Text style={styles.title}>日付を選択</Text>
-            <View style={styles.placeholder} />
-          </View>
-          
-          <View style={styles.currentDateContainer}>
-            <Text style={styles.currentDate}>
-              {formatDate(selectedDate)}
-            </Text>
           </View>
           
           <View style={styles.monthSelector}>
             <TouchableOpacity
               style={styles.monthButton}
               onPress={() => onChangeMonth(-1)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <MaterialIcons name="chevron-left" size={24} color={colors.primary} />
+              <MaterialIcons name="chevron-left" size={32} color={colors.primary} />
             </TouchableOpacity>
             
             <Text style={styles.monthTitle}>
@@ -105,8 +164,9 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
             <TouchableOpacity
               style={styles.monthButton}
               onPress={() => onChangeMonth(1)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <MaterialIcons name="chevron-right" size={24} color={colors.primary} />
+              <MaterialIcons name="chevron-right" size={32} color={colors.primary} />
             </TouchableOpacity>
           </View>
           
@@ -126,77 +186,28 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
           </View>
           
           <View style={styles.calendarGrid}>
-            {calendarDays.map((item, index) => {
-              const isSelected = isSelectedDate(item.date);
-              const isToday = isTodayDate(item.date);
-              const dayOfWeek = item.date.getDay();
-              const isSunday = dayOfWeek === 0;
-              const isSaturday = dayOfWeek === 6;
-              
-              return (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.dayCell,
-                    { width: daySize, height: daySize },
-                    isSelected && styles.selectedDay,
-                  ]}
-                  onPress={() => onSelectDate(item.date)}
-                >
-                  <View
-                    style={[
-                      styles.dayContent,
-                      isToday && styles.todayCircle,
-                      isSelected && styles.selectedCircle,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.dayText,
-                        !item.isCurrentMonth && styles.otherMonthText,
-                        isSunday && styles.sundayText,
-                        isSaturday && styles.saturdayText,
-                        isSelected && styles.selectedDayText,
-                        isToday && !isSelected && styles.todayText,
-                      ]}
-                    >
-                      {item.date.getDate()}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+            {Array.from({ length: 6 }).map((_, weekIndex) => renderWeekRow(weekIndex))}
           </View>
           
-          <View style={styles.actionButtons}>
+          <View style={styles.footer}>
             <TouchableOpacity
-              style={styles.todayButton}
+              style={styles.footerButton}
               onPress={() => {
                 const today = new Date();
-                onSelectDate(today);
-                // 現在の月が表示されていない場合は、今月に移動
-                if (today.getMonth() !== currentMonth.getMonth() ||
-                    today.getFullYear() !== currentMonth.getFullYear()) {
-                  // 今月を設定する処理
-                  const newMonth = new Date(today);
-                  // 日付は1日に設定して月全体を表示
-                  newMonth.setDate(1);
-                  // currentMonthを更新する関数を呼び出す
-                  // この関数はpropsで渡す必要がある
-                }
+                setTempSelectedDate(today);
               }}
             >
-              <Text style={styles.todayButtonText}>今日</Text>
+              <Text style={styles.footerButtonText}>今日</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={styles.selectButton}
+              style={[styles.footerButton, styles.selectButton]}
               onPress={() => {
-                onSelectDate(selectedDate);
+                onSelectDate(tempSelectedDate);
                 onClose();
               }}
             >
-              <Text style={styles.selectButtonText}>選択</Text>
+              <Text style={styles.footerButtonText}>選択</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -206,38 +217,28 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     width: CALENDAR_WIDTH,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 16,
     padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  closeButton: {
-    padding: 8,
-    borderRadius: 20,
+    marginBottom: 16,
   },
   title: {
     fontSize: 18,
@@ -245,48 +246,47 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  placeholder: {
-    width: 24,
-    height: 24,
+  closeButton: {
+    padding: 4,
   },
-  currentDateContainer: {
-    marginBottom: 12,
-  },
-  currentDate: {
-    fontSize: 14,
+  selectedDateText: {
+    fontSize: 16,
     fontWeight: '600',
     color: colors.textPrimary,
+    marginBottom: 16,
+    textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   monthSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingHorizontal: 8,
+    marginBottom: 14,
   },
   monthButton: {
-    padding: 8,
+    padding: 6,
     borderRadius: 20,
   },
   monthTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: colors.textPrimary,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   weekdayHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
+    justifyContent: 'space-around',
+    marginBottom: 8,
+    paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    paddingBottom: 6,
+    borderBottomColor: '#F0F0F5',
   },
   weekdayText: {
-    flex: 1,
+    width: DAY_SIZE,
     textAlign: 'center',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textSecondary,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
@@ -297,77 +297,109 @@ const styles = StyleSheet.create({
     color: colors.saturday,
   },
   calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     width: '100%',
+  },
+  weekRow: {
+    flexDirection: 'row',
+    width: '100%',
+    height: 45,
+    justifyContent: 'space-between',
   },
   dayCell: {
     flex: 1,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 1,
+    height: 45,
   },
-  dayContent: {
-    width: 36,
-    height: 36,
+  dayButton: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 18,
+    height: 43,
+  },
+  dayCellContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
   },
   dayText: {
     fontSize: 14,
+    fontWeight: '600',
     color: colors.textPrimary,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    textAlign: 'center',
+    height: 20,
+    lineHeight: 20,
   },
-  otherMonthText: {
-    opacity: 0.3,
-  },
-  todayCircle: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  selectedCircle: {
-    backgroundColor: colors.primary,
+  otherMonthDayText: {
+    color: colors.textTertiary,
   },
   selectedDay: {
     backgroundColor: colors.primary,
+    borderRadius: 22, // 丸いハイライト
+    borderWidth: 0,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  tempSelectedDay: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: 22, // 丸いハイライト
+    borderWidth: 0,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   selectedDayText: {
-    color: 'white',
-    fontWeight: '600',
+    color: colors.background,
+    fontWeight: '700',
   },
-  todayText: {
-    color: colors.primary,
-    fontWeight: '600',
+  todayDay: {
+    backgroundColor: 'transparent',
+    borderRadius: 22, // 丸いハイライト
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  todayButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8,
+  todayDayText: {
+    color: colors.background,
+    fontWeight: '700',
   },
-  todayButtonText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  selectButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  selectButtonText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  actionButtons: {
+  footer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 16,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
+  },
+  footerButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 4,
+  },
+  footerButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.primary,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  indicatorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 0,
+    marginTop: 0,
+    minHeight: 0,
+    opacity: 0,
+  },
+  selectButton: {
+    backgroundColor: colors.primary + '20', // 薄い背景色
+    borderRadius: 4,
   },
 });
 

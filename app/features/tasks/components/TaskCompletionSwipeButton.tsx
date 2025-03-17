@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Animated, PanResponder, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface TaskCompletionSwipeButtonProps {
@@ -14,7 +14,8 @@ const TaskCompletionSwipeButton: React.FC<TaskCompletionSwipeButtonProps> = ({
   category
 }) => {
   const [animation] = useState(new Animated.Value(0));
-  const [isDragging, setIsDragging] = useState(false);
+  const [isLongPressing, setIsLongPressing] = useState(false);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
   // カテゴリに基づいて色を決定
   const getCategoryColor = () => {
@@ -38,51 +39,66 @@ const TaskCompletionSwipeButton: React.FC<TaskCompletionSwipeButtonProps> = ({
 
   const buttonColor = getCategoryColor();
   const buttonWidth = 280;
-  const threshold = buttonWidth * 0.7;
 
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => !isCompleted,
-    onMoveShouldSetPanResponder: () => !isCompleted,
-    onPanResponderGrant: () => {
-      setIsDragging(true);
-    },
-    onPanResponderMove: (_, gestureState) => {
-      const { dx } = gestureState;
-      if (dx >= 0 && dx <= buttonWidth) {
-        animation.setValue(dx);
-      }
-    },
-    onPanResponderRelease: (_, gestureState) => {
-      const { dx } = gestureState;
-      setIsDragging(false);
+  // 長押し開始時の処理
+  const handleLongPressStart = () => {
+    if (isCompleted) return;
+    
+    setIsLongPressing(true);
+    
+    // アニメーションを開始
+    Animated.timing(animation, {
+      toValue: buttonWidth,
+      duration: 1500, // 1.5秒で完了
+      useNativeDriver: false,
+    }).start();
+    
+    // 1.5秒後にタスク完了処理を実行
+    const timer = setTimeout(() => {
+      onComplete();
+      setIsLongPressing(false);
       
-      if (dx >= threshold) {
-        // スワイプが閾値を超えた場合、完了アニメーションを実行
+      // 完了後、ボタンを元の位置に戻す
+      setTimeout(() => {
         Animated.timing(animation, {
-          toValue: buttonWidth,
+          toValue: 0,
           duration: 200,
           useNativeDriver: false,
-        }).start(() => {
-          onComplete();
-          // 完了後、ボタンを元の位置に戻す
-          setTimeout(() => {
-            Animated.timing(animation, {
-              toValue: 0,
-              duration: 200,
-              useNativeDriver: false,
-            }).start();
-          }, 500);
-        });
-      } else {
-        // 閾値未満の場合は元の位置に戻す
-        Animated.spring(animation, {
-          toValue: 0,
-          friction: 5,
-          useNativeDriver: false,
         }).start();
+      }, 500);
+    }, 1500);
+    
+    setLongPressTimer(timer);
+  };
+  
+  // 長押し終了時の処理
+  const handleLongPressEnd = () => {
+    if (isCompleted) return;
+    
+    setIsLongPressing(false);
+    
+    // タイマーをクリア
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+    
+    // アニメーションを元に戻す
+    Animated.spring(animation, {
+      toValue: 0,
+      friction: 5,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  // コンポーネントのアンマウント時にタイマーをクリア
+  useEffect(() => {
+    return () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
       }
-    },
-  });
+    };
+  }, [longPressTimer]);
 
   // 完了済みの場合は異なるUIを表示
   if (isCompleted) {
@@ -104,39 +120,36 @@ const TaskCompletionSwipeButton: React.FC<TaskCompletionSwipeButtonProps> = ({
     extrapolate: 'clamp',
   });
 
-  const translateX = animation.interpolate({
-    inputRange: [0, buttonWidth],
-    outputRange: [0, buttonWidth],
-    extrapolate: 'clamp',
-  });
-
   return (
     <View style={styles.container}>
-      <View style={[styles.track, { backgroundColor: `${buttonColor}40` }]}>
-        <Text style={styles.trackText}>右にスワイプして完了</Text>
+      <TouchableOpacity
+        style={[styles.track, { backgroundColor: `${buttonColor}40` }]}
+        onPressIn={handleLongPressStart}
+        onPressOut={handleLongPressEnd}
+        activeOpacity={1}
+      >
+        <Text style={styles.trackText}>長押しして完了</Text>
         <Animated.View 
           style={[
             styles.fill, 
             { 
               width, 
               backgroundColor: buttonColor,
-              opacity: isDragging ? 0.8 : 0.6
+              opacity: isLongPressing ? 0.8 : 0.6
             }
           ]} 
         />
-        <Animated.View 
+        <View 
           style={[
             styles.thumb, 
             { 
-              transform: [{ translateX }],
               backgroundColor: buttonColor
             }
           ]}
-          {...panResponder.panHandlers}
         >
           <Ionicons name="checkmark" size={24} color="white" />
-        </Animated.View>
-      </View>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 };

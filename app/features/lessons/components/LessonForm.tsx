@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
-  ScrollView,
   Keyboard,
   useWindowDimensions,
 } from 'react-native';
@@ -49,7 +48,6 @@ export const LessonForm: React.FC<LessonFormProps> = ({
   const isTablet = windowWidth >= 768;
   const contentPadding = isTablet ? 40 : 20;
   const inputMaxWidth = isTablet ? 600 : '100%';
-  const scrollViewRef = useRef<ScrollView>(null);
   const [showCalendar, setShowCalendar] = React.useState(false);
 
   const handleAddTag = (tag: string) => {
@@ -73,14 +71,10 @@ export const LessonForm: React.FC<LessonFormProps> = ({
 
   return (
     <>
-      <ScrollView 
-        ref={scrollViewRef}
+      <View 
         style={[styles.content, { padding: contentPadding }]} 
-        contentContainerStyle={{ alignItems: isTablet ? 'center' : 'stretch' }}
-        keyboardShouldPersistTaps="handled"
-        onScrollBeginDrag={Keyboard.dismiss}
       >
-        <View style={[styles.formContainer, { maxWidth: inputMaxWidth }]}>
+        <View style={[styles.formContainer, { maxWidth: inputMaxWidth, alignSelf: isTablet ? 'center' : 'stretch' }]}>
           <View style={styles.section}>
             <Text style={styles.label}>講師名</Text>
             <TextInput
@@ -182,23 +176,20 @@ export const LessonForm: React.FC<LessonFormProps> = ({
               textAlignVertical="top"
               editable={isEditing}
               placeholder="メモを入力"
-              onFocus={() => {
-                setTimeout(() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 100);
-              }}
             />
           </View>
         </View>
-      </ScrollView>
+      </View>
 
-      <Calendar
-        isVisible={showCalendar}
-        onClose={() => setShowCalendar(false)}
-        onSelectDate={handleDateSelect}
-        initialDate={formData.date ? new Date(formData.date.replace(/年|月|日/g, '/')) : new Date()}
-        isTablet={isTablet}
-      />
+      {showCalendar && (
+        <Calendar
+          isVisible={showCalendar}
+          onClose={() => setShowCalendar(false)}
+          onSelectDate={handleDateSelect}
+          initialDate={formData.date ? new Date(formData.date.replace(/年|月|日/g, '/')) : new Date()}
+          isTablet={isTablet}
+        />
+      )}
     </>
   );
 };
