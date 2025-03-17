@@ -22,7 +22,7 @@ import { Dimensions } from 'react-native';
 import { storage } from './config/firebase';
 import { auth } from './config/firebase';
 import { ref, uploadBytesResumable, getDownloadURL, updateMetadata } from 'firebase/storage';
-import { collection, addDoc, onSnapshot, doc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
 import FormHeader from './features/lessons/components/form/FormHeader';
 import FormInputs from './features/lessons/components/form/FormInputs';
@@ -141,8 +141,8 @@ export default function LessonForm() {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const firstDayOfMonth = new Date(year, month, 1);
-    // 月曜始まりとしてオフセット計算
-    const offset = (firstDayOfMonth.getDay() + 6) % 7;
+    // 日曜始まりとしてオフセット計算
+    const offset = firstDayOfMonth.getDay();
 
     // 当月の日数
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -199,140 +199,124 @@ export default function LessonForm() {
     setShowCalendar(false);
   };
 
-  const handleUpload = async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        Alert.alert('エラー', 'ログインが必要です');
-        return;
-      }
-
-      // 入力チェック
-      if (!formData.teacherName) {
-        Alert.alert('エラー', '講師名は必須です');
-        return;
-      }
-
-      // 一意の処理IDを生成
-      const uniqueProcessingId = `lesson_${user.uid}_${Date.now()}`;
-      
-      setIsProcessing(true);
-      setProcessingStep('レッスン情報を保存中...');
-
-      // ファイルが選択されていない場合は、音声なしでレッスンを保存
-      if (!selectedFileUri) {
-        // Firestoreにレッスンドキュメントを作成
-        const lessonRef = await addDoc(collection(db, 'lessons'), {
-          teacher: formData.teacherName,
-          date: formData.date,
-          pieces: formData.pieces,
-          notes: formData.notes,
-          tags: formData.tags,
-          user_id: user.uid,
-          created_at: new Date(),
-          status: 'completed',
-          isFavorite: false,
-          isDeleted: false,
-          processingId: uniqueProcessingId, // 一意の処理IDを追加
-        });
-
-        // 保存完了後、レッスン一覧画面に遷移
-        router.replace('/lessons');
-        return;
-      }
-
-      const fileUri = selectedFileUri;
-      const fileName = selectedFileName || `lesson_${new Date().getTime()}.m4a`;
-
-      // まずFirestoreにレッスンドキュメントを作成
-      const lessonRef = await addDoc(collection(db, 'lessons'), {
-        teacher: formData.teacherName,
-        date: formData.date,
-        pieces: formData.pieces,
-        notes: formData.notes,
-        tags: formData.tags,
-        user_id: user.uid,
-        created_at: new Date(),
-        status: 'uploading',
-        isFavorite: false,
-        isDeleted: false,
-        processingId: uniqueProcessingId, // 一意の処理IDを追加
-      });
-
-      setLessonDocId(lessonRef.id);
-      
-      // レッスン一覧画面に遷移（処理を待たずに）
-      router.replace('/lessons');
-      
-      // バックグラウンドで音声ファイルのアップロードと処理を続行
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
-      
-      const storageRef = ref(storage, `lessons/${user.uid}/${lessonRef.id}/${fileName}`);
-      const uploadTask = uploadBytesResumable(storageRef, blob);
-
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          const progress = Math.round(
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-          );
-          setUploadProgress(progress);
-          setProcessingStep(`アップロード中... ${progress}%`);
-        },
-        (error) => {
-          console.error('アップロードエラー:', error);
-          setIsProcessing(false);
-        },
-        async () => {
-          try {
-            // アップロード完了後、メタデータを更新
-            await updateMetadata(storageRef, {
-              customMetadata: {
-                lessonId: lessonRef.id,
-                userId: user.uid,
-                processingId: uniqueProcessingId, // メタデータにも処理IDを追加
-              },
-            });
-            
-            // ダウンロードURLを取得
-            const downloadUrl = await getDownloadURL(storageRef);
-            setAudioUrl(downloadUrl);
-            
-            // Firestoreのレッスンドキュメントを更新 - 処理IDを渡す
-            await processAudioFile(lessonRef.id, fileUri, fileName, uniqueProcessingId);
-            
-            // ローカルのレッスンストアへの追加は行わない
-            // Firestoreからのデータ同期に任せる
-            
-          } catch (error) {
-            console.error('処理エラー:', error);
-            setIsProcessing(false);
-          }
-        }
-      );
-    } catch (error) {
-      console.error('アップロードエラー:', error);
-      setIsProcessing(false);
-      Alert.alert('エラー', 'ファイルのアップロードに失敗しました');
-    }
-  };
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.teacherName) {
       Alert.alert('エラー', '講師名は必須です');
       return;
     }
     
-    // 音声ファイルの有無に関わらず、直接アップロード処理を実行
-    handleUpload();
+    if (!auth.currentUser) {
+      Alert.alert('エラー', 'ログインが必要です');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      setProcessingStep('レッスンデータを保存中...');
+
+      // 音声ファイルがある場合はアップロード
+      if (selectedFileUri) {
+        // Firestoreにレッスンデータを先に保存
+        const lessonData = {
+          teacher: formData.teacherName.trim(),
+          date: formData.date,
+          pieces: formData.pieces,
+          notes: formData.notes,
+          tags: formData.tags,
+          user_id: auth.currentUser.uid,
+          status: 'uploading',
+          created_at: new Date(),
+          updated_at: new Date(),
+        };
+
+        // Firestoreにドキュメントを追加
+        const docRef = await addDoc(collection(db, 'lessons'), lessonData);
+        setLessonDocId(docRef.id);
+
+        // 音声ファイルをStorageにアップロード
+        const response = await fetch(selectedFileUri);
+        const blob = await response.blob();
+        
+        // ファイル名を生成（ユーザーID + タイムスタンプ + 元のファイル名）
+        const timestamp = new Date().getTime();
+        const fileName = `${auth.currentUser.uid}_${timestamp}_${selectedFileName}`;
+        const storageRef = ref(storage, `audio/${fileName}`);
+        
+        // メタデータを設定
+        const metadata = {
+          contentType: blob.type,
+          customMetadata: {
+            'lessonId': docRef.id,
+            'userId': auth.currentUser.uid,
+          }
+        };
+
+        // アップロード開始
+        const uploadTask = uploadBytesResumable(storageRef, blob, metadata);
+        
+        // アップロード進捗の監視
+        uploadTask.on('state_changed', 
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUploadProgress(progress);
+            setProcessingStep(`音声ファイルをアップロード中... ${Math.round(progress)}%`);
+          },
+          (error) => {
+            console.error('アップロードエラー:', error);
+            setIsProcessing(false);
+            Alert.alert('エラー', 'ファイルのアップロードに失敗しました');
+          },
+          async () => {
+            // アップロード完了時の処理
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            setAudioUrl(downloadURL);
+            
+            // Firestoreのドキュメントを更新
+            await updateDoc(doc(db, 'lessons', docRef.id), {
+              audioUrl: downloadURL,
+              status: 'uploaded',
+              updated_at: new Date(),
+            });
+            
+            // 音声処理を開始
+            if (auth.currentUser) {
+              await processAudioFile(docRef.id, downloadURL, fileName, auth.currentUser.uid);
+            }
+          }
+        );
+      } else {
+        // 音声ファイルがない場合は通常のレッスンデータのみ保存
+        const lessonId = await addLesson({
+          teacher: formData.teacherName.trim(),
+          date: formData.date,
+          pieces: formData.pieces,
+          notes: formData.notes,
+          tags: formData.tags,
+          user_id: auth.currentUser.uid,
+          summary: '', // 必須フィールドを追加
+        });
+        
+        setIsProcessing(false);
+        Alert.alert(
+          '保存完了',
+          'レッスンが保存されました',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      }
+    } catch (error) {
+      console.error('レッスン保存エラー:', error);
+      setIsProcessing(false);
+      Alert.alert('エラー', 'レッスンの保存に失敗しました');
+    }
   };
 
   const handleUpdateFormData = (data: Partial<typeof formData>) => {
     setFormData(prev => ({ ...prev, ...data }));
   };
 
-  const canSave = formData.teacherName.trim() !== '';
+  const isFormValid = () => {
+    return formData.teacherName.trim() !== '';
+  };
 
   const handleSelectFile = async () => {
     try {
@@ -357,7 +341,7 @@ export default function LessonForm() {
       setSelectedFileName(file.name);
       
       // ここでアップロードを開始しない
-      // handleUpload()の呼び出しを削除
+      // handleSave()の呼び出しを削除
     } catch (error) {
       console.error('ファイル選択エラー:', error);
       Alert.alert('エラー', 'ファイルの選択に失敗しました');
@@ -367,24 +351,46 @@ export default function LessonForm() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <FormHeader 
-        title="レッスン記録" 
-        onSave={handleSave} 
-        canSave={canSave && !isProcessing} 
+        onSave={handleSave}
+        isValid={isFormValid()}
+        isProcessing={isProcessing}
       />
       
       <ScrollView style={styles.scrollView}>
         <FormInputs 
-          formData={formData} 
-          onUpdateFormData={handleUpdateFormData} 
-          onShowCalendar={() => setShowCalendar(true)} 
+          formData={formData}
+          setFormData={setFormData}
+          onDatePress={() => setShowCalendar(true)}
         />
         
         <AudioUploader 
-          selectedFile={selectedFile} 
-          uploadProgress={uploadProgress} 
-          isProcessing={isProcessing} 
-          processingStep={processingStep} 
-          onUpload={handleSelectFile} 
+          selectedFileName={selectedFileName}
+          onSelectFile={async () => {
+            try {
+              const result = await DocumentPicker.getDocumentAsync({
+                type: ['audio/*'],
+                copyToCacheDirectory: true,
+              });
+              
+              if (result.canceled) {
+                console.log('ファイル選択がキャンセルされました');
+                return;
+              }
+              
+              const file = result.assets[0];
+              setSelectedFile(file.uri);
+              setSelectedFileUri(file.uri);
+              setSelectedFileName(file.name);
+            } catch (error) {
+              console.error('ファイル選択エラー:', error);
+              Alert.alert('エラー', 'ファイルの選択中にエラーが発生しました');
+            }
+          }}
+          onRemoveFile={() => {
+            setSelectedFile(null);
+            setSelectedFileUri(null);
+            setSelectedFileName(null);
+          }}
         />
       </ScrollView>
       

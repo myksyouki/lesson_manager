@@ -7,8 +7,9 @@ import {
   Text,
   ActivityIndicator,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
 import ListHeader from '../features/lessons/components/list/ListHeader';
 import LessonCard from '../features/lessons/components/list/LessonCard';
@@ -16,14 +17,23 @@ import { Lesson } from '../store/lessons';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useTheme } from '../theme/index';
 import { StaggeredList } from '../components/AnimatedComponents';
+import { MaterialIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useLessonStore } from '../store/lessons';
 
 export default function LessonsScreen() {
   const [searchText, setSearchText] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const availableTags = ['リズム', 'テクニック', '表現', 'ペダル', '音色', '強弱'];
-  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const theme = useTheme();
+  
+  // 複数選択モード関連の状態
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedLessons, setSelectedLessons] = useState<string[]>([]);
+
+  // レッスンストアから状態とアクションを取得
+  const { lessons, fetchLessons } = useLessonStore();
 
   // マテリアルデザインの色を定義
   const colors = {
@@ -40,53 +50,85 @@ export default function LessonsScreen() {
     divider: '#DADCE0',
   };
 
-  // Firestoreからのリアルタイム更新を監視
-  useEffect(() => {
-    if (!auth.currentUser) return;
+  // 日付をフォーマットする関数
+  const formatDate = (dateString: string | Date | { seconds: number; nanoseconds: number }) => {
+    try {
+      // Firestoreのタイムスタンプオブジェクトの場合
+      if (dateString && typeof dateString === 'object' && 'seconds' in dateString) {
+        const date = new Date(dateString.seconds * 1000);
+        return date.toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+      
+      // 日付オブジェクトの場合
+      if (dateString instanceof Date) {
+        return dateString.toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+      
+      // 日本語形式の日付文字列の場合（例: "2023年5月15日"）
+      if (typeof dateString === 'string' && dateString.includes('年')) {
+        return dateString;
+      }
+      
+      // ISO形式の日付文字列の場合
+      if (typeof dateString === 'string' && dateString) {
+        const date = new Date(dateString);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString('ja-JP', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          });
+        }
+      }
+      
+      // どの形式にも当てはまらない場合
+      return '日付なし';
+    } catch (error) {
+      console.error('日付フォーマットエラー:', error, dateString);
+      return '日付エラー';
+    }
+  };
 
-    console.log('レッスン一覧: リアルタイム監視を開始します');
-    
-    const lessonsRef = collection(db, 'lessons');
-    // user_idフィールドを使用したクエリを作成
-    const userId = auth.currentUser.uid;
-    const q = query(lessonsRef, where('user_id', '==', userId));
-    
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const lessonsList = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          teacher: data.teacher || data.teacherName || '',
-          date: data.date || '',
-          piece: data.piece || '',
-          pieces: data.pieces || [],
-          summary: data.summary || '',
-          notes: data.notes || '',
-          tags: data.tags || [],
-          user_id: data.user_id || data.userId || '',
-          audioUrl: data.audioUrl || data.audio_url || null,
-          transcription: data.transcription || '',
-          status: data.status || '',
-          isFavorite: data.isFavorite || false,
-          isDeleted: data.isDeleted || false,
-          processingId: data.processingId || '',
-          created_at: data.created_at || data.createdAt || new Date(),
-          updated_at: data.updated_at || data.updatedAt || new Date(),
-        };
-      });
-      
-      // 削除されたレッスンをフィルタリング
-      const filteredLessons = lessonsList.filter(lesson => !lesson.isDeleted);
-      
-      console.log(`レッスン一覧: ${filteredLessons.length}件のレッスンを更新しました`);
-      setLessons(filteredLessons);
-      setIsLoading(false);
-    });
-    
-    return () => {
-      console.log('レッスン一覧: リアルタイム監視を終了します');
-      unsubscribe();
+  // Firestoreからのレッスンデータ取得
+  useEffect(() => {
+    const loadLessons = async () => {
+      if (!auth.currentUser) {
+        console.log('レッスン一覧: ユーザーが認証されていません');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        console.log('レッスン一覧: データ取得を開始します');
+        setIsLoading(true);
+        
+        // useLessonStoreのfetchLessons関数を使用してデータを取得
+        await fetchLessons(auth.currentUser.uid);
+        
+        console.log(`レッスン一覧: ${lessons.length}件のレッスンを取得しました`);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('レッスン一覧: データ取得エラー', error);
+        setIsLoading(false);
+      }
     };
+
+    loadLessons();
+    
+    // 以下のリアルタイム監視は不要になるため削除
+    // const lessonsRef = collection(db, 'lessons');
+    // const userId = auth.currentUser.uid;
+    // const q = query(lessonsRef, where('user_id', '==', userId));
+    // const unsubscribe = onSnapshot(q, (querySnapshot) => {...});
+    // return () => unsubscribe();
   }, [auth.currentUser?.uid]);
 
   // 検索とフィルタリングの関数
@@ -117,6 +159,52 @@ export default function LessonsScreen() {
     );
   };
 
+  // 選択モードの切り替え
+  const toggleSelectionMode = () => {
+    setIsSelectionMode(!isSelectionMode);
+    setSelectedLessons([]);
+  };
+
+  // レッスンの選択状態を切り替える
+  const toggleLessonSelection = (lessonId: string) => {
+    setSelectedLessons(prev => 
+      prev.includes(lessonId)
+        ? prev.filter(id => id !== lessonId)
+        : [...prev, lessonId]
+    );
+  };
+
+  // 選択したレッスンからタスクを生成
+  const generateTasksFromSelectedLessons = async () => {
+    if (selectedLessons.length === 0) return;
+    
+    // 選択されたレッスンのデータを取得
+    const selectedLessonData = lessons.filter(lesson => 
+      selectedLessons.includes(lesson.id)
+    );
+    
+    // タスク生成画面に遷移（選択したレッスンデータを渡す）
+    router.push({
+      pathname: '/generate-tasks',
+      params: { 
+        lessonIds: selectedLessons.join(',')
+      }
+    });
+  };
+
+  // 選択したレッスンをAIレッスンに相談
+  const consultAIWithSelectedLessons = async () => {
+    if (selectedLessons.length === 0) return;
+    
+    // AIレッスン相談画面に遷移（選択したレッスンデータを渡す）
+    router.push({
+      pathname: '/consult-ai',
+      params: { 
+        lessonIds: selectedLessons.join(',')
+      }
+    });
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ListHeader 
@@ -125,6 +213,8 @@ export default function LessonsScreen() {
         availableTags={availableTags}
         selectedTags={selectedTags}
         onTagPress={handleTagPress}
+        isSelectionMode={isSelectionMode}
+        toggleSelectionMode={toggleSelectionMode}
       />
       
       {isLoading ? (
@@ -143,33 +233,61 @@ export default function LessonsScreen() {
           </Text>
         </View>
       ) : (
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <StaggeredList staggerDelay={50}>
-            {filteredLessons.map((lesson) => (
-              <Animated.View 
-                key={lesson.id}
-                entering={FadeIn.duration(300).delay(100)}
-              >
-                <LessonCard
-                  id={lesson.id}
-                  teacher={lesson.teacher}
-                  date={new Date(lesson.date).toLocaleDateString('ja-JP', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                  pieces={lesson.pieces || []}
-                  tags={lesson.tags || []}
-                  isFavorite={lesson.isFavorite}
-                />
-              </Animated.View>
-            ))}
-          </StaggeredList>
-        </ScrollView>
+        <>
+          <ScrollView 
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <StaggeredList staggerDelay={50}>
+              {filteredLessons.map((lesson) => (
+                <Animated.View 
+                  key={lesson.id}
+                  entering={FadeIn.duration(300).delay(100)}
+                >
+                  <LessonCard
+                    id={lesson.id}
+                    teacher={lesson.teacher}
+                    date={formatDate(lesson.date)}
+                    pieces={lesson.pieces || []}
+                    tags={lesson.tags || []}
+                    isFavorite={lesson.isFavorite}
+                    isSelectionMode={isSelectionMode}
+                    isSelected={selectedLessons.includes(lesson.id)}
+                    onSelect={toggleLessonSelection}
+                  />
+                </Animated.View>
+              ))}
+            </StaggeredList>
+          </ScrollView>
+          
+          {/* 選択モード時のアクションボタン */}
+          {isSelectionMode && selectedLessons.length > 0 && (
+            <View style={[styles.actionBar, { backgroundColor: theme.colors.cardElevated }]}>
+              <Text style={[styles.selectedCount, { color: theme.colors.text }]}>
+                {selectedLessons.length}件選択中
+              </Text>
+              
+              <View style={styles.actionButtons}>
+                <TouchableOpacity 
+                  style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
+                  onPress={generateTasksFromSelectedLessons}
+                >
+                  <MaterialIcons name="assignment" size={22} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>練習メニュー生成</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.actionButton, { backgroundColor: theme.colors.secondary }]}
+                  onPress={consultAIWithSelectedLessons}
+                >
+                  <MaterialIcons name="chat" size={22} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>AIに相談</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </>
       )}
     </SafeAreaView>
   );
@@ -208,5 +326,49 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
+  },
+  actionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  selectedCount: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });

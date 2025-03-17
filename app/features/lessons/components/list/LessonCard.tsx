@@ -22,6 +22,9 @@ interface LessonCardProps {
   tags: string[];
   isFavorite?: boolean;
   showFavoriteButton?: boolean;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onSelect?: (id: string) => void;
 }
 
 const LessonCard: React.FC<LessonCardProps> = ({
@@ -32,15 +35,22 @@ const LessonCard: React.FC<LessonCardProps> = ({
   tags,
   isFavorite = false,
   showFavoriteButton = true,
+  isSelectionMode = false,
+  isSelected = false,
+  onSelect = () => {},
 }) => {
   const { toggleFavorite, deleteLesson } = useLessonStore();
   const theme = useTheme();
 
   const handlePress = () => {
-    router.push({
-      pathname: '/lesson-detail',
-      params: { id },
-    });
+    if (isSelectionMode) {
+      onSelect(id);
+    } else {
+      router.push({
+        pathname: '/lesson-detail',
+        params: { id },
+      });
+    }
   };
 
   const handleFavoritePress = (e: GestureResponderEvent) => {
@@ -80,7 +90,8 @@ const LessonCard: React.FC<LessonCardProps> = ({
           backgroundColor: theme.colors.cardElevated,
           borderColor: theme.colors.borderLight,
           ...theme.elevation.small
-        }
+        },
+        isSelected && { borderColor: theme.colors.primary, borderWidth: 2 }
       ]} 
       onPress={handlePress}
       activeOpacity={0.7}
@@ -91,6 +102,18 @@ const LessonCard: React.FC<LessonCardProps> = ({
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
       />
+      {isSelectionMode && (
+        <View style={[
+          styles.selectionIndicator,
+          isSelected && { backgroundColor: theme.colors.primary }
+        ]}>
+          <MaterialIcons 
+            name={isSelected ? "check-circle" : "radio-button-unchecked"} 
+            size={24} 
+            color={isSelected ? "#FFFFFF" : theme.colors.textTertiary} 
+          />
+        </View>
+      )}
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
           <Text style={[
@@ -271,6 +294,18 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
     marginLeft: 6,
+  },
+  selectionIndicator: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

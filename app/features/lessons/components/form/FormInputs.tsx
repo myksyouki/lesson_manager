@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  ScrollView,
+} from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 
 interface FormInputsProps {
   formData: {
@@ -10,123 +18,229 @@ interface FormInputsProps {
     notes: string;
     tags: string[];
   };
-  onUpdateFormData: (data: Partial<{
+  setFormData: React.Dispatch<React.SetStateAction<{
     teacherName: string;
     date: string;
     pieces: string[];
     notes: string;
     tags: string[];
-  }>) => void;
-  onShowCalendar: () => void;
+  }>>;
+  onDatePress: () => void;
 }
 
-export const FormInputs: React.FC<FormInputsProps> = ({
+const FormInputs: React.FC<FormInputsProps> = ({
   formData,
-  onUpdateFormData,
-  onShowCalendar,
+  setFormData,
+  onDatePress,
 }) => {
   const [newPiece, setNewPiece] = useState('');
+  const [newTag, setNewTag] = useState('');
 
+  // 曲目を追加する関数
   const addPiece = () => {
-    if (newPiece.trim() === '') return;
-    
-    const updatedPieces = [...(formData.pieces || []), newPiece.trim()];
-    onUpdateFormData({ pieces: updatedPieces });
-    setNewPiece('');
+    if (newPiece.trim()) {
+      setFormData({
+        ...formData,
+        pieces: [...formData.pieces, newPiece.trim()],
+      });
+      setNewPiece('');
+    }
   };
 
+  // 曲目を削除する関数
   const removePiece = (index: number) => {
-    const updatedPieces = [...(formData.pieces || [])];
+    const updatedPieces = [...formData.pieces];
     updatedPieces.splice(index, 1);
-    onUpdateFormData({ pieces: updatedPieces });
+    setFormData({
+      ...formData,
+      pieces: updatedPieces,
+    });
+  };
+
+  // タグを追加する関数
+  const addTag = () => {
+    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
+      setFormData({
+        ...formData,
+        tags: [...formData.tags, newTag.trim()],
+      });
+      setNewTag('');
+    }
+  };
+
+  // タグを削除する関数
+  const removeTag = (index: number) => {
+    const updatedTags = [...formData.tags];
+    updatedTags.splice(index, 1);
+    setFormData({
+      ...formData,
+      tags: updatedTags,
+    });
+  };
+
+  // 定義済みのタグリスト
+  const predefinedTags = ['リズム', 'テクニック', '表現', 'ペダル', '音色', '強弱'];
+
+  // 定義済みタグを選択する関数
+  const togglePredefinedTag = (tag: string) => {
+    if (formData.tags.includes(tag)) {
+      setFormData({
+        ...formData,
+        tags: formData.tags.filter(t => t !== tag),
+      });
+    } else {
+      setFormData({
+        ...formData,
+        tags: [...formData.tags, tag],
+      });
+    }
   };
 
   return (
-    <View style={styles.formContainer}>
+    <View style={styles.container}>
       <View style={styles.formGroup}>
-        <Text style={styles.label}>講師名<Text style={styles.requiredMark}>*</Text></Text>
+        <Text style={styles.label}>講師名</Text>
         <TextInput
           style={styles.input}
           value={formData.teacherName}
-          onChangeText={(text) => onUpdateFormData({ teacherName: text })}
-          placeholder="講師名を入力"
-          placeholderTextColor="#8E8E93"
+          onChangeText={(text) => setFormData({ ...formData, teacherName: text })}
+          placeholder="講師の名前を入力"
+          placeholderTextColor="#9AA0A6"
         />
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>日付</Text>
+        <Text style={styles.label}>レッスン日</Text>
         <TouchableOpacity
           style={styles.dateInput}
-          onPress={onShowCalendar}
+          onPress={onDatePress}
         >
           <Text style={styles.dateText}>{formData.date}</Text>
-          <MaterialIcons name="calendar-today" size={24} color="#007AFF" />
+          <MaterialIcons name="calendar-today" size={20} color="#4285F4" />
         </TouchableOpacity>
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>レッスン曲</Text>
-        <View style={styles.pieceInputContainer}>
+        <Text style={styles.label}>曲目</Text>
+        <View style={styles.piecesContainer}>
+          {formData.pieces.map((piece, index) => (
+            <View key={index} style={styles.pieceItem}>
+              <Text style={styles.pieceText}>{piece}</Text>
+              <TouchableOpacity
+                style={styles.removeButton}
+                onPress={() => removePiece(index)}
+              >
+                <MaterialIcons name="close" size={16} color="#9AA0A6" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+        <View style={styles.addItemContainer}>
           <TextInput
-            style={styles.pieceInput}
+            style={styles.addItemInput}
             value={newPiece}
             onChangeText={setNewPiece}
-            placeholder="レッスン曲を入力"
-            placeholderTextColor="#8E8E93"
-            returnKeyType="done"
+            placeholder="曲名を入力"
+            placeholderTextColor="#9AA0A6"
             onSubmitEditing={addPiece}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.addButton}
             onPress={addPiece}
-            disabled={newPiece.trim() === ''}
+            disabled={!newPiece.trim()}
           >
-            <Ionicons 
-              name="add-circle" 
-              size={24} 
-              color={newPiece.trim() === '' ? "#C7C7CC" : "#007AFF"} 
+            <MaterialIcons
+              name="add"
+              size={20}
+              color={newPiece.trim() ? "#4285F4" : "#9AA0A6"}
             />
           </TouchableOpacity>
         </View>
-        
-        {formData.pieces && formData.pieces.length > 0 ? (
-          <View style={styles.piecesList}>
-            {formData.pieces.map((piece, index) => (
-              <View key={index} style={styles.pieceItem}>
-                <Text style={styles.pieceText}>{piece}</Text>
-                <TouchableOpacity 
-                  onPress={() => removePiece(index)}
-                  style={styles.removeButton}
-                >
-                  <Ionicons name="close-circle" size={20} color="#FF3B30" />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        ) : null}
       </View>
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>メモ</Text>
         <TextInput
-          style={[styles.input, styles.textArea]}
+          style={styles.notesInput}
           value={formData.notes}
-          onChangeText={(text) => onUpdateFormData({ notes: text })}
-          placeholder="レッスン内容のメモを入力"
-          placeholderTextColor="#8E8E93"
+          onChangeText={(text) => setFormData({ ...formData, notes: text })}
+          placeholder="レッスンの内容や気づきをメモしましょう"
+          placeholderTextColor="#9AA0A6"
           multiline
-          numberOfLines={4}
           textAlignVertical="top"
         />
+      </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>タグ</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.predefinedTagsContainer}
+          contentContainerStyle={styles.predefinedTagsContent}
+        >
+          {predefinedTags.map((tag) => (
+            <TouchableOpacity
+              key={tag}
+              style={[
+                styles.predefinedTag,
+                formData.tags.includes(tag) && styles.selectedPredefinedTag,
+              ]}
+              onPress={() => togglePredefinedTag(tag)}
+            >
+              <Text
+                style={[
+                  styles.predefinedTagText,
+                  formData.tags.includes(tag) && styles.selectedPredefinedTagText,
+                ]}
+              >
+                {tag}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <View style={styles.tagsContainer}>
+          {formData.tags.map((tag, index) => (
+            <View key={index} style={styles.tagItem}>
+              <Text style={styles.tagText}>{tag}</Text>
+              <TouchableOpacity
+                style={styles.removeButton}
+                onPress={() => removeTag(index)}
+              >
+                <MaterialIcons name="close" size={16} color="#9AA0A6" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+        <View style={styles.addItemContainer}>
+          <TextInput
+            style={styles.addItemInput}
+            value={newTag}
+            onChangeText={setNewTag}
+            placeholder="カスタムタグを追加"
+            placeholderTextColor="#9AA0A6"
+            onSubmitEditing={addTag}
+          />
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={addTag}
+            disabled={!newTag.trim() || formData.tags.includes(newTag.trim())}
+          >
+            <MaterialIcons
+              name="add"
+              size={20}
+              color={newTag.trim() && !formData.tags.includes(newTag.trim()) ? "#4285F4" : "#9AA0A6"}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  formContainer: {
-    padding: 20,
+  container: {
+    padding: 16,
   },
   formGroup: {
     marginBottom: 20,
@@ -135,11 +249,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#1C1C1E',
-  },
-  requiredMark: {
-    color: '#FF3B30',
-    fontWeight: '600',
+    color: '#202124',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   input: {
     backgroundColor: 'white',
@@ -147,10 +258,9 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-  },
-  textArea: {
-    minHeight: 100,
+    borderColor: '#DADCE0',
+    color: '#202124',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   dateInput: {
     backgroundColor: 'white',
@@ -158,50 +268,116 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: '#DADCE0',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   dateText: {
     fontSize: 16,
-    color: '#1C1C1E',
+    color: '#202124',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  pieceInputContainer: {
+  piecesContainer: {
+    marginBottom: 8,
+  },
+  pieceItem: {
+    backgroundColor: '#E8F0FE',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+  },
+  pieceText: {
+    color: '#4285F4',
+    marginRight: 4,
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  removeButton: {
+    padding: 2,
+  },
+  addItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  pieceInput: {
+  addItemInput: {
     flex: 1,
     backgroundColor: 'white',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: '#DADCE0',
+    color: '#202124',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   addButton: {
+    padding: 12,
     marginLeft: 8,
-    padding: 4,
   },
-  piecesList: {
-    marginTop: 12,
-  },
-  pieceItem: {
-    flexDirection: 'row',
-    backgroundColor: '#F2F2F7',
+  notesInput: {
+    backgroundColor: 'white',
     borderRadius: 8,
-    padding: 10,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#DADCE0',
+    color: '#202124',
+    height: 120,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  predefinedTagsContainer: {
     marginBottom: 8,
+  },
+  predefinedTagsContent: {
+    paddingVertical: 8,
+  },
+  predefinedTag: {
+    backgroundColor: '#F1F3F4',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginRight: 8,
+  },
+  selectedPredefinedTag: {
+    backgroundColor: '#E8F0FE',
+  },
+  predefinedTagText: {
+    color: '#5F6368',
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  selectedPredefinedTagText: {
+    color: '#4285F4',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  tagItem: {
+    backgroundColor: '#E8F0FE',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    marginRight: 8,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  pieceText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1C1C1E',
-  },
-  removeButton: {
-    padding: 4,
+  tagText: {
+    color: '#4285F4',
+    marginRight: 4,
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 });
 

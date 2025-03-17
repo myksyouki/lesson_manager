@@ -79,6 +79,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => {
   // 認証状態を監視
   onAuthStateChanged(auth, (user) => {
+    console.log("🔐 認証状態変更:", user ? `ユーザー ${user.uid} がログイン中` : "未ログイン");
     set({ user: user || null, isLoading: false });
     
     // ユーザー情報をローカルストレージに保存（ウェブのみ）
@@ -105,8 +106,11 @@ export const useAuthStore = create<AuthState>((set) => {
     signUp: async (email, password) => {
       try {
         set({ isLoading: true, error: null });
+        console.log("📝 サインアップ試行:", email);
         await createUserWithEmailAndPassword(auth, email, password);
+        console.log("✅ サインアップ成功:", email);
       } catch (error: any) {
+        console.error("❌ サインアップ失敗:", error.message);
         set({ error: error.message, isLoading: false });
       }
     },
@@ -114,8 +118,11 @@ export const useAuthStore = create<AuthState>((set) => {
     signIn: async (email, password) => {
       try {
         set({ isLoading: true, error: null });
+        console.log("🔑 サインイン試行:", email);
         await signInWithEmailAndPassword(auth, email, password);
+        console.log("✅ サインイン成功:", email);
       } catch (error: any) {
+        console.error("❌ サインイン失敗:", error.message);
         set({ error: error.message, isLoading: false });
       }
     },
@@ -123,16 +130,19 @@ export const useAuthStore = create<AuthState>((set) => {
     signInWithGoogle: async (promptAsync) => {
       try {
         set({ isLoading: true, error: null });
-
+        console.log("🔑 Googleサインイン試行");
         const result = await promptAsync();
         if (result?.type === "success") {
           const { id_token } = result.params;
           const credential = GoogleAuthProvider.credential(id_token);
           await signInWithCredential(auth, credential);
+          console.log("✅ Googleサインイン成功");
         } else {
+          console.log("❌ Googleサインインキャンセル:", result?.type);
           set({ error: "Googleログインがキャンセルされました", isLoading: false });
         }
       } catch (error: any) {
+        console.error("❌ Googleサインイン失敗:", error.message);
         set({ error: error.message, isLoading: false });
       }
     },
@@ -140,14 +150,20 @@ export const useAuthStore = create<AuthState>((set) => {
     signInAsTestUser: async () => {
       try {
         set({ isLoading: true, error: null });
+        console.log("🔑 テストユーザーサインイン試行");
         await signInWithEmailAndPassword(auth, TEST_USER_EMAIL, TEST_USER_PASSWORD);
+        console.log("✅ テストユーザーサインイン成功");
       } catch (error: any) {
+        console.log("❌ テストユーザーサインイン失敗:", error.message);
         // テストユーザーが存在しない場合は作成してからログイン
         try {
+          console.log("📝 テストユーザー作成試行");
           await createUserWithEmailAndPassword(auth, TEST_USER_EMAIL, TEST_USER_PASSWORD);
+          console.log("✅ テストユーザー作成成功");
         } catch (createError: any) {
           // ユーザーが既に存在する場合は無視（再度ログイン試行）
           if (createError.code !== 'auth/email-already-in-use') {
+            console.error("❌ テストユーザー作成失敗:", createError.message);
             set({ error: createError.message, isLoading: false });
             return;
           }
@@ -155,8 +171,11 @@ export const useAuthStore = create<AuthState>((set) => {
         
         // 再度ログイン試行
         try {
+          console.log("🔑 テストユーザー再サインイン試行");
           await signInWithEmailAndPassword(auth, TEST_USER_EMAIL, TEST_USER_PASSWORD);
+          console.log("✅ テストユーザー再サインイン成功");
         } catch (signInError: any) {
+          console.error("❌ テストユーザー再サインイン失敗:", signInError.message);
           set({ error: signInError.message, isLoading: false });
         }
       }
@@ -165,10 +184,13 @@ export const useAuthStore = create<AuthState>((set) => {
     signOut: async () => {
       try {
         set({ isLoading: true, error: null });
+        console.log("🚪 サインアウト試行");
         await signOut(auth);
         set({ user: null, isLoading: false });
+        console.log("✅ サインアウト成功");
         router.replace("/login");
       } catch (error: any) {
+        console.error("❌ サインアウト失敗:", error.message);
         set({ error: error.message, isLoading: false });
       }
     },
