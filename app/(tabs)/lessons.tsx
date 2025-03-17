@@ -12,12 +12,14 @@ import {
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
 import ListHeader from '../features/lessons/components/list/ListHeader';
+import SearchBar from '../features/lessons/components/list/SearchBar';
+import TagFilter from '../features/lessons/components/list/TagFilter';
 import LessonCard from '../features/lessons/components/list/LessonCard';
 import { Lesson } from '../store/lessons';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useTheme } from '../theme/index';
 import { StaggeredList, AnimatedButton } from '../components/AnimatedComponents';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useLessonStore } from '../store/lessons';
 
@@ -207,16 +209,48 @@ export default function LessonsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ListHeader 
-        searchText={searchText}
-        onSearchChange={handleSearchChange}
-        availableTags={availableTags}
-        selectedTags={selectedTags}
-        onTagPress={handleTagPress}
-        isSelectionMode={isSelectionMode}
-        toggleSelectionMode={toggleSelectionMode}
-      />
+      <ListHeader />
       
+      {/* 検索バーとタグフィルター */}
+      <View style={styles.searchCardContainer}>
+        <View style={styles.searchCard}>
+          <SearchBar
+            searchText={searchText}
+            onSearchChange={handleSearchChange}
+            theme={theme}
+          />
+          <TagFilter
+            availableTags={availableTags}
+            selectedTags={selectedTags}
+            onTagPress={handleTagPress}
+            theme={theme}
+          />
+        </View>
+      </View>
+      
+      {/* セレクションモード切り替えボタン */}
+      <View style={[styles.selectionButtonContainer, { borderBottomColor: theme.colors.borderLight }]}>
+        <TouchableOpacity
+          style={[
+            styles.selectionButton,
+            isSelectionMode && { backgroundColor: theme.colors.primaryLight }
+          ]}
+          onPress={toggleSelectionMode}
+        >
+          <MaterialIcons 
+            name={isSelectionMode ? "close" : "check-box-outline-blank"} 
+            size={24} 
+            color={isSelectionMode ? theme.colors.primary : theme.colors.textSecondary} 
+          />
+          <Text style={[
+            styles.selectionButtonText,
+            { color: isSelectionMode ? theme.colors.primary : theme.colors.textSecondary }
+          ]}>
+            {isSelectionMode ? '選択解除' : '複数選択'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -226,10 +260,16 @@ export default function LessonsScreen() {
         </View>
       ) : filteredLessons.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="musical-notes" size={80} color="#E5E5EA" />
+          </View>
+          <Text style={styles.emptyText}>
             {searchText || selectedTags.length > 0 
               ? '検索条件に一致するレッスンがありません' 
-              : 'レッスンがまだ登録されていません'}
+              : 'レッスンがありません'}
+          </Text>
+          <Text style={styles.emptySubtext}>
+            新しいレッスンを追加してみましょう
           </Text>
         </View>
       ) : (
@@ -260,12 +300,11 @@ export default function LessonsScreen() {
             </StaggeredList>
           </ScrollView>
           
-          {isSelectionMode && (
+          {isSelectionMode && selectedLessons.length > 0 && (
             <View style={styles.selectionActionsContainer}>
               <TouchableOpacity 
                 style={[styles.selectionActionButton, { backgroundColor: theme.colors.primary }]}
                 onPress={generateTasksFromSelectedLessons}
-                disabled={selectedLessons.length === 0}
               >
                 <MaterialIcons name="assignment" size={24} color="#FFFFFF" />
                 <Text style={styles.selectionActionText}>タスク生成</Text>
@@ -274,7 +313,6 @@ export default function LessonsScreen() {
               <TouchableOpacity 
                 style={[styles.selectionActionButton, { backgroundColor: theme.colors.secondary }]}
                 onPress={consultAIWithSelectedLessons}
-                disabled={selectedLessons.length === 0}
               >
                 <MaterialIcons name="smart-toy" size={24} color="#FFFFFF" />
                 <Text style={styles.selectionActionText}>AIに相談</Text>
@@ -284,38 +322,15 @@ export default function LessonsScreen() {
         </>
       )}
       
-      {/* レッスンを記録ボタン */}
-      <View style={styles.actionButtonContainer}>
-        <AnimatedButton
-          title="レッスンを記録"
+      {/* 新規レッスン追加ボタン */}
+      {!isSelectionMode && (
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
           onPress={() => router.push('/lesson-form')}
-          style={{
-            backgroundColor: theme.colors.primary,
-            paddingVertical: 14,
-            paddingHorizontal: 24,
-            borderRadius: 28,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 6,
-          }}
-          activeScale={0.92}
         >
-          <Text style={{
-            color: theme.colors.textInverse,
-            fontSize: 16,
-            fontWeight: '600',
-            marginRight: 8
-          }}>
-            レッスンを記録
-          </Text>
-          <MaterialIcons name="add" size={24} color={theme.colors.textInverse} />
-        </AnimatedButton>
-      </View>
+          <MaterialIcons name="add" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -324,18 +339,50 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  searchCardContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  searchCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  selectionButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 0.5,
+  },
+  selectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  selectionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 8,
+    padding: 16,
     paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 100,
   },
   loadingText: {
     marginTop: 16,
@@ -346,13 +393,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingBottom: 100,
+    paddingHorizontal: 32,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#F8F8FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1C1C1E',
     textAlign: 'center',
-    lineHeight: 24,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 16,
+    color: '#8E8E93',
+    textAlign: 'center',
   },
   selectionActionsContainer: {
     position: 'absolute',
@@ -361,26 +423,37 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 16,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5EA',
   },
   selectionActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
   },
   selectionActionText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    marginLeft: 4,
+    marginLeft: 8,
   },
-  actionButtonContainer: {
+  addButton: {
     position: 'absolute',
     bottom: 24,
     right: 24,
-    zIndex: 100,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });

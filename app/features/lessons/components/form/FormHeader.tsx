@@ -9,7 +9,6 @@ import {
 import { router } from 'expo-router';
 import { Button } from '../../../../components/ui/Button';
 import { useTheme } from '../../../../theme';
-import { useNavigation } from '@react-navigation/native';
 
 interface FormHeaderProps {
   onSave: () => void;
@@ -22,7 +21,6 @@ const FormHeader: React.FC<FormHeaderProps> = ({
   isProcessing = false,
   isValid = true,
 }) => {
-  const navigation = useNavigation();
   const theme = useTheme();
 
   const handleCancel = useCallback(() => {
