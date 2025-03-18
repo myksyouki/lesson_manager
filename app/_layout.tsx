@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack, Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -9,11 +9,10 @@ import { useTheme } from './theme/index';
 import { FadeIn, AnimatedLoader } from './components/AnimatedComponents';
 import 'react-native-url-polyfill/auto';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useRouter } from 'expo-router';
-import { AuthProvider } from './services/auth';
 import * as SplashScreen from 'expo-splash-screen';
 import { useGoogleAuth } from './store/auth';
 import { getUserProfile } from './services/userProfileService';
+import { auth } from './config/firebase';
 
 declare global {
   interface Window {
@@ -28,13 +27,15 @@ export default function RootLayout() {
   const { user, isLoading } = useAuthStore();
   const { theme: themeName } = useSettingsStore();
   const theme = useTheme();
-  const router = useRouter();
   const { request, promptAsync } = useGoogleAuth();
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
       window.frameworkReady?.();
     }
+    // コンポーネントがマウントされたことを記録
+    setIsMounted(true);
   }, []);
 
   // アプリロード時にユーザープロファイルを読み込む
@@ -51,8 +52,10 @@ export default function RootLayout() {
       }
     };
 
-    loadUserProfile();
-  }, [user]);
+    if (isMounted && user) {
+      loadUserProfile();
+    }
+  }, [user, isMounted]);
 
   // スプラッシュ画面を非表示にする
   useEffect(() => {
@@ -76,75 +79,73 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <GestureHandlerRootView style={styles.container}>
-        <Stack 
-          screenOptions={{ 
-            headerShown: false,
-            animation: 'fade_from_bottom',
-            contentStyle: { backgroundColor: theme.colors.background },
-          }}
-        >
-          {!user ? (
-            <React.Fragment>
-              <Stack.Screen name="login" options={{ headerShown: false }} />
-              <Stack.Screen name="index" redirect />
-            </React.Fragment>
-          ) : (
-            <React.Fragment>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
-              <Stack.Screen 
-                name="lesson-form" 
-                options={{ 
-                  presentation: 'modal',
-                  animation: 'slide_from_bottom',
-                  gestureEnabled: true,
-                  gestureDirection: 'vertical',
-                }} 
-              />
-              <Stack.Screen 
-                name="lesson-detail" 
-                options={{ 
-                  presentation: 'modal',
-                  animation: 'slide_from_right',
-                  gestureEnabled: true,
-                  gestureDirection: 'horizontal',
-                }} 
-              />
-              <Stack.Screen 
-                name="shared-audio" 
-                options={{ 
-                  presentation: 'modal', 
-                  title: '音声ファイル処理中',
-                  animation: 'fade',
-                }} 
-              />
-              <Stack.Screen 
-                name="task-detail" 
-                options={{ 
-                  presentation: 'modal',
-                  animation: 'slide_from_right',
-                  gestureEnabled: true,
-                  gestureDirection: 'horizontal',
-                }} 
-              />
-              <Stack.Screen 
-                name="task-form" 
-                options={{ 
-                  presentation: 'modal',
-                  animation: 'slide_from_bottom',
-                  gestureEnabled: true,
-                  gestureDirection: 'vertical',
-                }} 
-              />
-              <Stack.Screen name="instrument-settings" />
-            </React.Fragment>
-          )}
-        </Stack>
-        <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
-      </GestureHandlerRootView>
-    </AuthProvider>
+    <GestureHandlerRootView style={styles.container}>
+      <Stack 
+        screenOptions={{ 
+          headerShown: false,
+          animation: 'fade_from_bottom',
+          contentStyle: { backgroundColor: theme.colors.background },
+        }}
+      >
+        {!user ? (
+          <React.Fragment>
+            <Stack.Screen name="login" options={{ headerShown: false }} />
+            <Stack.Screen name="index" redirect />
+          </React.Fragment>
+        ) : (
+          <React.Fragment>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+            <Stack.Screen 
+              name="lesson-form" 
+              options={{ 
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+                gestureEnabled: true,
+                gestureDirection: 'vertical',
+              }} 
+            />
+            <Stack.Screen 
+              name="lesson-detail" 
+              options={{ 
+                presentation: 'modal',
+                animation: 'slide_from_right',
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }} 
+            />
+            <Stack.Screen 
+              name="shared-audio" 
+              options={{ 
+                presentation: 'modal', 
+                title: '音声ファイル処理中',
+                animation: 'fade',
+              }} 
+            />
+            <Stack.Screen 
+              name="task-detail" 
+              options={{ 
+                presentation: 'modal',
+                animation: 'slide_from_right',
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }} 
+            />
+            <Stack.Screen 
+              name="task-form" 
+              options={{ 
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+                gestureEnabled: true,
+                gestureDirection: 'vertical',
+              }} 
+            />
+            <Stack.Screen name="instrument-settings" />
+          </React.Fragment>
+        )}
+      </Stack>
+      <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
+    </GestureHandlerRootView>
   );
 }
 

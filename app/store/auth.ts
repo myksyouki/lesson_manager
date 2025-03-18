@@ -67,6 +67,48 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set, get) => {
+  // 初期状態を設定
+  const initialState = {
+    user: null,
+    isLoading: true,
+    error: null,
+    isNewUser: false,
+  };
+  
+  // 起動時にonAuthStateChangedより先に実行されるチェック
+  const checkInitialAuth = async () => {
+    try {
+      console.log("🔍 初期認証状態をチェック中...");
+      
+      // 現在の状態を安全に取得
+      const currentState = get ? get() : initialState;
+      
+      // すでにログイン中の場合は処理を行わない
+      if (currentState.user) {
+        return;
+      }
+      
+      // 認証状態を確認
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        console.log("✅ 保存されていた認証情報を復元:", currentUser.uid);
+        set({ user: currentUser, isLoading: false });
+      } else {
+        console.log("❌ 保存された認証情報なし");
+        // 状態だけ更新し、ナビゲーションはレイアウトコンポーネントに任せる
+        set({ user: null, isLoading: false });
+      }
+    } catch (error) {
+      console.error("❌ 初期認証チェックエラー:", error);
+      set({ user: null, isLoading: false });
+    }
+  };
+  
+  // 安全に初期チェックを実行 (setTimeout経由で非同期に実行)
+  setTimeout(() => {
+    checkInitialAuth();
+  }, 0);
+
   // 認証状態を監視
   onAuthStateChanged(auth, async (user) => {
     console.log("🔐 認証状態変更:", user ? `ユーザー ${user.uid} がログイン中` : "未ログイン");
@@ -76,6 +118,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     if (Platform.OS === 'web' && user) {
       try {
         localStorage.setItem('userAuth', 'true');
+        localStorage.setItem('userId', user.uid);
       } catch (e) {
         console.error('ローカルストレージへの保存に失敗:', e);
       }
@@ -87,30 +130,20 @@ export const useAuthStore = create<AuthState>((set, get) => {
         // オンボーディング状態を確認
         const isOnboardingCompleted = await checkOnboardingStatus();
         
-        // 新規ユーザーフラグがtrueならオンボーディング画面へ
+        // 新規ユーザーフラグを設定 (ナビゲーションはレイアウトコンポーネントに任せる)
         if (get().isNewUser) {
-          setTimeout(() => {
-            router.replace("/onboarding");
-          }, 100);
+          console.log("🆕 新規ユーザー - オンボーディングが必要");
         } 
-        // 既存ユーザーでオンボーディング未完了ならオンボーディング画面へ
+        // オンボーディング未完了の場合も状態を記録
         else if (!isOnboardingCompleted) {
-          setTimeout(() => {
-            router.replace("/onboarding");
-          }, 100);
+          console.log("🔄 既存ユーザー - オンボーディングが未完了");
         }
-        // それ以外はホーム画面へ
+        // 通常ユーザーの場合のログ
         else {
-          setTimeout(() => {
-            router.replace("/(tabs)");
-          }, 100);
+          console.log("✅ 認証済みユーザー - 全設定完了");
         }
       } catch (error) {
         console.error('ユーザープロファイル確認エラー:', error);
-        // エラー時はとりあえずホーム画面へ
-        setTimeout(() => {
-          router.replace("/(tabs)");
-        }, 100);
       }
     }
   });
@@ -249,7 +282,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await signOut(auth);
         set({ user: null, isLoading: false, isNewUser: false });
         console.log("✅ サインアウト成功");
-        router.replace("/login");
+        // サインアウト後のナビゲーションはレイアウトの条件付きレンダリングに任せる
       } catch (error: any) {
         console.error("❌ サインアウト失敗:", error.message);
         set({ error: error.message, isLoading: false });

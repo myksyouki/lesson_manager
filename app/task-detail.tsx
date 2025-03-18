@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Platform, ScrollView } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Platform, ScrollView, TouchableOpacity, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTaskStore } from './store/tasks';
 import { Task } from './types/task';
@@ -8,6 +8,8 @@ import TaskDetailHeader from './features/tasks/components/TaskDetailHeader';
 import TaskDetailContent from './features/tasks/components/TaskDetailContent';
 import TaskCompletionSwipeButton from './features/tasks/components/TaskCompletionSwipeButton';
 import TaskCompletionAnimation from './features/tasks/components/TaskCompletionAnimation';
+import PracticeTools from './features/practice/components/PracticeTools';
+import { MaterialIcons } from '@expo/vector-icons';
 
 export default function TaskDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,6 +21,7 @@ export default function TaskDetail() {
   const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
   const [completionCount, setCompletionCount] = useState(0);
   const [streakCount, setStreakCount] = useState(0);
+  const [showPracticeTools, setShowPracticeTools] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -91,7 +94,10 @@ export default function TaskDetail() {
 
   const handleOpenChatRoom = () => {
     if (chatRoom) {
-      router.push(`/chat-room?id=${chatRoom.id}`);
+      router.push({
+        pathname: '/chat-room',
+        params: { id: chatRoom.id }
+      });
     }
   };
 
@@ -126,6 +132,25 @@ export default function TaskDetail() {
           chatRoomTitle={chatRoom?.title || null}
           onOpenChatRoom={handleOpenChatRoom}
         />
+        
+        {/* 練習ツール */}
+        <View style={styles.toolsSection}>
+          <TouchableOpacity
+            style={styles.toolsToggleButton}
+            onPress={() => setShowPracticeTools(!showPracticeTools)}
+          >
+            <MaterialIcons
+              name={showPracticeTools ? "keyboard-arrow-up" : "music-note"}
+              size={24}
+              color="#4285F4"
+            />
+            <Text style={styles.toolsToggleText}>
+              {showPracticeTools ? "練習ツールを閉じる" : "練習ツールを開く"}
+            </Text>
+          </TouchableOpacity>
+          
+          <PracticeTools isVisible={showPracticeTools} />
+        </View>
       </ScrollView>
       
       <View style={styles.swipeButtonContainer}>
@@ -168,5 +193,26 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
+  },
+  toolsSection: {
+    marginBottom: 80, // スワイプボタンのスペースを確保
+  },
+  toolsToggleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: '#F5F9FF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E1ECFF',
+  },
+  toolsToggleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4285F4',
+    marginLeft: 8,
   },
 });
