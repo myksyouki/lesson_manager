@@ -1,9 +1,14 @@
 import axios from 'axios';
+import { getDifyConfig } from './userProfileService';
 
 // Dify API設定
 const DIFY_API_BASE_URL = process.env.EXPO_PUBLIC_DIFY_API_URL || 'https://api.dify.ai/v1';
+
+// フォールバック用のAPIキー（将来的に削除）
 const LESSON_AI_API_KEY = process.env.EXPO_PUBLIC_DIFY_LESSON_API_KEY || '';
 const PRACTICE_MENU_AI_API_KEY = process.env.EXPO_PUBLIC_DIFY_PRACTICE_MENU_API_KEY || '';
+
+// フォールバック用のAPP ID（将来的に削除）
 const LESSON_APP_ID = process.env.EXPO_PUBLIC_DIFY_LESSON_APP_ID || '';
 const PRACTICE_MENU_APP_ID = process.env.EXPO_PUBLIC_DIFY_PRACTICE_MENU_APP_ID || '';
 
@@ -36,6 +41,36 @@ export interface PracticeMenuResponse {
   rawContent: string;
 }
 
+// ユーザー設定に基づいてAPIキーとAPP IDを取得
+const getDifySettings = async (): Promise<{ apiKey: string; appId: string }> => {
+  try {
+    // ユーザープロファイルからDify設定を取得
+    const difyConfig = await getDifyConfig();
+    
+    if (difyConfig && difyConfig.apiKey && difyConfig.appId) {
+      return {
+        apiKey: difyConfig.apiKey,
+        appId: difyConfig.appId
+      };
+    }
+    
+    // フォールバック（ユーザー設定が取得できなかった場合や設定が不完全な場合）
+    console.warn('ユーザー設定からDify設定が取得できなかったため、デフォルト設定を使用します');
+    return {
+      apiKey: LESSON_AI_API_KEY,
+      appId: LESSON_APP_ID
+    };
+  } catch (error) {
+    console.error('Dify設定の取得に失敗しました:', error);
+    
+    // エラー時はフォールバック
+    return {
+      apiKey: LESSON_AI_API_KEY,
+      appId: LESSON_APP_ID
+    };
+  }
+};
+
 // レッスンAIとのチャット
 export const sendMessageToLessonAI = async (
   message: string, 
@@ -45,15 +80,18 @@ export const sendMessageToLessonAI = async (
   conversationId: string; 
 }> => {
   try {
+    // ユーザー設定に基づいたDify設定を取得
+    const { apiKey } = await getDifySettings();
+    
     console.log('Dify API呼び出し:', {
       url: `${DIFY_API_BASE_URL}/chat-messages`,
-      apiKey: LESSON_AI_API_KEY ? LESSON_AI_API_KEY.substring(0, 10) + '...' : 'なし',
+      apiKey: apiKey ? apiKey.substring(0, 10) + '...' : 'なし',
       message,
       conversationId
     });
 
-    if (!LESSON_AI_API_KEY) {
-      throw new Error('Dify APIキーが設定されていません。.envファイルを確認してください。');
+    if (!apiKey) {
+      throw new Error('Dify APIキーが設定されていません。.envファイルまたはユーザー設定を確認してください。');
     }
 
     // ストリーミングモードではなくブロッキングモードを使用
@@ -68,7 +106,7 @@ export const sendMessageToLessonAI = async (
       },
       {
         headers: {
-          'Authorization': `Bearer ${LESSON_AI_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         }
       }
@@ -111,6 +149,14 @@ export const sendMessageToLessonAI = async (
   }
 };
 
+// 練習メニュー生成のためのDify設定を取得
+const getPracticeMenuDifySettings = async (): Promise<{ apiKey: string }> => {
+  // 練習メニュー生成のために特定のAPIキーを取得（ここでは固定のAPIキーを使用）
+  return {
+    apiKey: PRACTICE_MENU_AI_API_KEY
+  };
+};
+
 // 練習メニュー生成
 export const createPracticeMenu = async (chatHistory: ChatMessage[]): Promise<PracticeMenuResponse> => {
   try {
@@ -122,8 +168,11 @@ export const createPracticeMenu = async (chatHistory: ChatMessage[]): Promise<Pr
       };
     }
 
+    // 練習メニュー生成用の設定を取得
+    const { apiKey } = await getPracticeMenuDifySettings();
+
     console.log('練習メニュー生成API呼び出し:', {
-      apiKey: PRACTICE_MENU_AI_API_KEY.substring(0, 10) + '...',
+      apiKey: apiKey.substring(0, 10) + '...',
       chatHistoryLength: chatHistory.length,
       url: `${DIFY_API_BASE_URL}/chat-messages`
     });
@@ -168,7 +217,7 @@ export const createPracticeMenu = async (chatHistory: ChatMessage[]): Promise<Pr
       requestBody,
       {
         headers: {
-          'Authorization': `Bearer ${PRACTICE_MENU_AI_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         }
       }
@@ -198,6 +247,9 @@ export const createPracticeMenu = async (chatHistory: ChatMessage[]): Promise<Pr
       // メソッド1が失敗した場合、メソッド2を試す
       try {
         console.log('メソッド1が失敗しました。メソッド2を試します...');
+        
+        // 練習メニュー生成用の設定を取得
+        const { apiKey } = await getPracticeMenuDifySettings();
         
         // チャット履歴を文字列に変換
         const chatHistoryString = chatHistory.map(msg => 
@@ -232,7 +284,7 @@ export const createPracticeMenu = async (chatHistory: ChatMessage[]): Promise<Pr
           completionRequestBody,
           {
             headers: {
-              'Authorization': `Bearer ${PRACTICE_MENU_AI_API_KEY}`,
+              'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json'
             }
           }
@@ -250,83 +302,89 @@ export const createPracticeMenu = async (chatHistory: ChatMessage[]): Promise<Pr
           practiceMenus,
           rawContent
         };
-      } catch (fallbackError: any) {
-        console.error('フォールバックメソッドも失敗しました:', fallbackError);
-        throw new Error(`APIエラー: ${fallbackError.message}`);
+      } catch (fallbackError) {
+        console.error('フォールバックメソッドでも失敗しました:', fallbackError);
+        throw fallbackError;
       }
     }
     
-    throw new Error(`APIエラー: ${error.message}`);
+    throw error;
   }
 };
 
-// 練習メニューをパースする関数
+// 練習メニューのパース処理
 const parsePracticeMenus = (content: string): PracticeMenu[] => {
-  if (!content) return [];
+  // content の例:
+  // # テクニック練習
+  // ## 目標
+  // - 明瞭なタンギングの習得
+  // ## 練習内容
+  // 1. スケール練習
+  // ## 注意点
+  // - 音が途切れないように注意
+
+  const practiceMenus: PracticeMenu[] = [];
+  const menuSections = content.split(/(?=# )/g);
   
-  // 各練習メニューを分割（「# 」で始まる行で区切る）
-  const menuBlocks = content.split(/(?=^# )/m).filter(block => block.trim().length > 0);
-  
-  return menuBlocks.map(block => {
-    // タイトルを抽出（「# 」で始まる行）
-    const titleMatch = block.match(/^# (.+)$/m);
-    const title = titleMatch ? titleMatch[1].trim() : '練習メニュー';
+  for (const section of menuSections) {
+    if (!section.trim()) continue;
     
-    // 目標を抽出（「## 目標」セクション内の箇条書き）
-    const goalsMatch = block.match(/## 目標\s*\n((?:[-*•]\s*.+\n?)+)/m);
-    const goalsText = goalsMatch ? goalsMatch[1] : '';
-    const goals = goalsText
-      .split('\n')
-      .map(line => line.replace(/^[-*•]\s*/, '').trim())
-      .filter(line => line.length > 0);
+    const titleMatch = section.match(/# (.*)/);
+    const title = titleMatch ? titleMatch[1].trim() : '無題のメニュー';
     
-    // 練習内容を抽出（「## 練習内容」セクション内の番号付きリスト）
-    const practiceItemsMatch = block.match(/## 練習内容\s*\n((?:\d+\.\s*.+\n?)+)/m);
-    const practiceItemsText = practiceItemsMatch ? practiceItemsMatch[1] : '';
-    const practiceItems = practiceItemsText
-      .split('\n')
-      .map(line => line.replace(/^\d+\.\s*/, '').trim())
-      .filter(line => line.length > 0);
+    const goalsSection = section.match(/## 目標([\s\S]*?)(?=##|$)/);
+    const goals = goalsSection 
+      ? goalsSection[1].split(/\n-/).slice(1).map(g => g.trim()).filter(Boolean)
+      : [];
     
-    // 注意点を抽出（「## 注意点」セクション内の箇条書き）
-    const notesMatch = block.match(/## 注意点\s*\n((?:[-*•]\s*.+\n?)+)/m);
-    const notesText = notesMatch ? notesMatch[1] : '';
-    const notes = notesText
-      .split('\n')
-      .map(line => line.replace(/^[-*•]\s*/, '').trim())
-      .filter(line => line.length > 0);
+    const practiceItemsSection = section.match(/## 練習内容([\s\S]*?)(?=##|$)/);
+    const practiceItems = practiceItemsSection
+      ? practiceItemsSection[1].split(/\n\d+\./).slice(1).map(p => p.trim()).filter(Boolean)
+      : [];
     
-    return {
+    const notesSection = section.match(/## 注意点([\s\S]*?)(?=##|$)/);
+    const notes = notesSection
+      ? notesSection[1].split(/\n-/).slice(1).map(n => n.trim()).filter(Boolean)
+      : [];
+    
+    practiceMenus.push({
       title,
       goals,
       practiceItems,
       notes
-    };
-  });
+    });
+  }
+  
+  return practiceMenus;
 };
 
-// チャット履歴からトピックを抽出するヘルパー関数
+// チャット履歴からトピックを抽出
 function extractTopicsFromChatHistory(chatHistory: ChatMessage[]): string[] {
-  // 単純な実装: ユーザーメッセージから頻出単語を抽出
-  const userMessages = chatHistory
-    .filter(msg => msg.role === 'user')
-    .map(msg => msg.content);
+  const allText = chatHistory.map(msg => msg.content).join(' ');
   
-  // 全てのユーザーメッセージを結合
-  const allText = userMessages.join(' ');
-  
-  // 音楽関連の一般的なキーワードリスト
-  const musicKeywords = [
-    'スケール', 'アルペジオ', 'コード', 'リズム', 'テンポ', '表現', 'テクニック',
-    'ソルフェージュ', '音程', '和声', '楽譜', '練習', 'レッスン', '演奏', '音色',
-    'フレーズ', 'メロディ', '即興', '理論', '曲', '作曲', '編曲'
+  // 音楽関連の重要キーワードのリスト
+  const keywords = [
+    'タンギング', 'アーティキュレーション', 'リズム', '音色', '表現', 'ビブラート',
+    'テンポ', 'ダイナミクス', '音程', 'スラー', 'スタッカート', 'レガート',
+    '呼吸', 'ブレス', 'フレージング', '音階', 'スケール', 'テクニック',
+    '練習', 'エチュード', '曲', '楽譜', '指使い', 'ポジション',
+    'トリル', 'ロングトーン'
   ];
   
-  // テキスト内に出現するキーワードを抽出
-  const foundTopics = musicKeywords.filter(keyword => 
-    allText.toLowerCase().includes(keyword.toLowerCase())
-  );
+  // 出現するキーワードをカウント
+  const topicCounts: { [topic: string]: number } = {};
   
-  // トピックが見つからない場合のデフォルト値
-  return foundTopics.length > 0 ? foundTopics : ['音楽練習', '演奏技術'];
+  for (const keyword of keywords) {
+    const regex = new RegExp(keyword, 'gi');
+    const matches = allText.match(regex);
+    if (matches) {
+      topicCounts[keyword] = matches.length;
+    }
+  }
+  
+  // カウント数でソートしてトップ3を返す
+  return Object.entries(topicCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(entry => entry[0]);
 }

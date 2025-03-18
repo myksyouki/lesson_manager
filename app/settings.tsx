@@ -1,6 +1,4 @@
 import React from 'react';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from './navigation/types';
 import {
   View,
   Text,
@@ -18,9 +16,7 @@ import { useLessonStore } from './store/lessons';
 import LessonCard from './components/LessonCard';
 import { useRouter } from 'expo-router';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
-
-export default function SettingsScreen({ navigation }: Props) {
+export default function SettingsScreen() {
   const { signOut, user } = useAuthStore();
   const { getFavorites } = useLessonStore();
   const favoriteLesson = getFavorites();
@@ -49,6 +45,13 @@ export default function SettingsScreen({ navigation }: Props) {
             onPress={() => router.push('/theme-settings')}
           >
             <Text style={styles.infoLabel}>テーマ設定</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.infoItem} 
+            onPress={() => router.push('/instrument-settings')}
+          >
+            <Text style={styles.infoLabel}>楽器・モデル設定</Text>
             <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.infoItem} onPress={() => alert('キャッシュをクリアしました')}>
