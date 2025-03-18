@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { create } from "zustand";
-import { auth } from "../config/firebase";
+import { auth, db } from "../config/firebase";
 import {
   User,
   onAuthStateChanged,
@@ -16,6 +16,8 @@ import * as Google from "expo-auth-session/providers/google";
 import { router } from "expo-router";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { checkOnboardingStatus } from "../services/userProfileService";
 
 console.log("✅ Expo Config Extra:", Constants.expoConfig?.extra);
 console.log("🔗 Redirect URI:", Constants.expoConfig?.extra?.expoPublicGoogleRedirectUri);
@@ -46,20 +48,6 @@ export function useGoogleAuth() {
     scopes: ["profile", "email"],
   });
 
-  // デバッグ用のログ出力を削除
-  // console.log("🌍 Google リクエスト URL:", request?.url);
-
-  // 自動サインイン処理を削除
-  // useEffect(() => {
-  //   if (response?.type === "success") {
-  //     const { id_token } = response.params;
-  //     const credential = GoogleAuthProvider.credential(id_token);
-  //     signInWithCredential(auth, credential)
-  //       .then(() => console.log("✅ Googleログイン成功"))
-  //       .catch((error) => console.error("❌ Googleログイン失敗:", error));
-  //   }
-  // }, [response]);
-
   return { request, response, promptAsync };
 }
 
@@ -68,17 +56,19 @@ interface AuthState {
   user: User | null;
   isLoading: boolean;
   error: string | null;
+  isNewUser: boolean;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (promptAsync: () => Promise<any>) => Promise<void>;
   signInAsTestUser: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
+  setIsNewUser: (value: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => {
+export const useAuthStore = create<AuthState>((set, get) => {
   // 認証状態を監視
-  onAuthStateChanged(auth, (user) => {
+  onAuthStateChanged(auth, async (user) => {
     console.log("🔐 認証状態変更:", user ? `ユーザー ${user.uid} がログイン中` : "未ログイン");
     set({ user: user || null, isLoading: false });
     
@@ -91,10 +81,37 @@ export const useAuthStore = create<AuthState>((set) => {
       }
     }
 
+    // ユーザーがログインしている場合の処理
     if (user) {
-      setTimeout(() => {
-        router.replace("/(tabs)");
-      }, 100);
+      try {
+        // オンボーディング状態を確認
+        const isOnboardingCompleted = await checkOnboardingStatus();
+        
+        // 新規ユーザーフラグがtrueならオンボーディング画面へ
+        if (get().isNewUser) {
+          setTimeout(() => {
+            router.replace("/onboarding");
+          }, 100);
+        } 
+        // 既存ユーザーでオンボーディング未完了ならオンボーディング画面へ
+        else if (!isOnboardingCompleted) {
+          setTimeout(() => {
+            router.replace("/onboarding");
+          }, 100);
+        }
+        // それ以外はホーム画面へ
+        else {
+          setTimeout(() => {
+            router.replace("/(tabs)");
+          }, 100);
+        }
+      } catch (error) {
+        console.error('ユーザープロファイル確認エラー:', error);
+        // エラー時はとりあえずホーム画面へ
+        setTimeout(() => {
+          router.replace("/(tabs)");
+        }, 100);
+      }
     }
   });
 
@@ -102,12 +119,30 @@ export const useAuthStore = create<AuthState>((set) => {
     user: null,
     isLoading: true,
     error: null,
+    isNewUser: false,
 
     signUp: async (email, password) => {
       try {
         set({ isLoading: true, error: null });
         console.log("📝 サインアップ試行:", email);
-        await createUserWithEmailAndPassword(auth, email, password);
+        
+        // ユーザー作成
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // 新規ユーザーのプロファイルをFirestoreに作成
+        const userRef = doc(db, 'users', userCredential.user.uid);
+        await setDoc(userRef, {
+          email: userCredential.user.email,
+          createdAt: new Date(),
+          selectedInstrument: '',
+          selectedModel: '',
+          isPremium: false,
+          isOnboardingCompleted: false
+        });
+        
+        // 新規ユーザーフラグを設定
+        set({ isNewUser: true });
+        
         console.log("✅ サインアップ成功:", email);
       } catch (error: any) {
         console.error("❌ サインアップ失敗:", error.message);
@@ -117,7 +152,7 @@ export const useAuthStore = create<AuthState>((set) => {
 
     signIn: async (email, password) => {
       try {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, isNewUser: false });
         console.log("🔑 サインイン試行:", email);
         await signInWithEmailAndPassword(auth, email, password);
         console.log("✅ サインイン成功:", email);
@@ -129,14 +164,41 @@ export const useAuthStore = create<AuthState>((set) => {
 
     signInWithGoogle: async (promptAsync) => {
       try {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, isNewUser: false });
         console.log("🔑 Googleサインイン試行");
         const result = await promptAsync();
         if (result?.type === "success") {
           const { id_token } = result.params;
           const credential = GoogleAuthProvider.credential(id_token);
-          await signInWithCredential(auth, credential);
-          console.log("✅ Googleサインイン成功");
+          
+          // ユーザーが既に存在するか確認するためにサインイン前にチェック
+          try {
+            const userCredential = await signInWithCredential(auth, credential);
+            
+            // Googleアカウントで初めてのログインかどうかを確認
+            const userRef = doc(db, 'users', userCredential.user.uid);
+            const userDoc = await getDoc(userRef);
+            
+            if (!userDoc.exists()) {
+              // 新規ユーザーの場合、プロファイルを作成
+              await setDoc(userRef, {
+                email: userCredential.user.email,
+                createdAt: new Date(),
+                selectedInstrument: '',
+                selectedModel: '',
+                isPremium: false,
+                isOnboardingCompleted: false
+              });
+              
+              // 新規ユーザーフラグを設定
+              set({ isNewUser: true });
+            }
+            
+            console.log("✅ Googleサインイン成功");
+          } catch (error) {
+            console.error("❌ Googleサインイン処理失敗:", error);
+            set({ error: "Googleログイン処理中にエラーが発生しました", isLoading: false });
+          }
         } else {
           console.log("❌ Googleサインインキャンセル:", result?.type);
           set({ error: "Googleログインがキャンセルされました", isLoading: false });
@@ -149,35 +211,34 @@ export const useAuthStore = create<AuthState>((set) => {
 
     signInAsTestUser: async () => {
       try {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, isNewUser: false });
         console.log("🔑 テストユーザーサインイン試行");
-        await signInWithEmailAndPassword(auth, TEST_USER_EMAIL, TEST_USER_PASSWORD);
-        console.log("✅ テストユーザーサインイン成功");
-      } catch (error: any) {
-        console.log("❌ テストユーザーサインイン失敗:", error.message);
-        // テストユーザーが存在しない場合は作成してからログイン
-        try {
-          console.log("📝 テストユーザー作成試行");
-          await createUserWithEmailAndPassword(auth, TEST_USER_EMAIL, TEST_USER_PASSWORD);
-          console.log("✅ テストユーザー作成成功");
-        } catch (createError: any) {
-          // ユーザーが既に存在する場合は無視（再度ログイン試行）
-          if (createError.code !== 'auth/email-already-in-use') {
-            console.error("❌ テストユーザー作成失敗:", createError.message);
-            set({ error: createError.message, isLoading: false });
-            return;
-          }
-        }
         
-        // 再度ログイン試行
         try {
-          console.log("🔑 テストユーザー再サインイン試行");
+          // テストユーザーでログイン試行
           await signInWithEmailAndPassword(auth, TEST_USER_EMAIL, TEST_USER_PASSWORD);
-          console.log("✅ テストユーザー再サインイン成功");
-        } catch (signInError: any) {
-          console.error("❌ テストユーザー再サインイン失敗:", signInError.message);
-          set({ error: signInError.message, isLoading: false });
+          console.log("✅ テストユーザーサインイン成功");
+        } catch (error) {
+          // ログイン失敗の場合はアカウント作成
+          console.log("📝 テストユーザー作成試行");
+          const userCredential = await createUserWithEmailAndPassword(auth, TEST_USER_EMAIL, TEST_USER_PASSWORD);
+          
+          // 新規ユーザーのプロファイルをFirestoreに作成
+          const userRef = doc(db, 'users', userCredential.user.uid);
+          await setDoc(userRef, {
+            email: userCredential.user.email,
+            createdAt: new Date(),
+            selectedInstrument: 'clarinet', // テストユーザーには初期値を設定
+            selectedModel: 'standard',
+            isPremium: true, // テスト用に全機能を有効化
+            isOnboardingCompleted: true // テスト用にオンボーディングをスキップ
+          });
+          
+          console.log("✅ テストユーザー作成成功");
         }
+      } catch (error: any) {
+        console.error("❌ テストユーザー処理失敗:", error.message);
+        set({ error: error.message, isLoading: false });
       }
     },
 
@@ -186,7 +247,7 @@ export const useAuthStore = create<AuthState>((set) => {
         set({ isLoading: true, error: null });
         console.log("🚪 サインアウト試行");
         await signOut(auth);
-        set({ user: null, isLoading: false });
+        set({ user: null, isLoading: false, isNewUser: false });
         console.log("✅ サインアウト成功");
         router.replace("/login");
       } catch (error: any) {
@@ -196,5 +257,7 @@ export const useAuthStore = create<AuthState>((set) => {
     },
 
     clearError: () => set({ error: null }),
+    
+    setIsNewUser: (value) => set({ isNewUser: value }),
   };
 });

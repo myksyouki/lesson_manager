@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, SafeAreaView, ScrollView, Text } from 'react-native';
 import { useTaskStore } from './store/tasks';
-import { useAuth } from './services/auth';
+import { useAuthStore } from './store/auth';
 import TaskList from './features/tasks/components/TaskList';
 import TaskCategorySummary from './features/tasks/components/TaskCategorySummary';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -16,7 +16,7 @@ interface CategorySummary {
 }
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const { tasks, isLoading, error, fetchTasks } = useTaskStore();
   const [recentlyCompletedTaskId, setRecentlyCompletedTaskId] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategorySummary[]>([]);

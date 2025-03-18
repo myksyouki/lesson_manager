@@ -25,10 +25,13 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     if (user) {
-      router.replace('/(tabs)');
+      // @ts-ignore - 型エラーを無視
+      router.replace("/(tabs)");
     }
   }, [user]);
 
@@ -52,6 +55,26 @@ export default function LoginScreen() {
   const toggleAuthMode = () => {
     setIsSignUp(!isSignUp);
     clearError();
+  };
+
+  const handleSignUp = async () => {
+    if (!email || !password) {
+      setErrorMessage('メールアドレスとパスワードを入力してください');
+      return;
+    }
+
+    try {
+      await signUp(email, password);
+      setEmail('');
+      setPassword('');
+      setErrorMessage('');
+      
+      // 新規登録後はオンボーディング画面に誘導するためのフラグを設定
+      // 実際のリダイレクトはauth.tsのonAuthStateChangedで行われる
+    } catch (error: any) {
+      console.error('サインアップエラー:', error);
+      setErrorMessage(error.message || 'サインアップに失敗しました');
+    }
   };
 
   if (isLoading && user) {
