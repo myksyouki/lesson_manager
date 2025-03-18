@@ -20,7 +20,7 @@ interface UseLessonFormReturn {
   lessonDocId: string | null;
   processingStatus: string | null;
   updateFormData: (data: Partial<LessonFormData>) => void;
-  handleSave: (selectedFile: SelectedFile | null) => Promise<void>;
+  handleSave: (selectedFile: SelectedFile | null) => Promise<string | null>;
   isFormValid: () => boolean;
 }
 
@@ -93,72 +93,57 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
   };
 
   // 保存ハンドラー
-  const handleSave = async (selectedFile: SelectedFile | null) => {
+  const handleSave = async (selectedFile: SelectedFile | null): Promise<string | null> => {
     if (!isFormValid()) {
-      Alert.alert('入力エラー', '先生の名前と日付は必須です');
-      return;
+      setIsProcessing(false);
+      setProcessingStep('');
+      return null;
     }
-    
+
+    setIsProcessing(true);
+    setProcessingStep(selectedFile ? '音声ファイルをアップロード中...' : 'レッスンを保存中...');
+
     try {
-      setIsProcessing(true);
-      setProcessingStep('レッスンデータを保存中...');
-      
-      // レッスンを保存 - この関数内で既にFirestoreドキュメントが作成される
-      const lessonId = await saveLesson(
+      const docId = await saveLesson(
         formData,
         selectedFile,
-        (progress) => setUploadProgress(progress),
-        (status, message) => setProcessingStep(message)
+        (progress) => {
+          setUploadProgress(progress);
+        },
+        (status) => {
+          setProcessingStatus(status);
+          if (status === 'audio_uploaded') {
+            setProcessingStep('アップロードが完了しました！');
+            // アップロードが完了したら1秒後に画面遷移
+            setTimeout(() => {
+              router.push('/lessons' as any);
+            }, 1000);
+          } else if (status === 'completed' && !selectedFile) {
+            setProcessingStep('レッスンを保存しました！');
+            // 音声ファイルがない場合も同様に遷移
+            setTimeout(() => {
+              router.push('/lessons' as any);
+            }, 1000);
+          } else if (status === 'processing') {
+            setProcessingStep('音声ファイルを処理中...');
+          } else if (status === 'transcribing') {
+            setProcessingStep('文字起こし中...');
+          } else if (status === 'summarizing') {
+            setProcessingStep('文字起こしが完了しました。要約を生成中...');
+          } else if (status === 'error') {
+            setProcessingStep('エラーが発生しました。もう一度お試しください。');
+            setIsProcessing(false);
+          }
+        }
       );
-      
-      setLessonDocId(lessonId);
-      
-      // ローカルストアを更新（Firestoreに新しいドキュメントは作成しない）
-      const lessonStore = useLessonStore.getState();
-      
-      // 初期データを設定
-      const lessonData = {
-        id: lessonId, // 既存のIDを使用
-        teacher: formData.teacherName,
-        date: formData.date,
-        pieces: formData.pieces,
-        notes: formData.notes,
-        tags: formData.tags,
-        user_id: auth.currentUser?.uid || '',
-        summary: '',
-        transcription: '',
-        audioUrl: selectedFile ? 'アップロード中...' : '',
-        status: selectedFile ? 'processing' : 'completed',
-        isFavorite: false,
-        processingId: lessonId,
-      };
-      
-      // 既存のレッスン一覧をチェックして、新しいレッスンを追加または既存のものを更新
-      const existingLesson = lessonStore.lessons.find(lesson => lesson.id === lessonId);
-      
-      if (existingLesson) {
-        // 既存のレッスンが見つかった場合は更新
-        lessonStore.updateLocalLesson(lessonId, lessonData);
-      } else {
-        // 新しいレッスンとしてストアに追加
-        useLessonStore.setState((prevState) => ({
-          ...prevState,
-          lessons: [...prevState.lessons, lessonData]
-        }));
-      }
-        
-      // 音声ファイルがない場合は即座に完了
-      if (!selectedFile) {
-        // 完了メッセージを表示して画面遷移
-        setProcessingStep('レッスンを保存しました！');
-        setTimeout(() => {
-          router.replace('/lessons' as any);
-        }, 1000);
-      }
+
+      setLessonDocId(docId);
+      return docId;
     } catch (error) {
-      console.error('保存エラー:', error);
-      Alert.alert('エラー', 'レッスンの保存中にエラーが発生しました');
+      console.error('Error saving lesson:', error);
+      setProcessingStep('エラーが発生しました。もう一度お試しください。');
       setIsProcessing(false);
+      return null;
     }
   };
 

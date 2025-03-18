@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,9 +8,11 @@ import {
   ActivityIndicator,
   Platform,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
+import { useFocusEffect } from '@react-navigation/native';
 import ListHeader from '../features/lessons/components/list/ListHeader';
 import SearchBar from '../features/lessons/components/list/SearchBar';
 import TagFilter from '../features/lessons/components/list/TagFilter';
@@ -31,6 +33,7 @@ export default function LessonsScreen() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const availableTags = ['リズム', 'テクニック', '表現', 'ペダル', '音色', '強弱'];
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const theme = useTheme();
   
   // 複数選択モード関連の状態
@@ -102,6 +105,31 @@ export default function LessonsScreen() {
     }
   };
 
+  // 検索とフィルタリングの関数
+  const filteredLessons = lessons.filter(lesson => {
+    // 検索テキストでフィルタリング
+    const searchMatch = searchText === '' || 
+      lesson.teacher.toLowerCase().includes(searchText.toLowerCase()) ||
+      (lesson.pieces && lesson.pieces.some(piece => piece.toLowerCase().includes(searchText.toLowerCase())));
+    
+    // タグでフィルタリング
+    const tagMatch = selectedTags.length === 0 || 
+      (lesson.tags && selectedTags.every(tag => lesson.tags.includes(tag)));
+    
+    return searchMatch && tagMatch;
+  });
+
+  // デバッグ用のログ
+  useEffect(() => {
+    console.log('レッスン一覧状態:', {
+      isLoading,
+      lessonsCount: lessons.length,
+      filteredLessonsCount: filteredLessons.length,
+      searchText,
+      selectedTags
+    });
+  }, [isLoading, lessons.length, filteredLessons.length, searchText, selectedTags]);
+
   // Firestoreからのレッスンデータ取得
   useEffect(() => {
     const loadLessons = async () => {
@@ -128,28 +156,30 @@ export default function LessonsScreen() {
     };
 
     loadLessons();
-    
-    // 以下のリアルタイム監視は不要になるため削除
-    // const lessonsRef = collection(db, 'lessons');
-    // const userId = auth.currentUser.uid;
-    // const q = query(lessonsRef, where('user_id', '==', userId));
-    // const unsubscribe = onSnapshot(q, (querySnapshot) => {...});
-    // return () => unsubscribe();
-  }, [auth.currentUser?.uid]);
+  }, [auth.currentUser?.uid, fetchLessons]);
 
-  // 検索とフィルタリングの関数
-  const filteredLessons = lessons.filter(lesson => {
-    // 検索テキストでフィルタリング
-    const searchMatch = searchText === '' || 
-      lesson.teacher.toLowerCase().includes(searchText.toLowerCase()) ||
-      (lesson.pieces && lesson.pieces.some(piece => piece.toLowerCase().includes(searchText.toLowerCase())));
-    
-    // タグでフィルタリング
-    const tagMatch = selectedTags.length === 0 || 
-      (lesson.tags && selectedTags.every(tag => lesson.tags.includes(tag)));
-    
-    return searchMatch && tagMatch;
-  });
+  // タブがフォーカスされたときにレッスンデータを再取得
+  useFocusEffect(
+    useCallback(() => {
+      const refreshLessonsOnFocus = async () => {
+        if (!auth.currentUser) return;
+        
+        try {
+          console.log('タブフォーカス: レッスンデータ再取得を開始します');
+          await fetchLessons(auth.currentUser.uid);
+          console.log(`タブフォーカス: ${lessons.length}件のレッスンを再取得しました`);
+        } catch (error) {
+          console.error('タブフォーカス: レッスンデータ再取得エラー', error);
+        }
+      };
+      
+      refreshLessonsOnFocus();
+      
+      return () => {
+        // クリーンアップ関数（必要に応じて）
+      };
+    }, [fetchLessons, auth.currentUser?.uid])
+  );
 
   // 検索テキスト変更ハンドラ
   const handleSearchChange = (text: string) => {
@@ -191,7 +221,7 @@ export default function LessonsScreen() {
     
     // タスク生成画面に遷移（選択したレッスンデータを渡す）
     router.push({
-      pathname: '/generate-tasks',
+      pathname: '/generate-tasks' as any,
       params: { 
         lessonIds: selectedLessons.join(',')
       }
@@ -204,12 +234,30 @@ export default function LessonsScreen() {
     
     // AIレッスン相談画面に遷移（選択したレッスンデータを渡す）
     router.push({
-      pathname: '/consult-ai',
+      pathname: '/consult-ai' as any,
       params: { 
         lessonIds: selectedLessons.join(',')
       }
     });
   };
+
+  // 手動リフレッシュ処理
+  const onRefresh = React.useCallback(() => {
+    if (!auth.currentUser) return;
+    
+    setRefreshing(true);
+    console.log('手動リフレッシュ: レッスンデータ再取得を開始します');
+    
+    fetchLessons(auth.currentUser.uid)
+      .then(() => {
+        console.log(`手動リフレッシュ: レッスンデータを再取得しました`);
+        setRefreshing(false);
+      })
+      .catch(error => {
+        console.error('手動リフレッシュ: データ取得エラー', error);
+        setRefreshing(false);
+      });
+  }, [fetchLessons]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: '#f5f5f5' }]}>
@@ -224,15 +272,11 @@ export default function LessonsScreen() {
                 <View style={styles.searchCardHeader}>
                   <Text style={styles.searchCardTitle}>レッスン検索</Text>
                 </View>
-                
-                <View style={styles.searchBarContainer}>
-                  <SearchBar
-                    searchText={searchText}
-                    onSearchChange={handleSearchChange}
-                    theme={theme}
-                  />
-                </View>
-                
+                <SearchBar
+                  searchText={searchText}
+                  onSearchChange={handleSearchChange}
+                  theme={theme}
+                />
                 <TagFilter
                   availableTags={availableTags}
                   selectedTags={selectedTags}
@@ -267,12 +311,11 @@ export default function LessonsScreen() {
           </>
         )}
 
+        {/* ローディング表示 */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={LESSON_THEME_COLOR} />
-            <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-              レッスンを読み込み中...
-            </Text>
+            <Text style={styles.loadingText}>レッスンデータを読み込み中...</Text>
           </View>
         ) : filteredLessons.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -295,7 +338,7 @@ export default function LessonsScreen() {
             
             <TouchableOpacity
               style={[styles.createButton, { backgroundColor: LESSON_THEME_COLOR }]}
-              onPress={() => router.push('/lesson-form')}
+              onPress={() => router.push('/lesson-form' as any)}
             >
               <Text style={styles.createButtonText}>
                 最初のレッスンを記録
@@ -308,6 +351,16 @@ export default function LessonsScreen() {
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={LESSON_THEME_COLOR}
+                colors={[LESSON_THEME_COLOR]}
+                title="更新中..."
+                titleColor="#5F6368"
+              />
+            }
           >
             <StaggeredList staggerDelay={50}>
               {filteredLessons.map((lesson) => (
@@ -356,7 +409,7 @@ export default function LessonsScreen() {
       {!isSelectionMode && filteredLessons.length > 0 && (
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: LESSON_THEME_COLOR }]}
-          onPress={() => router.push('/lesson-form')}
+          onPress={() => router.push('/lesson-form' as any)}
         >
           <MaterialIcons name="add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
@@ -429,12 +482,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 100,
+    backgroundColor: '#F8F9FA',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    fontWeight: '500',
+    color: '#5F6368',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   emptyContainer: {
     flex: 1,

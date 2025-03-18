@@ -4,10 +4,14 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  TouchableOpacity,
+  Text,
+  Modal
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from './config/firebase';
+import { MaterialIcons } from '@expo/vector-icons';
 import LessonDetailHeader from './features/lessons/components/detail/LessonDetailHeader';
 import LessonDetailContent from './features/lessons/components/detail/LessonDetailContent';
 
@@ -15,6 +19,7 @@ export default function LessonDetail() {
   const params = useLocalSearchParams();
   const [isEditing, setIsEditing] = useState(false);
   const [currentLesson, setCurrentLesson] = useState<any>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
   
   const [formData, setFormData] = useState({
     id: params.id as string,
@@ -190,6 +195,33 @@ export default function LessonDetail() {
     }
   };
 
+  // エクスポートモーダルを表示
+  const openExportModal = () => {
+    setShowExportModal(true);
+  };
+
+  // タスク生成画面へ遷移
+  const navigateToGenerateTasks = () => {
+    setShowExportModal(false);
+    router.push({
+      pathname: '/generate-tasks' as any,
+      params: { 
+        lessonIds: params.id as string
+      }
+    });
+  };
+
+  // AIに相談画面へ遷移
+  const navigateToConsultAI = () => {
+    setShowExportModal(false);
+    router.push({
+      pathname: '/consult-ai' as any,
+      params: { 
+        lessonIds: params.id as string
+      }
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -209,6 +241,55 @@ export default function LessonDetail() {
           onSave={handleSave}
           onToggleFavorite={handleToggleFavorite}
         />
+
+        {/* エクスポートボタン */}
+        <View style={styles.exportButtonWrapper}>
+          <TouchableOpacity
+            style={styles.exportButton}
+            onPress={openExportModal}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="import-export" size={24} color="#FFFFFF" />
+            <Text style={styles.exportButtonText}>エクスポート</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* エクスポートモーダル */}
+        <Modal
+          visible={showExportModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowExportModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>エクスポート</Text>
+              
+              <TouchableOpacity 
+                style={styles.modalOption}
+                onPress={navigateToGenerateTasks}
+              >
+                <MaterialIcons name="assignment" size={24} color="#007AFF" />
+                <Text style={styles.modalOptionText}>タスク生成</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalOption}
+                onPress={navigateToConsultAI}
+              >
+                <MaterialIcons name="smart-toy" size={24} color="#5856D6" />
+                <Text style={styles.modalOptionText}>AIに相談</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalOption, styles.cancelOption]}
+                onPress={() => setShowExportModal(false)}
+              >
+                <Text style={styles.cancelText}>キャンセル</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -222,5 +303,78 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
+  },
+  exportButtonWrapper: {
+    position: 'absolute',
+    bottom: 24,
+    left: 0,
+    right: 0,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  exportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4285F4',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  exportButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+  },
+  modalOptionText: {
+    fontSize: 16,
+    marginLeft: 16,
+  },
+  cancelOption: {
+    justifyContent: 'center',
+    borderBottomWidth: 0,
+    marginTop: 8,
+  },
+  cancelText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
   },
 });

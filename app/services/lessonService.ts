@@ -120,11 +120,19 @@ export const saveLesson = async (
                 status: 'processing'
               });
               
-              onStatusChange?.('processing', '音声ファイルを処理中...');
+              // アップロード完了を通知 - クライアントにすぐにリダイレクトさせる
+              onStatusChange?.('audio_uploaded', 'アップロードが完了しました！');
               
-              // 音声処理を開始
-              await processAudioFile(lessonId, audioFile.uri, audioFile.name, processingId);
+              // バックグラウンドで音声処理を開始
+              processAudioFile(lessonId, audioFile.uri, audioFile.name, processingId)
+                .then(() => {
+                  console.log(`バックグラウンドでの音声処理が開始されました: ${lessonId}`);
+                })
+                .catch(error => {
+                  console.error('バックグラウンド処理エラー:', error);
+                });
               
+              // アップロード完了後すぐにレッスンIDを返す
               resolve(lessonId);
             } catch (error) {
               reject(error);

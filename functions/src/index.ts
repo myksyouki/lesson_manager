@@ -82,7 +82,7 @@ export const processAudioFile = onObjectFinalized(
       const fileBucket = event.data.bucket;
       const filePath = event.data.name;
       const contentType = event.data.contentType;
-      
+
       // 音声ファイルのみを処理
       if (!contentType || !contentType.startsWith("audio/")) {
         console.log("音声ファイルではないため、処理をスキップします:", filePath);
@@ -293,10 +293,10 @@ export const processAudioFile = onObjectFinalized(
         } catch (error) {
           console.error(`レッスン ${existingLessonId} の再処理中にエラーが発生しました:`, error);
         }
-        
+
         return;
       }
-      
+
       // 処理済みレッスンの中でstatusが"completed"のものがあれば
       // それは音声なしのレッスンの可能性が高いので、
       // 改めて検索して確認
@@ -306,7 +306,7 @@ export const processAudioFile = onObjectFinalized(
         .orderBy("updated_at", "desc")
         .limit(5)
         .get();
-      
+
       // 完了済みレッスンで検証（音声がないレッスンの場合）
       if (!completedCheck.empty) {
         for (const completedDoc of completedCheck.docs) {
