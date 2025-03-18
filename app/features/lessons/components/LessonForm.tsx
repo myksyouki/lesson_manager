@@ -157,6 +157,25 @@ export const LessonForm: React.FC<LessonFormProps> = ({
             />
           </View>
 
+          <View style={[styles.section, styles.memoSection]}>
+            <Text style={styles.label}>マイメモ</Text>
+            <TextInput
+              style={[
+                styles.input,
+                styles.textArea,
+                !isEditing && styles.readOnly,
+                !formData.notes && styles.emptyTextArea
+              ]}
+              value={formData.notes}
+              onChangeText={(text) => onUpdateFormData({ notes: text })}
+              multiline
+              numberOfLines={formData.notes ? undefined : 1}
+              textAlignVertical="top"
+              editable={isEditing}
+              placeholder="メモを入力"
+            />
+          </View>
+
           <View style={styles.section}>
             <Text style={styles.label}>AIサマリー</Text>
             <SummaryDisplay
@@ -164,20 +183,8 @@ export const LessonForm: React.FC<LessonFormProps> = ({
               status={formData.status}
             />
           </View>
-
-          <View style={[styles.section, styles.memoSection]}>
-            <Text style={styles.label}>マイメモ</Text>
-            <TextInput
-              style={[styles.input, styles.textArea, !isEditing && styles.readOnly]}
-              value={formData.notes}
-              onChangeText={(text) => onUpdateFormData({ notes: text })}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              editable={isEditing}
-              placeholder="メモを入力"
-            />
-          </View>
+          
+          <View style={styles.bottomPadding} />
         </View>
       </View>
 
@@ -205,7 +212,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   memoSection: {
-    marginBottom: Platform.OS === 'ios' ? 120 : 80,
+    marginBottom: 24,
+  },
+  bottomPadding: {
+    height: 40,
   },
   label: {
     fontSize: 17,
@@ -239,9 +249,13 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
   },
   textArea: {
-    height: 140,
-    paddingTop: 16,
+    minHeight: 40,
+    maxHeight: 200,
+    paddingTop: 12,
     textAlignVertical: 'top',
+  },
+  emptyTextArea: {
+    height: 40,
   },
   piecesList: {
     marginTop: 8,

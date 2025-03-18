@@ -52,7 +52,21 @@ export async function processAudio(req: Request, res: Response): Promise<void> {
 
     // OpenAI APIを使用して要約とタグを生成
     console.log("OpenAI APIを使用して要約とタグ生成を開始します");
+    
+    // 文字起こしテキストのサンプルをログに出力
+    const textSample = transcription.length > 200 ? 
+      transcription.substring(0, 200) + "..." : 
+      transcription;
+    console.log(`文字起こしサンプル: ${textSample}`);
+    
     const { summary, tags } = await summarizeTextWithOpenAI(transcription);
+    
+    // 要約結果の詳細検証
+    if (!summary || summary.length < 100) {
+      console.error(`要約が不十分です。長さ: ${summary?.length || 0}文字`);
+      // 要約が不十分な場合でもプロセスは続行するが、ログを残す
+    }
+    
     console.log("要約とタグ生成が完了しました");
 
     // 要約処理
