@@ -13,6 +13,7 @@ import CalendarHeader from '../features/schedule/components/CalendarHeader';
 import WeekDayHeader from '../features/schedule/components/WeekDayHeader';
 import CalendarGrid from '../features/schedule/components/CalendarGrid';
 import LessonDetails from '../features/schedule/components/LessonDetails';
+import ScheduleHeader from '../features/schedule/components/ScheduleHeader';
 import { auth } from '../config/firebase';
 
 export default function ScheduleScreen() {
@@ -51,9 +52,7 @@ export default function ScheduleScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>スケジュール</Text>
-        </View>
+        <ScheduleHeader />
         
         <ScrollView 
           style={styles.scrollContainer}
@@ -100,31 +99,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
-  },
-  header: {
-    paddingTop: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#202124',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   scrollContainer: {
     flex: 1,
