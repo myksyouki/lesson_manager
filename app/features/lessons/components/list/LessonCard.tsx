@@ -25,6 +25,7 @@ interface LessonCardProps {
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
+  onLongPress?: () => void;
 }
 
 const LessonCard: React.FC<LessonCardProps> = ({
@@ -38,6 +39,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
   isSelectionMode = false,
   isSelected = false,
   onSelect = () => {},
+  onLongPress,
 }) => {
   const { toggleFavorite, deleteLesson } = useLessonStore();
   const theme = useTheme();
@@ -47,9 +49,15 @@ const LessonCard: React.FC<LessonCardProps> = ({
       onSelect(id);
     } else {
       router.push({
-        pathname: '/lesson-detail',
+        pathname: '/lesson-detail' as any,
         params: { id },
       });
+    }
+  };
+
+  const handleLongPress = () => {
+    if (onLongPress) {
+      onLongPress();
     }
   };
 
@@ -94,7 +102,9 @@ const LessonCard: React.FC<LessonCardProps> = ({
         isSelected && { borderColor: theme.colors.primary, borderWidth: 2 }
       ]} 
       onPress={handlePress}
+      onLongPress={handleLongPress}
       activeOpacity={0.7}
+      delayLongPress={300}
     >
       <LinearGradient
         colors={[theme.colors.primary, theme.colors.primaryDark]}

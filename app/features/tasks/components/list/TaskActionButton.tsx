@@ -37,13 +37,16 @@ const TaskActionButton: React.FC<TaskActionButtonProps> = ({ onAddTask }) => {
     
     try {
       router.push({
-        pathname: '/task-form',
-        params: { category }
+        pathname: '/task-form' as any,
+        params: { category, mode: 'practiceMenu' }
       });
     } catch (error) {
       console.error('ナビゲーションエラー:', error);
       // フォールバック: 単純なパスのみを使用
-      router.push('/task-form');
+      router.push({
+        pathname: '/task-form' as any,
+        params: { mode: 'practiceMenu' }
+      });
     }
     
     if (onAddTask) {
@@ -56,7 +59,10 @@ const TaskActionButton: React.FC<TaskActionButtonProps> = ({ onAddTask }) => {
     setModalVisible(false);
     
     try {
-      router.push('/task-form');
+      router.push({
+        pathname: '/task-form' as any,
+        params: { mode: 'practiceMenu' }
+      });
     } catch (error) {
       console.error('ナビゲーションエラー:', error);
     }
@@ -84,7 +90,7 @@ const TaskActionButton: React.FC<TaskActionButtonProps> = ({ onAddTask }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>タスクのカテゴリを選択</Text>
+              <Text style={styles.modalTitle}>練習メニューを作成</Text>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setModalVisible(false)}
@@ -115,7 +121,7 @@ const TaskActionButton: React.FC<TaskActionButtonProps> = ({ onAddTask }) => {
                 <View style={[styles.categoryIcon, { backgroundColor: '#9E9E9E' }]}>
                   <MaterialIcons name="add" size={24} color="#FFFFFF" />
                 </View>
-                <Text style={styles.categoryName}>カスタムタスク</Text>
+                <Text style={styles.categoryName}>オリジナル練習メニュー</Text>
                 <MaterialIcons name="chevron-right" size={24} color="#9AA0A6" />
               </TouchableOpacity>
             </ScrollView>

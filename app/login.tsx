@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,15 +11,21 @@ import {
   Image,
   ScrollView,
   SafeAreaView,
+  Dimensions,
+  Animated,
+  Easing,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from './store/auth';
 import { useGoogleAuth } from './store/auth';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const { signIn, signUp, signInWithGoogle, signInAsTestUser, user, isLoading, error, clearError } = useAuthStore();
-  const { request, response, promptAsync } = useGoogleAuth(); // ✅ Googleログインのフックを取得
+  const { request, response, promptAsync } = useGoogleAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,10 +34,55 @@ export default function LoginScreen() {
   const [isNewUser, setIsNewUser] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // スペクトラムアニメーションのための値
+  const spectrumBars = 8; // 表示するバーの数
+  const barValues = useRef(Array(spectrumBars).fill(0).map(() => new Animated.Value(0))).current;
+  
+  // アニメーションを開始する関数
+  const animateSpectrum = () => {
+    // 各バーのアニメーションを設定
+    const animations = barValues.map((barValue, index) => {
+      // 異なる高さと速度でアニメーション
+      const randomHeight = 0.3 + Math.random() * 0.7;
+      const duration = 700 + Math.random() * 600; // 700ms～1300msのランダムな時間
+      
+      return Animated.sequence([
+        Animated.timing(barValue, {
+          toValue: randomHeight,
+          duration: duration,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+        Animated.timing(barValue, {
+          toValue: 0.2 + Math.random() * 0.3,
+          duration: duration,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+      ]);
+    });
+
+    // すべてのアニメーションを並行して実行し、繰り返す
+    Animated.loop(
+      Animated.parallel(animations)
+    ).start();
+  };
+
+  // コンポーネントがマウントされたらアニメーションを開始
+  useEffect(() => {
+    if (isLoading) {
+      animateSpectrum();
+    }
+    
+    return () => {
+      // アンマウント時にアニメーションをクリーンアップ
+      barValues.forEach(value => value.stopAnimation());
+    };
+  }, [isLoading]);
+
   useEffect(() => {
     if (user) {
-      // @ts-ignore - 型エラーを無視
-      router.replace("/(tabs)");
+      router.replace("/(tabs)" as any);
     }
   }, [user]);
 
@@ -68,9 +119,6 @@ export default function LoginScreen() {
       setEmail('');
       setPassword('');
       setErrorMessage('');
-      
-      // 新規登録後はオンボーディング画面に誘導するためのフラグを設定
-      // 実際のリダイレクトはauth.tsのonAuthStateChangedで行われる
     } catch (error: any) {
       console.error('サインアップエラー:', error);
       setErrorMessage(error.message || 'サインアップに失敗しました');
@@ -80,25 +128,76 @@ export default function LoginScreen() {
   if (isLoading && user) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <View style={styles.spectrumContainer}>
+          {barValues.map((value, index) => (
+            <Animated.View
+              key={`bar-${index}`}
+              style={[
+                styles.spectrumBar,
+                {
+                  height: value.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [10, 100],
+                  }),
+                  backgroundColor: `rgba(255, 107, 53, ${0.7 + (index / barValues.length) * 0.3})`,
+                },
+              ]}
+            />
+          ))}
+        </View>
+        <Text style={styles.loadingText}>音楽を準備しています...</Text>
+        <View style={styles.noteIconContainer}>
+          <MaterialCommunityIcons name="music-note-eighth" size={24} color="#FF6B35" />
+        </View>
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <LinearGradient
+        colors={['#FFFCF2', '#FFF0D9']}
+        style={styles.background}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 50 : 0}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.decorationElements}>
+            <View style={[styles.circle, styles.circle1]} />
+            <View style={[styles.circle, styles.circle2]} />
+            <View style={[styles.circle, styles.circle3]} />
+          </View>
+          
           <View style={styles.logoContainer}>
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=200&auto=format&fit=crop' }}
-              style={styles.logo}
-            />
+            <View style={styles.logoBackground}>
+              <View style={styles.circlePattern}>
+                {[...Array(4)].map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.circleRing,
+                      {
+                        width: 100 - i * 22,
+                        height: 100 - i * 22,
+                        borderRadius: (100 - i * 22) / 2,
+                        borderWidth: 2,
+                        opacity: 0.8 - i * 0.15,
+                      },
+                    ]}
+                  />
+                ))}
+                <View style={styles.centerIcon}>
+                  <Feather name="music" size={28} color="#FFFFFF" />
+                </View>
+              </View>
+            </View>
             <Text style={styles.appName}>Lesson Manager</Text>
+            <Text style={styles.appTagline}>音楽との旅をもっと豊かに</Text>
           </View>
 
           <View style={styles.formContainer}>
@@ -110,9 +209,10 @@ export default function LoginScreen() {
               </View>
             )}
 
-            {/* メールログイン */}
             <View style={styles.inputContainer}>
-              <MaterialIcons name="email" size={22} color="#8E8E93" style={styles.inputIcon} />
+              <View style={styles.inputIconWrapper}>
+                <MaterialIcons name="email" size={20} color="#FFFFFF" />
+              </View>
               <TextInput
                 style={styles.input}
                 placeholder="メールアドレス"
@@ -120,17 +220,21 @@ export default function LoginScreen() {
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 keyboardType="email-address"
+                placeholderTextColor="#BBBBBB"
               />
             </View>
 
             <View style={styles.inputContainer}>
-              <MaterialIcons name="lock" size={22} color="#8E8E93" style={styles.inputIcon} />
+              <View style={styles.inputIconWrapper}>
+                <MaterialIcons name="lock" size={20} color="#FFFFFF" />
+              </View>
               <TextInput
                 style={styles.input}
                 placeholder="パスワード"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!passwordVisible}
+                placeholderTextColor="#BBBBBB"
               />
               <TouchableOpacity
                 onPress={() => setPasswordVisible(!passwordVisible)}
@@ -138,8 +242,8 @@ export default function LoginScreen() {
               >
                 <MaterialIcons
                   name={passwordVisible ? 'visibility' : 'visibility-off'}
-                  size={22}
-                  color="#8E8E93"
+                  size={20}
+                  color="#999999"
                 />
               </TouchableOpacity>
             </View>
@@ -158,13 +262,17 @@ export default function LoginScreen() {
               {isLoading ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
-                <Text style={styles.authButtonText}>
-                  {isSignUp ? 'アカウント作成' : 'ログイン'}
-                </Text>
+                <>
+                  <Text style={styles.authButtonText}>
+                    {isSignUp ? 'アカウント作成' : 'ログイン'}
+                  </Text>
+                  <View style={styles.arrowContainer}>
+                    <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" />
+                  </View>
+                </>
               )}
             </TouchableOpacity>
 
-            {/* Googleログイン */}
             <View style={styles.dividerContainer}>
               <View style={styles.divider} />
               <Text style={styles.dividerText}>または</Text>
@@ -183,13 +291,12 @@ export default function LoginScreen() {
               <Text style={styles.googleButtonText}>Googleでログイン</Text>
             </TouchableOpacity>
 
-            {/* テストユーザーログイン */}
             <TouchableOpacity
               style={styles.testUserButton}
               onPress={handleTestUserSignIn}
               disabled={isLoading}
             >
-              <MaterialIcons name="person" size={22} color="#FFFFFF" style={styles.testUserIcon} />
+              <MaterialCommunityIcons name="account-check" size={22} color="#FFFFFF" style={styles.testUserIcon} />
               <Text style={styles.testUserButtonText}>テストユーザーとしてログイン</Text>
             </TouchableOpacity>
 
@@ -211,11 +318,16 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+  },
+  background: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
   scrollContent: {
     flexGrow: 1,
@@ -226,94 +338,183 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFCF2',
+  },
+  decorationElements: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: -1,
+  },
+  circle: {
+    position: 'absolute',
+    borderRadius: 150,
+  },
+  circle1: {
+    width: 200,
+    height: 200,
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    top: -50,
+    right: -50,
+  },
+  circle2: {
+    width: 250,
+    height: 250,
+    backgroundColor: 'rgba(255, 184, 76, 0.08)',
+    bottom: -100,
+    left: -100,
+  },
+  circle3: {
+    width: 150,
+    height: 150,
+    backgroundColor: 'rgba(255, 107, 53, 0.05)',
+    bottom: 100,
+    right: -50,
   },
   logoContainer: {
     alignItems: 'center',
     marginBottom: 40,
   },
-  logo: {
-    width: 120, // Larger logo
-    height: 120, // Larger logo
-    borderRadius: 24, // Increased border radius
+  logoBackground: {
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
   },
+  circlePattern: {
+    width: 100,
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  circleRing: {
+    position: 'absolute',
+    borderColor: '#FF6B35',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FF6B35',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
   appName: {
-    fontSize: 28, // Larger font size
+    fontSize: 28,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: '#333333',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  appTagline: {
+    fontSize: 16,
+    color: '#666666',
+    marginTop: 4,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   formContainer: {
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
   },
   title: {
-    fontSize: 32, // Larger font size
+    fontSize: 28,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: '#333333',
     marginBottom: 24,
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   errorContainer: {
-    backgroundColor: '#FFEBEE',
-    borderRadius: 12, // Increased border radius
-    padding: 16, // Increased padding
+    backgroundColor: 'rgba(255, 0, 0, 0.08)',
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#D32F2F',
   },
   errorText: {
     color: '#D32F2F',
-    fontSize: 16, // Larger font size
+    fontSize: 16,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 16, // Increased border radius
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     marginBottom: 16,
-    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    height: 56, // Increased height for better touch target
+    borderColor: '#EEEEEE',
+    height: 56,
+    overflow: 'hidden',
   },
-  inputIcon: {
-    marginRight: 12,
+  inputIconWrapper: {
+    width: 50,
+    height: 56,
+    backgroundColor: '#FF6B35',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
     flex: 1,
-    height: 56, // Increased height
-    fontSize: 17, // Larger font size
-    color: '#1C1C1E',
+    height: 56,
+    fontSize: 16,
+    color: '#333333',
+    paddingHorizontal: 16,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   visibilityIcon: {
-    padding: 10, // Increased padding for better touch target
+    paddingHorizontal: 16,
   },
   forgotPassword: {
     alignSelf: 'flex-end',
     marginBottom: 24,
-    padding: 4, // Added padding for better touch target
+    padding: 4,
   },
   forgotPasswordText: {
-    color: '#007AFF',
-    fontSize: 16, // Larger font size
+    color: '#FF6B35',
+    fontSize: 15,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   authButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 16, // Increased border radius
-    height: 56, // Increased height
+    backgroundColor: '#FF6B35',
+    borderRadius: 16,
+    height: 56,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   authButtonText: {
     color: 'white',
-    fontSize: 18, // Larger font size
+    fontSize: 18,
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  arrowContainer: {
+    marginLeft: 8,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -323,33 +524,38 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: '#EEEEEE',
   },
   dividerText: {
     marginHorizontal: 10,
-    color: '#8E8E93',
-    fontSize: 16, // Larger font size
+    color: '#999999',
+    fontSize: 15,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   googleButton: {
     flexDirection: 'row',
-    backgroundColor: 'white',
-    borderRadius: 16, // Increased border radius
-    height: 56, // Increased height
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: '#EEEEEE',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   googleIcon: {
-    width: 24, // Larger icon
-    height: 24, // Larger icon
+    width: 24,
+    height: 24,
     marginRight: 12,
   },
   googleButtonText: {
-    color: '#1C1C1E',
-    fontSize: 18, // Larger font size
+    color: '#333333',
+    fontSize: 16,
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
@@ -361,13 +567,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   testUserIcon: {
     marginRight: 12,
   },
   testUserButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
@@ -375,18 +586,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 8, // Added padding for better touch target
+    padding: 8,
   },
   switchText: {
-    color: '#8E8E93',
-    fontSize: 16, // Larger font size
+    color: '#999999',
+    fontSize: 15,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   switchButton: {
-    color: '#007AFF',
-    fontSize: 16, // Larger font size
+    color: '#FF6B35',
+    fontSize: 15,
     fontWeight: '600',
     marginLeft: 4,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  spectrumContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 100,
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  spectrumBar: {
+    width: 6,
+    marginHorizontal: 4,
+    borderRadius: 3,
+    backgroundColor: '#FF6B35',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 18,
+    color: '#333333',
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  noteIconContainer: {
+    marginTop: 16,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

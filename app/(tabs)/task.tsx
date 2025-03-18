@@ -1,15 +1,15 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, View, Text, Platform } from 'react-native';
+import { StyleSheet, View, Text, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTaskStore } from '../store/tasks';
 import TaskHeader from '../features/tasks/components/list/TaskHeader';
 import TaskList from '../features/tasks/components/TaskList';
-import TaskActionButton from '../features/tasks/components/list/TaskActionButton';
 import TaskCategorySummaryMini from '../features/tasks/components/TaskCategorySummaryMini';
 import TaskCompletionAnimation from '../features/tasks/components/TaskCompletionAnimation';
 import { useFocusEffect } from '@react-navigation/native';
 import { auth } from '../config/firebase';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 // タスクタブのテーマカラー
 const TASK_THEME_COLOR = '#4CAF50';
@@ -204,13 +204,6 @@ export default function TaskScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <MaterialCommunityIcons name="checkbox-marked-outline" size={24} color={TASK_THEME_COLOR} />
-          <Text style={styles.headerTitle}>タスク一覧</Text>
-        </View>
-      </View>
-      
       <View style={styles.content}>
         {tasks.length > 0 && (
           <TaskCategorySummaryMini 
@@ -227,8 +220,15 @@ export default function TaskScreen() {
           themeColor={TASK_THEME_COLOR}
         />
       </View>
-
-      {tasks.length > 0 && <TaskActionButton themeColor={TASK_THEME_COLOR} />}
+      
+      {/* FABボタン */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/task-form?mode=practiceMenu' as any)}
+        activeOpacity={0.8}
+      >
+        <AntDesign name="plus" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
       
       <TaskCompletionAnimation
         visible={completionPopup.visible}
@@ -250,30 +250,24 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  header: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#333333',
-    marginLeft: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
   content: {
     flex: 1,
+  },
+  fab: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    right: 24,
+    bottom: 24,
+    backgroundColor: TASK_THEME_COLOR,
+    borderRadius: 28,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    zIndex: 999,
   },
 });

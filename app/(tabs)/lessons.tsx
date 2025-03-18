@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,7 +13,6 @@ import {
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
 import { useFocusEffect } from '@react-navigation/native';
-import ListHeader from '../features/lessons/components/list/ListHeader';
 import SearchBar from '../features/lessons/components/list/SearchBar';
 import TagFilter from '../features/lessons/components/list/TagFilter';
 import LessonCard from '../features/lessons/components/list/LessonCard';
@@ -31,7 +30,6 @@ const LESSON_THEME_COLOR = '#4285F4';
 export default function LessonsScreen() {
   const [searchText, setSearchText] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const availableTags = ['リズム', 'テクニック', '表現', 'ペダル', '音色', '強弱'];
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const theme = useTheme();
@@ -42,6 +40,17 @@ export default function LessonsScreen() {
 
   // レッスンストアから状態とアクションを取得
   const { lessons, fetchLessons } = useLessonStore();
+
+  // レッスンで使用されているすべてのタグを抽出
+  const uniqueTags = useMemo(() => {
+    const tagsSet = new Set<string>();
+    lessons.forEach(lesson => {
+      if (lesson.tags && Array.isArray(lesson.tags)) {
+        lesson.tags.forEach(tag => tagsSet.add(tag));
+      }
+    });
+    return Array.from(tagsSet);
+  }, [lessons]);
 
   // マテリアルデザインの色を定義
   const colors = {
@@ -168,6 +177,10 @@ export default function LessonsScreen() {
           console.log('タブフォーカス: レッスンデータ再取得を開始します');
           await fetchLessons(auth.currentUser.uid);
           console.log(`タブフォーカス: ${lessons.length}件のレッスンを再取得しました`);
+          
+          // 選択モードと選択済みレッスンをリセットする
+          setIsSelectionMode(false);
+          setSelectedLessons([]);
         } catch (error) {
           console.error('タブフォーカス: レッスンデータ再取得エラー', error);
         }
@@ -203,6 +216,10 @@ export default function LessonsScreen() {
 
   // レッスンの選択状態を切り替える
   const toggleLessonSelection = (lessonId: string) => {
+    if (!isSelectionMode) {
+      setIsSelectionMode(true);
+    }
+    
     setSelectedLessons(prev => 
       prev.includes(lessonId)
         ? prev.filter(id => id !== lessonId)
@@ -261,54 +278,41 @@ export default function LessonsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: '#f5f5f5' }]}>
-      <ListHeader />
-      
       <View style={styles.content}>
         {/* 検索バーとタグフィルター - レッスンがある場合のみ表示 */}
         {filteredLessons.length > 0 && (
           <>
             <View style={styles.searchCardContainer}>
               <View style={styles.searchCard}>
-                <View style={styles.searchCardHeader}>
-                  <Text style={styles.searchCardTitle}>レッスン検索</Text>
-                </View>
                 <SearchBar
                   searchText={searchText}
                   onSearchChange={handleSearchChange}
                   theme={theme}
                 />
                 <TagFilter
-                  availableTags={availableTags}
+                  availableTags={uniqueTags}
                   selectedTags={selectedTags}
                   onTagPress={handleTagPress}
                   theme={theme}
                 />
               </View>
             </View>
-            
-            {/* セレクションモード切り替えボタン - レッスンがある場合のみ表示 */}
-            <View style={[styles.selectionButtonContainer, { borderBottomColor: theme.colors.borderLight }]}>
-              <TouchableOpacity
-                style={[
-                  styles.selectionButton,
-                  isSelectionMode && { backgroundColor: LESSON_THEME_COLOR + '20' }
-                ]}
-                onPress={toggleSelectionMode}
-              >
-                <MaterialIcons 
-                  name={isSelectionMode ? "close" : "check-box-outline-blank"} 
-                  size={24} 
-                  color={isSelectionMode ? LESSON_THEME_COLOR : theme.colors.textSecondary} 
-                />
-                <Text style={[
-                  styles.selectionButtonText,
-                  { color: isSelectionMode ? LESSON_THEME_COLOR : theme.colors.textSecondary }
-                ]}>
-                  {isSelectionMode ? '選択解除' : '複数選択'}
-                </Text>
-              </TouchableOpacity>
-            </View>
           </>
+        )}
+
+        {isSelectionMode && (
+          <View style={styles.selectionModeControlContainer}>
+            <TouchableOpacity 
+              style={styles.selectionModeButton}
+              onPress={toggleSelectionMode}
+            >
+              <MaterialIcons name="close" size={20} color={theme.colors.textSecondary} />
+              <Text style={styles.selectionModeButtonText}>選択解除</Text>
+            </TouchableOpacity>
+            <Text style={styles.selectionCountText}>
+              {selectedLessons.length}件選択中
+            </Text>
+          </View>
         )}
 
         {/* ローディング表示 */}
@@ -377,6 +381,7 @@ export default function LessonsScreen() {
                     isSelectionMode={isSelectionMode}
                     isSelected={selectedLessons.includes(lesson.id)}
                     onSelect={() => toggleLessonSelection(lesson.id)}
+                    onLongPress={() => toggleLessonSelection(lesson.id)}
                   />
                 </Animated.View>
               ))}
@@ -605,5 +610,36 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  selectionModeControlContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F8F9FA',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+  selectionModeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  selectionModeButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#5F6368',
+    marginLeft: 4,
+  },
+  selectionCountText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#5F6368',
   },
 });

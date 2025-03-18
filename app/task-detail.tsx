@@ -95,7 +95,7 @@ export default function TaskDetail() {
   const handleOpenChatRoom = () => {
     if (chatRoom) {
       router.push({
-        pathname: '/chat-room',
+        pathname: '/chat-room' as any,
         params: { id: chatRoom.id }
       });
     }
@@ -121,6 +121,8 @@ export default function TaskDetail() {
       <TaskDetailHeader
         title={task.title}
         isCompleted={task.completed || false}
+        taskId={task.id}
+        isPinned={task.isPinned || false}
         onBack={handleBack}
         onToggleComplete={handleToggleComplete}
       />

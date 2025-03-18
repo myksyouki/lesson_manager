@@ -27,7 +27,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ searchText, onSearchChange
             fontFamily: theme.typography.fontFamily.regular
           }
         ]}
-        placeholder="レッスンを検索"
+        placeholder=""
         placeholderTextColor={theme.colors.textTertiary}
         value={searchText}
         onChangeText={onSearchChange}
