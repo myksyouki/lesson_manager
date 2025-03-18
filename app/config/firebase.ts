@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 import Constants from 'expo-constants';
 
 // 環境変数を取得する関数
@@ -32,5 +33,6 @@ const auth = getAuth(firebaseApp);
 // Firebase の各サービスをエクスポート
 export const db = getFirestore(firebaseApp);
 export const storage = getStorage(firebaseApp);
+export const functions = getFunctions(firebaseApp);
 export { auth };
 export default firebaseApp;

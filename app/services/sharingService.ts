@@ -7,6 +7,14 @@ import { db, auth } from '../config/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Alert } from 'react-native';
 
+// UUIDを生成する関数
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 /**
  * 共有された音声ファイルを処理するサービス
  */
@@ -74,6 +82,8 @@ export const handleSharedAudioFile = async (
 
     // レッスンデータの準備
     const uniqueProcessingId = `lesson_${user.uid}_${Date.now()}`;
+    const lessonUniqId = generateUUID(); // 固有のlessonUniqIdを生成
+    
     const lessonDataToSave = {
       teacher: lessonData?.teacherName || '未設定',
       date: lessonData?.date || formattedDate,
@@ -83,15 +93,11 @@ export const handleSharedAudioFile = async (
       summary: '',
       tags: [],
       user_id: user.uid,
-      userId: user.uid, // 両方のフィールド名でユーザーIDを保存
       created_at: serverTimestamp(),
-      createdAt: serverTimestamp(), // 両方のフィールド名で日時を保存
       updated_at: serverTimestamp(),
-      updatedAt: serverTimestamp(), // 両方のフィールド名で日時を保存
       status: 'uploading',
       isFavorite: false,
-      isDeleted: false,
-      // 重複を防ぐための一意のIDを追加
+      lessonUniqId: lessonUniqId, // 固有のIDを保存
       processingId: uniqueProcessingId,
     };
 

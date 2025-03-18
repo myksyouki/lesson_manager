@@ -199,7 +199,7 @@ export async function generateTasksFromLesson(lessonId: string, userId: string):
     const dueDate = nextLessonDate.toISOString();
 
     // タスクのタイトルと説明を生成
-    const taskTitle = `${lessonData.piece || '無題のレッスン'}の練習`;
+    const taskTitle = `${lessonData.piece || "無題のレッスン"}の練習`;
     const taskDescription = `${lessonData.summary}\n\n次のレッスンまでに練習してください。`;
 
     // タスクを作成
@@ -220,6 +220,6 @@ export async function generateTasksFromLesson(lessonId: string, userId: string):
 
     console.log(`レッスン ${lessonId} からタスクを生成しました。タスクID: ${newTaskRef.id}`);
   } catch (error) {
-    console.error(`タスク生成中にエラーが発生しました:`, error);
+    console.error("タスク生成中にエラーが発生しました:", error);
   }
 }

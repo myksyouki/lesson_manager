@@ -31,7 +31,7 @@ const FormInputs: React.FC<FormInputsProps> = ({
 
   // 定義済みのタグリスト
   const predefinedTags = useMemo(() => 
-    ['リズム', 'テクニック', '表現', 'ペダル', '音色', '強弱'],
+    [],
     []
   );
 
