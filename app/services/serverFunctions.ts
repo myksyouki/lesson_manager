@@ -1,55 +1,58 @@
-import { transcribeAudio, generateSummary, extractTags } from './openai';
 import { db } from '../config/firebase';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../config/firebase';
 
 /**
- * This file contains functions that would ideally be run on a server.
- * In a production environment, these would be implemented as Firebase Cloud Functions
- * or another serverless solution to keep API keys secure and handle heavy processing.
+ * Firebase Functionsを使用して音声ファイルの処理を行うサービス
+ * このファイルでは、OpenAI APIは直接呼び出さず、Firebase Functions側で処理します
  */
 
-// Process an audio file that has been uploaded to Firebase Storage
+// Firebase Functionsを呼び出して音声ファイルを処理する
 export const processAudioServerSide = async (lessonId: string, audioPath: string) => {
   try {
     // Update lesson status to processing
     await updateLessonStatus(lessonId, 'processing');
     
-    // Step 1: Transcribe the audio
-    const transcriptionResult = await transcribeAudio(audioPath);
+    // Firebase Functionsを呼び出す
+    const processAudio = httpsCallable(functions, 'processAudio');
+    const result = await processAudio({
+      filePath: audioPath,
+      userId: 'current-user-id', // 実際のユーザーIDに置き換える必要があります
+      lessonId: lessonId
+    });
     
-    if (!transcriptionResult.success) {
-      await updateLessonStatus(lessonId, 'error', 'Transcription failed');
-      return { success: false, error: 'Transcription failed' };
+    console.log('Firebase Functions処理結果:', result.data);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Firebase Functions呼び出しエラー:', error);
+    await updateLessonStatus(lessonId, 'error', '処理に失敗しました');
+    return { success: false, error };
+  }
+};
+
+// レッスンの処理状態を確認する
+export const checkLessonProcessingStatus = async (lessonId: string) => {
+  try {
+    const lessonRef = doc(db, 'lessons', lessonId);
+    const lessonDoc = await getDoc(lessonRef);
+    
+    if (!lessonDoc.exists()) {
+      return { success: false, error: 'レッスンが見つかりません' };
     }
     
-    // Step 2: Generate a summary from the transcription
-    const summaryResult = await generateSummary(transcriptionResult.text);
-    
-    if (!summaryResult.success) {
-      await updateLessonStatus(lessonId, 'error', 'Summary generation failed');
-      return { success: false, error: 'Summary generation failed' };
-    }
-    
-    // Step 3: Extract tags from the transcription
-    const tagsResult = await extractTags(transcriptionResult.text);
-    
-    let tags = [];
-    if (tagsResult.success) {
-      tags = tagsResult.tags;
-    }
-    
-    // Step 4: Update the lesson record in Firestore
-    await updateLessonWithAIResults(lessonId, transcriptionResult.text, summaryResult.summary, tags);
-    
-    return {
-      success: true,
-      transcription: transcriptionResult.text,
-      summary: summaryResult.summary,
-      tags,
+    const lessonData = lessonDoc.data();
+    return { 
+      success: true, 
+      status: lessonData.status,
+      transcription: lessonData.transcription || null,
+      summary: lessonData.summary || null,
+      tags: lessonData.tags || [],
+      error: lessonData.error_message || null
     };
   } catch (error) {
-    console.error('Error in processAudioServerSide:', error);
-    await updateLessonStatus(lessonId, 'error', 'Processing failed');
+    console.error('レッスン状態確認エラー:', error);
     return { success: false, error };
   }
 };

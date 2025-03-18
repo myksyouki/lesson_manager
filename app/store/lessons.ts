@@ -16,9 +16,14 @@ export interface Lesson {
   status?: string;
   isFavorite?: boolean;
   isDeleted?: boolean;
+  duplicate?: boolean;
   processingId?: string; // レッスン処理の一意識別子
   created_at?: FieldValue | string;
   updated_at?: FieldValue | string;
+  piece?: string;
+  audioPath?: string;
+  fileName?: string;
+  error?: string;
 }
 
 interface LessonStore {
@@ -32,6 +37,8 @@ interface LessonStore {
   toggleFavorite: (id: string) => void;
   getFavorites: () => Lesson[];
   setLessons: (lessons: Lesson[]) => void;
+  updateLocalLesson: (id: string, lessonData: Partial<Lesson>) => void;
+  setState: (updater: (state: LessonStore) => Partial<LessonStore>) => void;
 }
 
 export const useLessonStore = create<LessonStore>((set, get) => ({
@@ -51,23 +58,29 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
         const data = doc.data();
         return {
           id: doc.id,
+          user_id: data.user_id || data.userId || '',
           teacher: data.teacher || data.teacherName || '',
           date: data.date || '',
+          piece: data.piece || '',
           pieces: data.pieces || [],
           summary: data.summary || '',
           notes: data.notes || '',
           tags: data.tags || [],
-          user_id: data.user_id || data.userId || '',
-          audioUrl: data.audioUrl || data.audio_url || null,
-          transcription: data.transcription || '',
-          status: data.status || '',
           isFavorite: data.isFavorite || false,
-          isDeleted: data.isDeleted || false,
-          processingId: data.processingId || '', // レッスン処理の一意識別子
-          created_at: data.created_at || data.createdAt || '',
-          updated_at: data.updated_at || data.updatedAt || '',
+          status: data.status || 'pending',
+          transcription: data.transcription || '',
+          audioUrl: data.audioUrl || '',
+          audioPath: data.audioPath || '',
+          fileName: data.fileName || data.audioFileName || '',
+          error: data.error || '',
+          processingId: data.processingId || '',
+          created_at: data.created_at || '',
+          updated_at: data.updated_at || ''
         };
-      }).filter(lesson => !lesson.isDeleted); // 削除されたレッスンをフィルタリング
+      }).filter(lesson => {
+        // 削除済みレッスンと重複レッスンをフィルタリング
+        return (lesson.status !== 'duplicate');
+      });
 
       set({ lessons, isLoading: false });
     } catch (error: any) {
@@ -162,5 +175,18 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
 
   setLessons: (lessons) => {
     set({ lessons });
+  },
+
+  // ローカルストアのレッスンデータを更新するメソッド（Firestoreには保存しない）
+  updateLocalLesson: (id: string, lessonData: Partial<Lesson>) => {
+    set((state) => ({
+      lessons: state.lessons.map((lesson) =>
+        lesson.id === id ? { ...lesson, ...lessonData } : lesson
+      ),
+    }));
+  },
+
+  setState: (updater) => {
+    set(updater);
   },
 }));

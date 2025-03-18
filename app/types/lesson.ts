@@ -12,14 +12,17 @@ export interface Lesson {
   notes?: string;
   tags?: string[];
   isFavorite?: boolean;
-  status?: 'pending' | 'processing' | 'transcribed' | 'completed' | 'error';
+  status?: 'pending' | 'processing' | 'transcribed' | 'completed' | 'error' | 'duplicate';
   transcription?: string;
   audioUrl?: string;
   audioPath?: string;
+  fileName?: string;       // 音声ファイル名
+  audioFileName?: string;  // 別名での音声ファイル名（互換性のため）
   error?: string;
-  processingId?: string; // レッスン処理の一意識別子
-  created_at: Date | any; // Firestoreのタイムスタンプ型に対応
-  updated_at: Date | any; // Firestoreのタイムスタンプ型に対応
+  processingId?: string;   // レッスン処理の一意識別子
+  duplicateOf?: string;    // 重複の場合、オリジナルレッスンのID
+  created_at: Date | any;  // Firestoreのタイムスタンプ型に対応
+  updated_at: Date | any;  // Firestoreのタイムスタンプ型に対応
 }
 
 /**

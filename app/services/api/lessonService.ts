@@ -120,7 +120,7 @@ class LessonService {
       const storage = getStorage();
       const timestamp = new Date().getTime();
       const fileExtension = 'mp3'; // または適切な拡張子を取得
-      const fileName = `${timestamp}_${lessonId.substring(0, 8)}.${fileExtension}`;
+      const fileName = `${lessonId}.${fileExtension}`;
       const filePath = `audio/${userId}/${fileName}`;
       const storageRef = ref(storage, filePath);
       

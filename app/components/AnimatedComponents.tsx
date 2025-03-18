@@ -201,38 +201,64 @@ export const StaggeredList = ({
   from?: { opacity: number; translateY: number };
   to?: { opacity: number; translateY: number };
 }) => {
+  // 子要素ごとにアニメーション値を作成
+  const animations = React.useMemo(() => {
+    return React.Children.map(children, (_, index) => {
+      return {
+        opacity: new Animated.Value(from.opacity),
+        translateY: new Animated.Value(from.translateY),
+        delay: initialDelay + (index * staggerDelay)
+      };
+    });
+  }, [children, from.opacity, from.translateY, initialDelay, staggerDelay]);
+
+  // 一度だけすべてのアニメーションを開始
+  useEffect(() => {
+    if (!animations) return;
+
+    const animationSequence = animations.map(anim => {
+      return Animated.parallel([
+        Animated.timing(anim.opacity, {
+          toValue: to.opacity,
+          duration,
+          delay: anim.delay,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim.translateY, {
+          toValue: to.translateY,
+          duration,
+          delay: anim.delay,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        })
+      ]);
+    });
+
+    // すべてのアニメーションを開始
+    animationSequence.forEach(anim => anim.start());
+
+    // クリーンアップ
+    return () => {
+      animationSequence.forEach(anim => anim.stop());
+    };
+  }, [animations, to.opacity, to.translateY, duration]);
+
   return (
     <View style={containerStyle}>
       {React.Children.map(children, (child, index) => {
-        const delay = initialDelay + (index * staggerDelay);
-        const opacityAnim = useRef(new Animated.Value(from.opacity)).current;
-        const translateYAnim = useRef(new Animated.Value(from.translateY)).current;
+        // animations配列がない場合は何もアニメーションせずに表示
+        if (!animations) return child;
         
-        useEffect(() => {
-          Animated.parallel([
-            Animated.timing(opacityAnim, {
-              toValue: to.opacity,
-              duration,
-              delay,
-              easing: Easing.out(Easing.ease),
-              useNativeDriver: true,
-            }),
-            Animated.timing(translateYAnim, {
-              toValue: to.translateY,
-              duration,
-              delay,
-              easing: Easing.out(Easing.ease),
-              useNativeDriver: true,
-            })
-          ]).start();
-        }, []);
-        
+        const anim = animations[index];
+        if (!anim) return child;
+
         return (
           <Animated.View
             key={index}
             style={{
-              opacity: opacityAnim,
-              transform: [{ translateY: translateYAnim }]
+              opacity: anim.opacity,
+              transform: [{ translateY: anim.translateY }]
             }}
           >
             {child}

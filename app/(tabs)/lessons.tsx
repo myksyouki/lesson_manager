@@ -119,6 +119,7 @@ export default function LessonsScreen() {
         await fetchLessons(auth.currentUser.uid);
         
         console.log(`レッスン一覧: ${lessons.length}件のレッスンを取得しました`);
+        console.log('レッスンデータ:', JSON.stringify(lessons.map(l => ({ id: l.id, teacher: l.teacher, user_id: l.user_id })), null, 2));
         setIsLoading(false);
       } catch (error) {
         console.error('レッスン一覧: データ取得エラー', error);

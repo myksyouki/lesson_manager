@@ -69,7 +69,7 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
               setProcessingStep('処理が完了しました！');
               // 処理が完了したら1秒後に画面遷移
               setTimeout(() => {
-                router.replace('/lessons');
+                router.replace('/lessons' as any);
               }, 1000);
               break;
             default:
@@ -103,7 +103,7 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
       setIsProcessing(true);
       setProcessingStep('レッスンデータを保存中...');
       
-      // レッスンを保存
+      // レッスンを保存 - この関数内で既にFirestoreドキュメントが作成される
       const lessonId = await saveLesson(
         formData,
         selectedFile,
@@ -113,26 +113,46 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
       
       setLessonDocId(lessonId);
       
+      // ローカルストアを更新（Firestoreに新しいドキュメントは作成しない）
+      const lessonStore = useLessonStore.getState();
+      
+      // 初期データを設定
+      const lessonData = {
+        id: lessonId, // 既存のIDを使用
+        teacher: formData.teacherName,
+        date: formData.date,
+        pieces: formData.pieces,
+        notes: formData.notes,
+        tags: formData.tags,
+        user_id: auth.currentUser?.uid || '',
+        summary: '',
+        transcription: '',
+        audioUrl: selectedFile ? 'アップロード中...' : '',
+        status: selectedFile ? 'processing' : 'completed',
+        isFavorite: false,
+        processingId: lessonId,
+      };
+      
+      // 既存のレッスン一覧をチェックして、新しいレッスンを追加または既存のものを更新
+      const existingLesson = lessonStore.lessons.find(lesson => lesson.id === lessonId);
+      
+      if (existingLesson) {
+        // 既存のレッスンが見つかった場合は更新
+        lessonStore.updateLocalLesson(lessonId, lessonData);
+      } else {
+        // 新しいレッスンとしてストアに追加
+        useLessonStore.setState((prevState) => ({
+          ...prevState,
+          lessons: [...prevState.lessons, lessonData]
+        }));
+      }
+        
       // 音声ファイルがない場合は即座に完了
       if (!selectedFile) {
-        // レッスンストアに追加
-        await addLesson({
-          teacher: formData.teacherName,
-          date: formData.date,
-          pieces: formData.pieces,
-          notes: formData.notes,
-          tags: formData.tags,
-          user_id: auth.currentUser?.uid || '',
-          summary: '',
-          transcription: '',
-          audioUrl: '',
-          isFavorite: false,
-        });
-        
         // 完了メッセージを表示して画面遷移
         setProcessingStep('レッスンを保存しました！');
         setTimeout(() => {
-          router.replace('/lessons');
+          router.replace('/lessons' as any);
         }, 1000);
       }
     } catch (error) {

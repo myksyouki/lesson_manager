@@ -98,7 +98,8 @@ export const uploadAudioFile = async (
 
     // Generate unique file path with cache key
     const fileHash = await getFileHash(validUri);
-    const filePath = `audio/${user.uid}/${Date.now()}_${fileName}`;
+    const filePath = `audio/${user.uid}/${fileName}`;
+    console.log(`ストレージパス: ${filePath}`);
     const fileRef = ref(storage, filePath);
 
     // Convert file to blob
