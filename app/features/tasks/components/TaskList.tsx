@@ -1,26 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, RefreshControl } from 'react-native';
 import { Task } from '../../../types/task';
 import TaskCard from './TaskCard';
 import { useTaskStore } from '../../../store/tasks';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { auth } from '../../../config/firebase';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 
 interface TaskListProps {
   tasks: Task[];
   isLoading?: boolean;
   error?: string | null;
+  themeColor?: string;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = null }) => {
+const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = null, themeColor = '#4CAF50' }) => {
   const [activeTab, setActiveTab] = useState<'incomplete' | 'completed'>('incomplete');
   const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
   const [incompleteTasks, setIncompleteTasks] = useState<Task[]>([]);
   const [recentlyCompletedTaskId, setRecentlyCompletedTaskId] = useState<string | null>(null);
-  const { toggleTaskCompletion } = useTaskStore();
+  const [refreshing, setRefreshing] = useState(false);
+  const { toggleTaskCompletion, fetchTasks } = useTaskStore();
 
   useEffect(() => {
-    // タスクを完了済みと未完了に分類
+    // タスクを完了済みと未完了に分類し、ピン留め状態でソート
     const completed: Task[] = [];
     const incomplete: Task[] = [];
     
@@ -32,8 +36,35 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
       }
     });
     
-    setCompletedTasks(completed);
-    setIncompleteTasks(incomplete);
+    // ピン留めされたタスクを上位に表示するためにソート
+    const sortByPin = (a: Task, b: Task) => {
+      // まずピン留め状態で比較
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      
+      // ピン留め状態が同じ場合は更新日時の新しい順
+      const getTimestamp = (task: Task) => {
+        if (!task.updatedAt) return 0;
+        
+        // Firestore Timestamp型の場合
+        if (typeof task.updatedAt === 'object' && 'seconds' in task.updatedAt) {
+          return task.updatedAt.seconds * 1000;
+        }
+        
+        // Date型の場合
+        if (task.updatedAt instanceof Date) {
+          return task.updatedAt.getTime();
+        }
+        
+        // 文字列の場合
+        return new Date(String(task.updatedAt)).getTime();
+      };
+      
+      return getTimestamp(b) - getTimestamp(a);
+    };
+    
+    setCompletedTasks(completed.sort(sortByPin));
+    setIncompleteTasks(incomplete.sort(sortByPin));
   }, [tasks]);
 
   const handleToggleComplete = (taskId: string) => {
@@ -48,6 +79,19 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
       setTimeout(() => {
         setRecentlyCompletedTaskId(null);
       }, 3000);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const userId = auth.currentUser?.uid || 'guest-user';
+      await fetchTasks(userId);
+      console.log('タスク一覧を更新しました');
+    } catch (error) {
+      console.error('タスク更新エラー:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -85,10 +129,10 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
         
         <TouchableOpacity
           style={styles.createButton}
-          onPress={() => router.push('/task-form')}
+          onPress={() => router.push({ pathname: '/task-form?mode=practiceMenu' as any })}
         >
           <Text style={styles.createButtonText}>
-            最初のタスクを作成
+            練習メニューを作成
           </Text>
           <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" style={styles.buttonIcon} />
         </TouchableOpacity>
@@ -130,18 +174,52 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
         </TouchableOpacity>
       </View>
       
-      <FlatList
+      <DraggableFlatList
         data={activeTab === 'incomplete' ? incompleteTasks : completedTasks}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TaskCard 
-            task={item} 
-            onToggleComplete={handleToggleComplete}
-            showAnimation={item.id === recentlyCompletedTaskId}
-          />
+        onDragEnd={({ data }) => {
+          if (activeTab === 'incomplete') {
+            setIncompleteTasks(data);
+          } else {
+            setCompletedTasks(data);
+          }
+        }}
+        renderItem={({ item, drag, isActive }: RenderItemParams<Task>) => (
+          <ScaleDecorator>
+            <TouchableOpacity 
+              activeOpacity={1}
+              onLongPress={drag}
+              disabled={isActive}
+              style={styles.taskCardContainer}
+            >
+              <TaskCard 
+                task={item} 
+                onToggleComplete={handleToggleComplete}
+                showAnimation={item.id === recentlyCompletedTaskId}
+                disableSwipe={isActive}
+                onDelete={(deletedTaskId) => {
+                  // 削除後のリストを更新
+                  if (activeTab === 'incomplete') {
+                    setIncompleteTasks(incompleteTasks.filter(task => task.id !== deletedTaskId));
+                  } else {
+                    setCompletedTasks(completedTasks.filter(task => task.id !== deletedTaskId));
+                  }
+                }}
+              />
+            </TouchableOpacity>
+          </ScaleDecorator>
         )}
         contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[themeColor]}
+            tintColor={themeColor}
+            title="更新中..."
+            titleColor={themeColor}
+          />
+        }
       />
     </View>
   );
@@ -184,8 +262,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingBottom: 20,
+    paddingTop: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -275,6 +354,9 @@ const styles = StyleSheet.create({
   },
   buttonIcon: {
     marginLeft: 8,
+  },
+  taskCardContainer: {
+    marginBottom: 8,
   },
 });
 

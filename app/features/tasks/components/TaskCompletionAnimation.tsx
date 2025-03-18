@@ -11,6 +11,7 @@ interface TaskCompletionAnimationProps {
   category?: string;
   completionCount: number;
   streakCount: number;
+  themeColor?: string;
 }
 
 const { width, height } = Dimensions.get('window');
@@ -22,6 +23,7 @@ const TaskCompletionAnimation: React.FC<TaskCompletionAnimationProps> = ({
   category,
   completionCount,
   streakCount,
+  themeColor = '#4285F4',
 }) => {
   useEffect(() => {
     if (visible) {
@@ -46,7 +48,7 @@ const TaskCompletionAnimation: React.FC<TaskCompletionAnimationProps> = ({
       <View style={styles.container}>
         <BlurView intensity={50} style={StyleSheet.absoluteFill} tint="dark" />
         
-        <View style={styles.content}>
+        <View style={[styles.content, { backgroundColor: `rgba(${hexToRgb(themeColor)}, 0.95)` }]}>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <MaterialIcons name="close" size={24} color="#FFFFFF" />
           </TouchableOpacity>
@@ -81,12 +83,26 @@ const TaskCompletionAnimation: React.FC<TaskCompletionAnimationProps> = ({
           </View>
           
           <TouchableOpacity style={styles.button} onPress={onClose}>
-            <Text style={styles.buttonText}>閉じる</Text>
+            <Text style={[styles.buttonText, { color: themeColor }]}>閉じる</Text>
           </TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
+};
+
+// HEXをRGBに変換するヘルパー関数
+const hexToRgb = (hex: string): string => {
+  // #を削除
+  const cleanHex = hex.replace('#', '');
+  
+  // RGB値を計算
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  
+  // RGB文字列を返す（0,0,0形式）
+  return `${r}, ${g}, ${b}`;
 };
 
 const styles = StyleSheet.create({
@@ -98,7 +114,6 @@ const styles = StyleSheet.create({
   content: {
     width: width * 0.85,
     maxWidth: 400,
-    backgroundColor: 'rgba(66, 133, 244, 0.95)',
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',

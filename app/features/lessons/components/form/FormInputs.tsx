@@ -193,19 +193,6 @@ const FormInputs: React.FC<FormInputsProps> = ({
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>メモ</Text>
-        <TextField
-          value={formData.notes}
-          onChangeText={handleNotesChange}
-          placeholder="レッスンの内容や気づきをメモしましょう"
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-          inputStyle={styles.notesInput}
-        />
-      </View>
-
-      <View style={styles.formGroup}>
         <Text style={[styles.label, { color: theme.colors.text }]}>タグ</Text>
         <ScrollView
           horizontal
@@ -304,16 +291,29 @@ const FormInputs: React.FC<FormInputsProps> = ({
           />
         </View>
       </View>
+
+      <View style={styles.formGroup}>
+        <Text style={[styles.label, { color: theme.colors.text }]}>メモ</Text>
+        <TextField
+          value={formData.notes}
+          onChangeText={handleNotesChange}
+          placeholder="レッスンの内容や気づきをメモしましょう"
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+          inputStyle={styles.notesInput}
+        />
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    padding: 10,
   },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
     fontSize: 16,

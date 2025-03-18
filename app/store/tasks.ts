@@ -90,7 +90,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         ...taskData,
         userId: user.uid,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        attachments: taskData.attachments || []
       };
 
       const docRef = await addDoc(collection(db, 'tasks'), task);

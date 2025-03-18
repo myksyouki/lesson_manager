@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons';
 
 interface SummaryDisplayProps {
   summary: string | null;
@@ -28,6 +30,7 @@ export const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ summary, status 
           <Text style={styles.summaryText}>{summary}</Text>
           <TouchableOpacity onPress={toggleExpand} style={styles.expandButton}>
             <Text style={styles.expandButtonText}>閉じる</Text>
+            <MaterialIcons name="keyboard-arrow-up" size={20} color="#007AFF" />
           </TouchableOpacity>
         </View>
       );
@@ -38,7 +41,8 @@ export const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ summary, status 
             {summary.substring(0, maxCharacters)}...
           </Text>
           <TouchableOpacity onPress={toggleExpand} style={styles.expandButton}>
-            <Text style={styles.expandButtonText}>もっと見る...</Text>
+            <Text style={styles.expandButtonText}>もっと見る</Text>
+            <MaterialIcons name="keyboard-arrow-down" size={20} color="#007AFF" />
           </TouchableOpacity>
         </View>
       );
@@ -46,79 +50,135 @@ export const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ summary, status 
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>AIサマリー</Text>
-      {summary ? (
-        renderSummary()
-      ) : (
-        <View style={styles.placeholderContainer}>
-          {status === 'processing' && (
-            <Text style={styles.placeholderText}>音声ファイルを処理中...</Text>
-          )}
-          {status === 'transcribing' && (
-            <Text style={styles.placeholderText}>文字起こし中...</Text>
-          )}
-          {status === 'summarizing' && (
-            <Text style={styles.placeholderText}>生成中・・・</Text>
-          )}
-          {status === 'completed' && !summary && (
-            <Text style={styles.placeholderText}>音声ファイルがアップロードされていないため、AIサマリーは生成されません。</Text>
-          )}
-          {!status && (
-            <Text style={styles.placeholderText}>音声ファイルがアップロードされていないため、AIサマリーは生成されません。</Text>
-          )}
+    <View style={styles.outerContainer}>
+      <LinearGradient
+        colors={['#F0F7FF', '#E1EFFF']}
+        style={styles.container}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.titleContainer}>
+          <MaterialIcons name="auto-awesome" size={22} color="#4285F4" style={styles.titleIcon} />
+          <Text style={styles.title}>AIサマリー</Text>
         </View>
-      )}
+        
+        {summary ? (
+          <View style={styles.summaryContainer}>
+            {renderSummary()}
+          </View>
+        ) : (
+          <View style={styles.placeholderContainer}>
+            {status === 'processing' && (
+              <>
+                <MaterialIcons name="hourglass-bottom" size={24} color="#8E8E93" style={styles.placeholderIcon} />
+                <Text style={styles.placeholderText}>音声ファイルを処理中...</Text>
+              </>
+            )}
+            {status === 'transcribing' && (
+              <>
+                <MaterialIcons name="mic" size={24} color="#8E8E93" style={styles.placeholderIcon} />
+                <Text style={styles.placeholderText}>文字起こし中...</Text>
+              </>
+            )}
+            {status === 'summarizing' && (
+              <>
+                <MaterialIcons name="auto-awesome" size={24} color="#8E8E93" style={styles.placeholderIcon} />
+                <Text style={styles.placeholderText}>生成中・・・</Text>
+              </>
+            )}
+            {(status === 'completed' && !summary) && (
+              <>
+                <MaterialIcons name="info-outline" size={24} color="#8E8E93" style={styles.placeholderIcon} />
+                <Text style={styles.placeholderText}>音声ファイルがアップロードされていないため、AIサマリーは生成されません。</Text>
+              </>
+            )}
+            {!status && (
+              <>
+                <MaterialIcons name="info-outline" size={24} color="#8E8E93" style={styles.placeholderIcon} />
+                <Text style={styles.placeholderText}>音声ファイルがアップロードされていないため、AIサマリーは生成されません。</Text>
+              </>
+            )}
+          </View>
+        )}
+      </LinearGradient>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   container: {
-    backgroundColor: 'white',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
+    padding: 20,
     minHeight: 150,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 16,
-    color: '#1C1C1E',
+  },
+  titleIcon: {
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  summaryContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 12,
+    padding: 16,
   },
   summaryText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#1C1C1E',
+    fontSize: 17,
+    lineHeight: 26,
+    color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    letterSpacing: 0.2,
   },
   placeholderContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 12,
+    minHeight: 120,
+  },
+  placeholderIcon: {
+    marginBottom: 12,
   },
   placeholderText: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: '#5F6368',
     textAlign: 'center',
-    padding: 16,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    lineHeight: 24,
   },
   expandButton: {
     marginTop: 12,
     alignSelf: 'flex-end',
     paddingVertical: 6,
     paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   expandButtonText: {
     color: '#007AFF',
     fontSize: 16,
     fontWeight: '500',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    marginRight: 4,
   },
 });
 

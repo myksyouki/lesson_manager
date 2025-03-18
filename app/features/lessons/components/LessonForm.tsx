@@ -8,11 +8,14 @@ import {
   Platform,
   Keyboard,
   useWindowDimensions,
+  ScrollView,
+  Animated,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import TagManager from './TagManager';
 import SummaryDisplay from './SummaryDisplay';
 import Calendar from './Calendar';
+import { BlurView } from 'expo-blur';
 
 interface LessonFormData {
   id: string;
@@ -49,6 +52,7 @@ export const LessonForm: React.FC<LessonFormProps> = ({
   const contentPadding = isTablet ? 40 : 20;
   const inputMaxWidth = isTablet ? 600 : '100%';
   const [showCalendar, setShowCalendar] = React.useState(false);
+  const [expandedSection, setExpandedSection] = React.useState<string | null>(null);
 
   const handleAddTag = (tag: string) => {
     onUpdateFormData({ tags: [...formData.tags, tag] });
@@ -69,96 +73,146 @@ export const LessonForm: React.FC<LessonFormProps> = ({
     setShowCalendar(false);
   };
 
+  const toggleSection = (sectionName: string) => {
+    if (expandedSection === sectionName) {
+      setExpandedSection(null);
+    } else {
+      setExpandedSection(sectionName);
+    }
+  };
+
+  const renderCollapsibleSection = (title: string, sectionName: string, content: React.ReactNode) => {
+    const isExpanded = expandedSection === sectionName;
+    
+    return (
+      <View style={styles.collapsibleSection}>
+        <TouchableOpacity 
+          style={styles.sectionHeader} 
+          onPress={() => toggleSection(sectionName)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.collapsibleLabel}>{title}</Text>
+          <MaterialIcons 
+            name={isExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
+            size={24} 
+            color="#5F6368" 
+          />
+        </TouchableOpacity>
+        
+        {isExpanded && (
+          <View style={styles.collapsibleContent}>
+            {content}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <>
-      <View 
+      <ScrollView 
         style={[styles.content, { padding: contentPadding }]} 
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        contentContainerStyle={{ paddingBottom: 20 }}
       >
         <View style={[styles.formContainer, { maxWidth: inputMaxWidth, alignSelf: isTablet ? 'center' : 'stretch' }]}>
-          <View style={styles.section}>
-            <Text style={styles.label}>講師名</Text>
-            <TextInput
-              style={[styles.input, !isEditing && styles.readOnly]}
-              value={formData.teacher}
-              onChangeText={(text) => onUpdateFormData({ teacher: text })}
-              editable={isEditing}
-              placeholder="講師名を入力"
+          <View style={styles.aiSummarySection}>
+            <SummaryDisplay
+              summary={formData.summary}
+              status={formData.status}
             />
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>レッスン日</Text>
-            <TouchableOpacity
-              style={[styles.input, styles.dateInput]}
-              onPress={() => isEditing && setShowCalendar(true)}>
-              <Text style={styles.dateText}>{formData.date}</Text>
-              {isEditing && <MaterialIcons name="calendar-today" size={22} color="#5f6368" />}
-            </TouchableOpacity>
-          </View>
+          {renderCollapsibleSection("基本情報", "basicInfo", (
+            <View>
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabel}>
+                  <Text style={styles.infoLabelText}>講師名</Text>
+                </View>
+                <View style={styles.infoValue}>
+                  <TextInput
+                    style={[styles.input, !isEditing && styles.readOnly]}
+                    value={formData.teacher}
+                    onChangeText={(text) => onUpdateFormData({ teacher: text })}
+                    editable={isEditing}
+                    placeholder="講師名を入力"
+                  />
+                </View>
+              </View>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>レッスン曲</Text>
-            {formData.pieces && formData.pieces.length > 0 ? (
-              <View style={styles.piecesList}>
-                {formData.pieces.map((piece, index) => (
-                  <View key={index} style={styles.pieceItem}>
-                    <Text style={styles.pieceText}>{piece}</Text>
-                    {isEditing && (
-                      <TouchableOpacity
-                        onPress={() => {
-                          const newPieces = [...(formData.pieces || [])];
-                          newPieces.splice(index, 1);
-                          onUpdateFormData({ pieces: newPieces });
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabel}>
+                  <Text style={styles.infoLabelText}>レッスン日</Text>
+                </View>
+                <View style={styles.infoValue}>
+                  <TouchableOpacity
+                    style={[styles.input, styles.dateInput]}
+                    onPress={() => isEditing && setShowCalendar(true)}>
+                    <Text style={styles.dateText}>{formData.date}</Text>
+                    {isEditing && <MaterialIcons name="calendar-today" size={20} color="#5f6368" />}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabel}>
+                  <Text style={styles.infoLabelText}>レッスン曲</Text>
+                </View>
+                <View style={styles.infoValue}>
+                  {formData.pieces && formData.pieces.length > 0 ? (
+                    <View style={styles.piecesList}>
+                      {formData.pieces.map((piece, index) => (
+                        <View key={index} style={styles.pieceItem}>
+                          <Text style={styles.pieceText}>{piece}</Text>
+                          {isEditing && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                const newPieces = [...(formData.pieces || [])];
+                                newPieces.splice(index, 1);
+                                onUpdateFormData({ pieces: newPieces });
+                              }}
+                              style={styles.removeButton}
+                            >
+                              <MaterialIcons name="close" size={16} color="#FF3B30" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <TextInput
+                      style={[styles.input, !isEditing && styles.readOnly]}
+                      value={formData.piece || ''}
+                      onChangeText={(text) => onUpdateFormData({ piece: text })}
+                      editable={isEditing}
+                      placeholder="曲名を入力"
+                    />
+                  )}
+                  {isEditing && (
+                    <View style={styles.addPieceContainer}>
+                      <TextInput
+                        style={[styles.input, styles.addPieceInput]}
+                        placeholder="曲名を追加"
+                        onSubmitEditing={(e) => {
+                          if (e.nativeEvent.text.trim()) {
+                            const newPieces = [...(formData.pieces || []), e.nativeEvent.text.trim()];
+                            onUpdateFormData({ pieces: newPieces });
+                            onUpdateFormData({ newPiece: '' });
+                          }
                         }}
-                        style={styles.removeButton}
-                      >
-                        <MaterialIcons name="close" size={16} color="#FF3B30" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ))}
+                        returnKeyType="done"
+                        value={formData.newPiece}
+                        onChangeText={(text) => onUpdateFormData({ newPiece: text })}
+                      />
+                    </View>
+                  )}
+                </View>
               </View>
-            ) : (
-              <TextInput
-                style={[styles.input, !isEditing && styles.readOnly]}
-                value={formData.piece || ''}
-                onChangeText={(text) => onUpdateFormData({ piece: text })}
-                editable={isEditing}
-                placeholder="曲名を入力"
-              />
-            )}
-            {isEditing && (
-              <View style={styles.addPieceContainer}>
-                <TextInput
-                  style={[styles.input, styles.addPieceInput]}
-                  placeholder="曲名を追加"
-                  onSubmitEditing={(e) => {
-                    if (e.nativeEvent.text.trim()) {
-                      const newPieces = [...(formData.pieces || []), e.nativeEvent.text.trim()];
-                      onUpdateFormData({ pieces: newPieces });
-                      onUpdateFormData({ newPiece: '' });
-                    }
-                  }}
-                  returnKeyType="done"
-                  value={formData.newPiece}
-                  onChangeText={(text) => onUpdateFormData({ newPiece: text })}
-                />
-              </View>
-            )}
-          </View>
+            </View>
+          ))}
 
-          <View style={styles.section}>
-            <Text style={styles.label}>タグ</Text>
-            <TagManager
-              tags={formData.tags}
-              onAddTag={handleAddTag}
-              onRemoveTag={handleRemoveTag}
-              isEditing={isEditing}
-            />
-          </View>
-
-          <View style={[styles.section, styles.memoSection]}>
-            <Text style={styles.label}>マイメモ</Text>
+          {renderCollapsibleSection("マイメモ", "memo", (
             <TextInput
               style={[
                 styles.input,
@@ -169,24 +223,25 @@ export const LessonForm: React.FC<LessonFormProps> = ({
               value={formData.notes}
               onChangeText={(text) => onUpdateFormData({ notes: text })}
               multiline
-              numberOfLines={formData.notes ? undefined : 1}
+              numberOfLines={3}
               textAlignVertical="top"
               editable={isEditing}
               placeholder="メモを入力"
             />
-          </View>
+          ))}
 
-          <View style={styles.section}>
-            <Text style={styles.label}>AIサマリー</Text>
-            <SummaryDisplay
-              summary={formData.summary}
-              status={formData.status}
+          {renderCollapsibleSection("タグ", "tags", (
+            <TagManager
+              tags={formData.tags}
+              onAddTag={handleAddTag}
+              onRemoveTag={handleRemoveTag}
+              isEditing={isEditing}
             />
-          </View>
+          ))}
           
           <View style={styles.bottomPadding} />
         </View>
-      </View>
+      </ScrollView>
 
       {showCalendar && (
         <Calendar
@@ -208,6 +263,52 @@ const styles = StyleSheet.create({
   formContainer: {
     width: '100%',
   },
+  aiSummarySection: {
+    marginBottom: 16,
+  },
+  collapsibleSection: {
+    marginBottom: 16,
+    backgroundColor: 'white',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    overflow: 'hidden',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#F8F9FA',
+  },
+  collapsibleLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#5F6368',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  collapsibleContent: {
+    padding: 16,
+    backgroundColor: 'white',
+    paddingBottom: 20,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoLabel: {
+    width: 80,
+    marginRight: 12,
+  },
+  infoLabelText: {
+    fontSize: 15,
+    color: '#5F6368',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  infoValue: {
+    flex: 1,
+  },
   section: {
     marginBottom: 24,
   },
@@ -218,20 +319,20 @@ const styles = StyleSheet.create({
     height: 40,
   },
   label: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1C1C1E',
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#5F6368',
     marginBottom: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   input: {
     backgroundColor: 'white',
-    borderRadius: 14,
-    padding: 16,
-    fontSize: 17,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 15,
     borderWidth: 1,
     borderColor: '#E5E5EA',
-    color: '#1C1C1E',
+    color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   dateInput: {
@@ -240,8 +341,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dateText: {
-    fontSize: 17,
-    color: '#1C1C1E',
+    fontSize: 15,
+    color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   readOnly: {
@@ -249,37 +350,42 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
   },
   textArea: {
-    minHeight: 40,
-    maxHeight: 200,
-    paddingTop: 12,
+    minHeight: 100,
+    maxHeight: 150,
     textAlignVertical: 'top',
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   emptyTextArea: {
-    height: 40,
+    height: 80,
   },
   piecesList: {
-    marginTop: 8,
+    marginTop: 4,
   },
   pieceItem: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#F2F2F7',
     borderRadius: 8,
-    padding: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     marginBottom: 8,
   },
   pieceText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
+    color: '#202124',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   removeButton: {
-    padding: 4,
+    padding: 6,
   },
   addPieceContainer: {
     marginTop: 8,
   },
   addPieceInput: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#F7F7F7',
   },
 });
 
