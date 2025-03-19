@@ -1,237 +1,255 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
+  Text,
+  TextInput,
   StyleSheet,
-  SafeAreaView,
+  TouchableOpacity,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
   Alert,
+  SafeAreaView,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { getChatRoomById, updateChatRoomMessages } from './services/chatRoomService';
+import { sendMessageToLessonAI } from './services/lessonAIService';
+import { ChatRoom, ChatMessage } from './types/chatRoom';
 import { useAuthStore } from './store/auth';
-import { useTaskStore } from './store/tasks';
-import { getChatRoom, addMessageToChatRoom, ChatRoom } from './services/chatRoomService';
-import { sendMessageToLessonAI, ChatMessage, createPracticeMenu, PracticeMenu } from './services/difyService';
-import { createTaskFromPracticeMenu } from './services/taskService';
-import ChatHeader from './features/chat/components/ChatHeader';
-import ChatMessages from './features/chat/components/ChatMessages';
-import ChatInput from './features/chat/components/ChatInput';
-import PracticeMenuModal from './features/chat/components/PracticeMenuModal';
+import { StatusBar } from 'expo-status-bar';
+import { Timestamp } from 'firebase/firestore';
+import ChatsHeader from './components/ui/ChatsHeader';
 
 export default function ChatRoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [chatRoom, setChatRoom] = useState<ChatRoom | null>(null);
   const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [practiceMenus, setPracticeMenus] = useState<PracticeMenu[]>([]);
-  const [rawPracticeMenu, setRawPracticeMenu] = useState<string>('');
-  const [showPracticeMenu, setShowPracticeMenu] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const scrollViewRef = useRef<ScrollView>(null);
   const router = useRouter();
   const { user } = useAuthStore();
-  const { addTask } = useTaskStore();
 
+  // チャットルームデータの読み込み
   useEffect(() => {
-    if (id && user) {
-      loadChatRoom();
-    }
-  }, [id, user]);
+    const loadChatRoom = async () => {
+      if (!id || !user) return;
 
-  const loadChatRoom = async () => {
+      try {
+        console.log(`チャットルーム(ID: ${id})を読み込みます...`);
+        const roomData = await getChatRoomById(id);
+
+        if (!roomData) {
+          console.log(`チャットルーム(ID: ${id})が見つかりませんでした`);
+          Alert.alert(
+            'エラー',
+            'チャットルームが見つかりませんでした。',
+            [{ text: 'OK', onPress: () => router.back() }]
+          );
+          return;
+        }
+
+        if (roomData.userId !== user.uid) {
+          console.log('アクセス権限エラー: このチャットルームへのアクセス権限がありません');
+          Alert.alert(
+            'アクセス権限エラー',
+            'このチャットルームにアクセスする権限がありません。',
+            [{ text: 'OK', onPress: () => router.back() }]
+          );
+          return;
+        }
+
+        console.log('チャットルーム読み込み成功:', {
+          id: roomData.id,
+          title: roomData.title,
+          messagesCount: roomData.messages?.length || 0,
+          modelType: roomData.modelType || 'standard',
+          conversationId: roomData.conversationId || 'なし'
+        });
+
+        setChatRoom(roomData);
+      } catch (error) {
+        console.error('チャットルーム読み込みエラー:', error);
+        Alert.alert(
+          'エラー',
+          'チャットルームの読み込み中にエラーが発生しました。',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    loadChatRoom();
+  }, [id, user, router]);
+
+  // メッセージ送信時にスクロールを最下部へ
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [chatRoom?.messages]);
+
+  // メッセージを送信する
+  const handleSend = async () => {
+    if (!message.trim() || !chatRoom || loading || !user) return;
+
+    const userMessage: ChatMessage = {
+      id: `msg_${Date.now()}`,
+      content: message.trim(),
+      sender: 'user',
+      timestamp: Timestamp.now(),
+    };
+
     try {
       setLoading(true);
-      if (!id) return;
-      
-      const room = await getChatRoom(id);
-      setChatRoom(room);
-    } catch (error) {
-      console.error('チャットルーム取得エラー:', error);
-      Alert.alert('エラー', 'チャットルームの取得に失敗しました。後でもう一度お試しください。');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleSend = async () => {
-    if (!message.trim() || !chatRoom || !user) return;
-
-    try {
-      setSending(true);
-      
-      // ユーザーメッセージをチャットに追加
-      const userMessage: ChatMessage = {
-        role: 'user',
-        content: message.trim(),
-      };
-      
-      await addMessageToChatRoom(chatRoom.id, userMessage, chatRoom.conversationId);
-      
       // UIを更新
       setChatRoom(prev => {
         if (!prev) return prev;
         return {
           ...prev,
-          messages: [...prev.messages, userMessage],
+          messages: [...prev.messages || [], userMessage],
         };
       });
       
       setMessage('');
 
+      console.log('AIにメッセージを送信:', {
+        roomId: chatRoom.id,
+        conversationId: chatRoom.conversationId,
+        modelType: chatRoom.modelType,
+        messageLength: message.trim().length
+      });
+
       // Dify APIに送信
       const response = await sendMessageToLessonAI(
         message.trim(),
+        chatRoom.id,
+        chatRoom.modelType,
         chatRoom.conversationId
       );
-      
-      // AIの応答をチャットに追加
+
+      // AI応答をメッセージリストに追加
       const aiMessage: ChatMessage = {
-        role: 'assistant',
+        id: `msg_${Date.now() + 1}`,
         content: response.answer,
+        sender: 'ai',
+        timestamp: Timestamp.now(),
       };
-      
-      await addMessageToChatRoom(chatRoom.id, aiMessage, response.conversationId);
-      
-      // UIを更新
+
+      const updatedMessages = [...(chatRoom.messages || []), userMessage, aiMessage];
+
+      // チャットルームを更新
       setChatRoom(prev => {
         if (!prev) return prev;
         return {
           ...prev,
-          messages: [...prev.messages, aiMessage],
-          conversationId: response.conversationId,
+          messages: updatedMessages,
+          conversationId: response.conversationId || prev.conversationId,
         };
       });
+
+      // Firestoreのチャットルームを更新
+      await updateChatRoomMessages(chatRoom.id, updatedMessages);
     } catch (error) {
       console.error('メッセージ送信エラー:', error);
-      Alert.alert('エラー', 'メッセージの送信に失敗しました。後でもう一度お試しください。');
+      Alert.alert('エラー', 'メッセージの送信に失敗しました。もう一度お試しください。');
     } finally {
-      setSending(false);
+      setLoading(false);
     }
   };
 
-  const handleExport = async () => {
-    if (!chatRoom || !user) return;
-    
-    try {
-      setExporting(true);
-      
-      // チャット履歴が少なすぎる場合は警告
-      if (chatRoom.messages.length < 3) {
-        Alert.alert(
-          '警告',
-          'チャット履歴が少なすぎます。もう少しAIと対話してから練習メニューを作成してください。',
-          [{ text: 'OK' }]
-        );
-        setExporting(false);
-        return;
-      }
-      
-      // 練習メニュー作成AIに送信
-      const result = await createPracticeMenu(chatRoom.messages);
-      
-      // 練習メニューを表示するためにステートを更新
-      setPracticeMenus(result.practiceMenus);
-      setRawPracticeMenu(result.rawContent);
-      setShowPracticeMenu(true);
-      
-    } catch (error) {
-      console.error('エクスポートエラー:', error);
-      Alert.alert('エラー', '練習メニューの作成に失敗しました。後でもう一度お試しください。');
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const handleSavePracticeMenu = async () => {
-    if (!rawPracticeMenu || !chatRoom || !user) return;
-    
-    try {
-      setExporting(true);
-      
-      // タスクとして保存（複数のタスクが返される可能性あり）
-      const createdTasks = await createTaskFromPracticeMenu(user.uid, rawPracticeMenu, chatRoom.id);
-      
-      // 作成したタスクをタスクストアに追加
-      createdTasks.forEach(task => {
-        addTask(task);
-      });
-      
-      // モーダルを閉じる
-      setShowPracticeMenu(false);
-      
-      Alert.alert(
-        '成功',
-        `${createdTasks.length}個の練習メニューをタスクとして保存しました。`,
-        [
-          {
-            text: 'タスク画面へ',
-            onPress: () => {
-              // タスクタブに遷移
-              router.push('/(tabs)/task');
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('練習メニューからのタスク作成中にエラーが発生しました:', error);
-      Alert.alert('エラー', 'タスクの保存に失敗しました。後でもう一度お試しください。');
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const handleEditPracticeMenu = () => {
-    if (!rawPracticeMenu || !chatRoom) return;
-    
-    // モーダルを閉じる
-    setShowPracticeMenu(false);
-    
-    // 編集画面に遷移
-    setTimeout(() => {
-      router.push({
-        pathname: '/task-form',
-        params: { 
-          practiceMenu: rawPracticeMenu,
-          chatRoomId: chatRoom.id,
-          redirectTo: '/(tabs)/task' // タスク作成後にタスクタブに遷移するためのパラメータ
-        }
-      });
-    }, 300); // 少し遅延させてモーダルが閉じた後に遷移するようにする
-  };
+  if (initialLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4285F4" />
+        <Text style={styles.loadingText}>チャットルームを読み込んでいます...</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="dark" />
+      <Stack.Screen
+        options={{
+          headerShown: false
+        }}
+      />
+      
+      <ChatsHeader title={chatRoom?.title || 'チャット'} />
+
       <KeyboardAvoidingView
-        style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <ChatHeader
-          title={chatRoom?.title || 'チャット'}
-          onExport={handleExport}
-          exporting={exporting}
-        />
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContent}
+        >
+          {chatRoom?.messages && chatRoom.messages.length > 0 ? (
+            chatRoom.messages.map((msg, index) => (
+              <View
+                key={msg.id || index}
+                style={[
+                  styles.messageContainer,
+                  msg.sender === 'user'
+                    ? styles.userMessageContainer
+                    : styles.aiMessageContainer,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.messageBubble,
+                    msg.sender === 'user'
+                      ? styles.userMessageBubble
+                      : styles.aiMessageBubble,
+                  ]}
+                >
+                  <Text style={styles.messageText}>{msg.content}</Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                メッセージはありません。最初のメッセージを送信しましょう！
+              </Text>
+            </View>
+          )}
+        </ScrollView>
 
-        <ChatMessages
-          messages={chatRoom?.messages || []}
-          loading={loading}
-        />
-
-        <ChatInput
-          message={message}
-          onChangeMessage={setMessage}
-          onSend={handleSend}
-          sending={sending}
-        />
-
-        <PracticeMenuModal
-          visible={showPracticeMenu}
-          onClose={() => setShowPracticeMenu(false)}
-          practiceMenus={practiceMenus}
-          onSave={handleSavePracticeMenu}
-          onEdit={handleEditPracticeMenu}
-          exporting={exporting}
-        />
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            value={message}
+            onChangeText={setMessage}
+            placeholder="メッセージを入力..."
+            placeholderTextColor="#888"
+            multiline
+            numberOfLines={4}
+            maxLength={1000}
+            editable={!loading}
+          />
+          <TouchableOpacity
+            style={[styles.sendButton, !message.trim() && styles.disabledButton]}
+            onPress={handleSend}
+            disabled={!message.trim() || loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="white" size="small" />
+            ) : (
+              <Ionicons name="send" size={24} color="white" />
+            )}
+          </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -240,10 +258,101 @@ export default function ChatRoomScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f7f8fc',
   },
   container: {
     flex: 1,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  backButton: {
+    padding: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    padding: 16,
+  },
+  messageContainer: {
+    marginVertical: 6,
+    flexDirection: 'row',
+  },
+  userMessageContainer: {
+    justifyContent: 'flex-end',
+  },
+  aiMessageContainer: {
+    justifyContent: 'flex-start',
+  },
+  messageBubble: {
+    maxWidth: '80%',
+    padding: 12,
+    borderRadius: 16,
+  },
+  userMessageBubble: {
+    backgroundColor: '#4285F4',
+  },
+  aiMessageBubble: {
     backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  messageText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 200,
+  },
+  emptyText: {
+    color: '#888',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    padding: 12,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    alignItems: 'flex-end',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#f0f2f5',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    fontSize: 16,
+    maxHeight: 120,
+    minHeight: 44,
+  },
+  sendButton: {
+    backgroundColor: '#4285F4',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#B0C4DE',
   },
 });

@@ -50,8 +50,8 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      const lessonsRef = collection(db, 'lessons');
-      const q = query(lessonsRef, where('user_id', '==', userId));
+      const lessonsRef = collection(db, `users/${userId}/lessons`);
+      const q = query(lessonsRef);
       const querySnapshot = await getDocs(q);
 
       const lessons = querySnapshot.docs.map(doc => {
@@ -102,7 +102,7 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
         updated_at: serverTimestamp()
       };
 
-      const docRef = await addDoc(collection(db, 'lessons'), lessonData);
+      const docRef = await addDoc(collection(db, `users/${user.uid}/lessons`), lessonData);
       const newLesson: Lesson = { id: docRef.id, ...lessonData };
 
       set((state) => ({
@@ -122,7 +122,10 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
       set({ isLoading: true, error: null });
 
       const { id, ...lessonData } = updatedLesson;
-      const lessonRef = doc(db, 'lessons', id);
+      const user = auth.currentUser;
+      if (!user) throw new Error('User not authenticated');
+
+      const lessonRef = doc(db, `users/${user.uid}/lessons`, id);
 
       await updateDoc(lessonRef, {
         ...lessonData,
@@ -144,8 +147,11 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
+      const user = auth.currentUser;
+      if (!user) throw new Error('User not authenticated');
+
       // Firestoreのドキュメントを削除する代わりに、isDeletedフラグを更新する
-      const lessonRef = doc(db, 'lessons', id);
+      const lessonRef = doc(db, `users/${user.uid}/lessons`, id);
       await updateDoc(lessonRef, {
         isDeleted: true,
         updated_at: serverTimestamp()

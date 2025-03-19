@@ -374,14 +374,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 12,
-    borderRadius: 6,
+    marginVertical: 6,
+    borderRadius: 12,
     backgroundColor: 'white',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
   },
   completedContainer: {
     opacity: 0.8,
@@ -390,7 +391,7 @@ const styles = StyleSheet.create({
   swipeContainer: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 6,
+    borderRadius: 12,
   },
   actionsContainer: {
     position: 'absolute',
@@ -420,11 +421,11 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: 'white',
-    borderRadius: 6,
+    borderRadius: 12,
     zIndex: 1,
   },
   contentSection: {
-    padding: 12,
+    padding: 16,
   },
   cardHeader: {
     flexDirection: 'row',

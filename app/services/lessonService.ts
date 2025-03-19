@@ -50,9 +50,9 @@ export const saveLesson = async (
       lessonUniqId: lessonUniqId, // 固有のIDを保存
     };
     
-    // Firestoreにドキュメントを作成
+    // Firestoreにドキュメントを作成（ユーザーベース構造）
     console.log('Firestoreにレッスンデータを保存します', { teacherName: formData.teacherName, lessonUniqId });
-    const docRef = await addDoc(collection(db, 'lessons'), lessonData);
+    const docRef = await addDoc(collection(db, `users/${userId}/lessons`), lessonData);
     const lessonId = docRef.id;
     console.log(`レッスンが作成されました。ID: ${lessonId}, lessonUniqId: ${lessonUniqId}`);
     
@@ -72,7 +72,7 @@ export const saveLesson = async (
       console.log(`処理ID: ${processingId}`);
       
       // 最初にドキュメントを更新して、音声処理前にファイルパスと処理IDを設定する
-      await updateDoc(doc(db, 'lessons', lessonId), {
+      await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), {
         status: 'uploading',
         processingId: processingId,
         audioFileName: fileName,
@@ -115,7 +115,7 @@ export const saveLesson = async (
               const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
               
               // レッスンドキュメントを更新
-              await updateDoc(doc(db, 'lessons', lessonId), {
+              await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), {
                 audioUrl: downloadUrl,
                 status: 'processing'
               });
@@ -147,7 +147,7 @@ export const saveLesson = async (
       const processingId = `completed_${userId}_${completedTimestamp}`;
       
       // ドキュメントを更新してlessonUniqIdとステータスを設定
-      await updateDoc(doc(db, 'lessons', lessonId), {
+      await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), {
         status: 'completed',
         processingId: processingId,
         processing_id: processingId, // 両方のフィールド名に対応

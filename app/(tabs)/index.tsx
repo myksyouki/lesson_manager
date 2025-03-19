@@ -22,7 +22,7 @@ import { useTaskStore } from '../store/tasks';
 import { useAuthStore } from '../store/auth';
 import { useTheme } from '../theme/index';
 import HomeHeader from '../features/home/components/HomeHeader';
-import TaskCard from '../features/home/components/TaskCard';
+import TaskCard from '../features/tasks/components/TaskCard';
 import TaskPagination from '../features/home/components/TaskPagination';
 import EmptyOrLoading from '../features/home/components/EmptyOrLoading';
 import TaskCategorySummary from '../features/tasks/components/TaskCategorySummary';
@@ -41,7 +41,7 @@ export default function HomeScreen() {
   const translateX = useSharedValue(0);
   const context = useSharedValue({ x: 0 });
   const { getFavorites } = useLessonStore();
-  const { tasks, fetchTasks, generateTasksFromLessons, getMonthlyPracticeCount, getPinnedTasks } = useTaskStore();
+  const { tasks, fetchTasks, generateTasksFromLessons, getMonthlyPracticeCount, getPinnedTasks, toggleTaskCompletion } = useTaskStore();
   const { user } = useAuthStore();
   const favoriteLesson = getFavorites();
   const theme = useTheme();
@@ -173,16 +173,7 @@ export default function HomeScreen() {
   };
 
   const navigateToAllTasks = () => {
-    router.push('/task');
-  };
-
-  // ピン留めされたタスクカードをレンダリング
-  const renderPinnedTaskCard = ({ item }: { item: any }) => {
-    return (
-      <View style={styles.pinnedTaskCardContainer}>
-        <TaskCard task={item} />
-      </View>
-    );
+    router.push('/task' as any);
   };
 
   return (
@@ -248,14 +239,30 @@ export default function HomeScreen() {
             </SlideIn>
           ) : (
             <FadeIn duration={600}>
-              <FlatList
-                data={pinnedTasks}
-                renderItem={renderPinnedTaskCard}
-                keyExtractor={(item) => item.id}
-                horizontal={false}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.pinnedTasksContainer}
-              />
+              <View style={styles.pinnedTasksGrid}>
+                {pinnedTasks.map((task) => (
+                  <View key={task.id} style={styles.pinnedTaskCardContainer}>
+                    <TaskCard 
+                      task={task} 
+                      onToggleComplete={(taskId: string) => toggleTaskCompletion(taskId)}
+                      disableSwipe={false}
+                    />
+                  </View>
+                ))}
+                {/* 3つのスロットを用意して、足りない場合は空のスロットを表示 */}
+                {pinnedTasks.length < 3 && Array.from({ length: 3 - pinnedTasks.length }).map((_, index) => (
+                  <TouchableOpacity 
+                    key={`empty-${index}`} 
+                    style={styles.emptyPinnedCardSlot}
+                    onPress={navigateToAllTasks}
+                  >
+                    <MaterialIcons name="add-circle-outline" size={24} color={theme.colors.borderLight} />
+                    <Text style={[styles.emptySlotText, { color: theme.colors.textSecondary }]}>
+                      タスクを追加
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </FadeIn>
           )}
         </View>
@@ -323,12 +330,25 @@ const styles = StyleSheet.create({
   pinnedTasksContainer: {
     width: SCREEN_WIDTH,
     paddingHorizontal: 16,
-    paddingBottom: 24,
-    alignItems: 'center',
+    paddingBottom: 16,
+    paddingTop: 4,
+  },
+  pinnedTasksGrid: {
+    width: SCREEN_WIDTH,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'column',
   },
   pinnedTaskCardContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
     width: '100%',
+    borderRadius: 12,
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   emptyPinnedContainer: {
     padding: 24,
@@ -359,5 +379,21 @@ const styles = StyleSheet.create({
   goToTaskButtonText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  emptyPinnedCardSlot: {
+    marginBottom: 12,
+    width: '100%',
+    height: 100,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderStyle: 'dashed',
+    backgroundColor: '#F9F9F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptySlotText: {
+    fontSize: 14,
+    marginTop: 8,
   },
 });

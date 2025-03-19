@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,24 +9,89 @@ import {
   SafeAreaView,
   Image,
   Linking,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from './store/auth';
 import { useLessonStore } from './store/lessons';
 import LessonCard from './components/LessonCard';
 import { useRouter } from 'expo-router';
+import { logout } from './services/authService';
+import { runChatRoomMigration } from './migration';
+import { StatusBar } from 'expo-status-bar';
 
 export default function SettingsScreen() {
-  const { signOut, user } = useAuthStore();
+  const { signOut, user, setUser } = useAuthStore();
   const { getFavorites } = useLessonStore();
   const favoriteLesson = getFavorites();
   const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await logout();
+      setUser(null);
+      router.replace('/auth/login');
+    } catch (error) {
+      console.error('ログアウトエラー:', error);
+      Alert.alert('エラー', 'ログアウト中にエラーが発生しました。');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  const confirmLogout = () => {
+    Alert.alert(
+      'ログアウト確認',
+      'ログアウトしますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        { text: 'ログアウト', onPress: handleLogout }
+      ]
+    );
+  };
+
+  const handleRunMigration = async () => {
+    try {
+      Alert.alert(
+        'データ移行確認',
+        'チャットルームデータを新しい構造に移行しますか？\n\nこのプロセスは数秒かかる場合があります。',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          { 
+            text: '移行実行', 
+            onPress: async () => {
+              setMigrating(true);
+              try {
+                await runChatRoomMigration();
+              } finally {
+                setMigrating(false);
+              }
+            } 
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('移行エラー:', error);
+      Alert.alert('エラー', '移行処理中にエラーが発生しました。');
+      setMigrating(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="dark" />
       <ScrollView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>設定</Text>
+          {user && (
+            <Text style={styles.subtitle}>
+              ログイン中: {user.email}
+            </Text>
+          )}
         </View>
 
         {/* 一般設定セクション */}
@@ -66,9 +131,19 @@ export default function SettingsScreen() {
 
         {/* 新規追加: ログアウトボタンを一般設定の下、アプリ情報の上に配置 */}
         <View style={styles.section}>
-          <TouchableOpacity style={styles.logoutButton} onPress={signOut}>
-            <MaterialIcons name="logout" size={24} color="white" />
-            <Text style={styles.logoutButtonText}>ログアウト</Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={confirmLogout}
+            disabled={loggingOut}
+          >
+            {loggingOut ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <>
+                <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+                <Text style={styles.buttonText}>ログアウト</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -82,6 +157,25 @@ export default function SettingsScreen() {
             <Text style={styles.infoLabel}>開発者</Text>
             <Text style={styles.infoValue}>Lesson Manager Team</Text>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>デバッグ</Text>
+          
+          <TouchableOpacity
+            style={[styles.button, styles.debugButton]}
+            onPress={handleRunMigration}
+            disabled={migrating}
+          >
+            {migrating ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <>
+                <Ionicons name="git-branch-outline" size={24} color="#FFFFFF" />
+                <Text style={styles.buttonText}>チャットルームデータ移行</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       </ScrollView>
       
@@ -114,6 +208,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1C1C1E',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 8,
   },
   section: {
     marginBottom: 24,
@@ -262,5 +361,22 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#E9ECEF',
+  },
+  button: {
+    backgroundColor: '#4285F4',
+    padding: 14,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  debugButton: {
+    backgroundColor: '#F6AB00',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

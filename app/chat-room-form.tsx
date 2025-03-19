@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuthStore } from './store/auth';
 import { createChatRoom } from './services/chatRoomService';
+import { getUserProfile } from './services/userProfileService';
 
 const TOPICS = [
   'タンギング',
@@ -33,8 +34,35 @@ export default function ChatRoomFormScreen() {
   const [selectedTopic, setSelectedTopic] = useState('');
   const [initialMessage, setInitialMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [userModelType, setUserModelType] = useState<string>('');
   const router = useRouter();
   const { user } = useAuthStore();
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const profile = await getUserProfile();
+        if (profile) {
+          const modelType = profile.selectedCategory && profile.selectedInstrument && profile.selectedModel
+            ? `${profile.selectedCategory}-${profile.selectedInstrument}-${profile.selectedModel}` 
+            : 'standard';
+          
+          console.log('ユーザーモデルタイプ:', modelType);
+          setUserModelType(modelType);
+        } else {
+          console.log('ユーザープロファイルが見つかりません、デフォルト設定を使用します');
+          setUserModelType('standard');
+        }
+      } catch (error) {
+        console.error('ユーザープロファイル取得エラー:', error);
+        setUserModelType('standard');
+      }
+    };
+    
+    fetchUserProfile();
+  }, [user]);
 
   const handleCreateRoom = async () => {
     if (!title.trim()) {
@@ -59,15 +87,25 @@ export default function ChatRoomFormScreen() {
         return;
       }
 
+      console.log('チャットルーム作成開始:', {
+        userId: user.uid,
+        title: title.trim(),
+        topic: selectedTopic,
+        initialMessageLength: initialMessage.trim().length,
+        modelType: userModelType || 'standard'
+      });
+
       const chatRoom = await createChatRoom(
-        user.uid,
         title.trim(),
         selectedTopic,
-        initialMessage.trim()
+        initialMessage.trim(),
+        userModelType || 'standard'
       );
 
+      console.log('チャットルーム作成成功:', chatRoom.id);
+
       router.push({
-        pathname: '/chat-room',
+        pathname: '/chat-room' as any,
         params: { id: chatRoom.id }
       });
     } catch (error) {

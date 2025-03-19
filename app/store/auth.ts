@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import { auth, db } from "../config/firebase";
 import {
-  User,
+  User as FirebaseUser,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -18,6 +18,7 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { checkOnboardingStatus } from "../services/userProfileService";
+import { getLocalStorageItem, setLocalStorageItem, removeLocalStorageItem } from '../utils/storage';
 
 console.log("✅ Expo Config Extra:", Constants.expoConfig?.extra);
 console.log("🔗 Redirect URI:", Constants.expoConfig?.extra?.expoPublicGoogleRedirectUri);
@@ -52,24 +53,36 @@ export function useGoogleAuth() {
 }
 
 // ✅ Zustand（認証ストア）
-interface AuthState {
-  user: User | null;
+export interface AppUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+}
+
+export interface AuthState {
+  user: AppUser | null;
+  isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
   isNewUser: boolean;
-  signUp: (email: string, password: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (promptAsync: () => Promise<any>) => Promise<void>;
   signInAsTestUser: () => Promise<void>;
   signOut: () => Promise<void>;
+  setError: (error: string) => void;
   clearError: () => void;
   setIsNewUser: (value: boolean) => void;
+  setUser: (user: AppUser | null) => void;
+  setLoading: (loading: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => {
   // 初期状態を設定
   const initialState = {
     user: null,
+    isAuthenticated: false,
     isLoading: true,
     error: null,
     isNewUser: false,
@@ -92,15 +105,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const currentUser = auth.currentUser;
       if (currentUser) {
         console.log("✅ 保存されていた認証情報を復元:", currentUser.uid);
-        set({ user: currentUser, isLoading: false });
+        set({ user: currentUser, isAuthenticated: true, isLoading: false });
       } else {
         console.log("❌ 保存された認証情報なし");
         // 状態だけ更新し、ナビゲーションはレイアウトコンポーネントに任せる
-        set({ user: null, isLoading: false });
+        set({ user: null, isAuthenticated: false, isLoading: false });
       }
     } catch (error) {
       console.error("❌ 初期認証チェックエラー:", error);
-      set({ user: null, isLoading: false });
+      set({ user: null, isAuthenticated: false, isLoading: false });
     }
   };
   
@@ -112,7 +125,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
   // 認証状態を監視
   onAuthStateChanged(auth, async (user) => {
     console.log("🔐 認証状態変更:", user ? `ユーザー ${user.uid} がログイン中` : "未ログイン");
-    set({ user: user || null, isLoading: false });
+    set({ user: user || null, isAuthenticated: !!user, isLoading: false });
     
     // ユーザー情報をローカルストレージに保存（ウェブのみ）
     if (Platform.OS === 'web' && user) {
@@ -150,11 +163,24 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
   return {
     user: null,
+    isAuthenticated: false,
     isLoading: true,
     error: null,
     isNewUser: false,
 
-    signUp: async (email, password) => {
+    login: async (email, password) => {
+      try {
+        set({ isLoading: true, error: null });
+        console.log("🔑 サインイン試行:", email);
+        await signInWithEmailAndPassword(auth, email, password);
+        console.log("✅ サインイン成功:", email);
+      } catch (error: any) {
+        console.error("❌ サインイン失敗:", error.message);
+        set({ error: error.message, isLoading: false });
+      }
+    },
+
+    register: async (email, password) => {
       try {
         set({ isLoading: true, error: null });
         console.log("📝 サインアップ試行:", email);
@@ -182,19 +208,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         set({ error: error.message, isLoading: false });
       }
     },
-
-    signIn: async (email, password) => {
-      try {
-        set({ isLoading: true, error: null, isNewUser: false });
-        console.log("🔑 サインイン試行:", email);
-        await signInWithEmailAndPassword(auth, email, password);
-        console.log("✅ サインイン成功:", email);
-      } catch (error: any) {
-        console.error("❌ サインイン失敗:", error.message);
-        set({ error: error.message, isLoading: false });
-      }
-    },
-
+    
     signInWithGoogle: async (promptAsync) => {
       try {
         set({ isLoading: true, error: null, isNewUser: false });
@@ -280,7 +294,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         set({ isLoading: true, error: null });
         console.log("🚪 サインアウト試行");
         await signOut(auth);
-        set({ user: null, isLoading: false, isNewUser: false });
+        set({ user: null, isAuthenticated: false, isLoading: false, isNewUser: false });
         console.log("✅ サインアウト成功");
         // サインアウト後のナビゲーションはレイアウトの条件付きレンダリングに任せる
       } catch (error: any) {
@@ -289,8 +303,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
+    setError: (error) => set({ error }),
+    
     clearError: () => set({ error: null }),
     
     setIsNewUser: (value) => set({ isNewUser: value }),
+
+    setUser: (user) => set({ user, isAuthenticated: !!user, isLoading: false }),
+
+    setLoading: (loading) => set({ isLoading: loading }),
   };
 });

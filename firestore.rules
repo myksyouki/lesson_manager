@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ユーザーが認証済みであることを確認
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // テストユーザーであるかを確認する関数
+    function isTestUser() {
+      return request.auth.token.email == "test@example.com";
+    }
+    
+    // レッスンへのアクセスルール
+    match /lessons/{lessonId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.shared == true);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // タスクへのアクセスルール
+    match /tasks/{taskId} {
+      allow read, write: if isAuthenticated() && (
+        resource == null || 
+        resource.data.userId == request.auth.uid
+      );
+    }
+    
+    // ユーザープロファイルへのアクセスルール
+    match /userProfiles/{userId} {
+      allow read: if isAuthenticated() && userId == request.auth.uid;
+      allow write: if isAuthenticated() && userId == request.auth.uid;
+    }
+    
+    // チャットルームへのアクセスルール（従来の構造）
+    match /chatRooms/{chatRoomId} {
+      allow read: if isAuthenticated() && (
+        resource == null || 
+        resource.data.userId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // ユーザーのサブコレクションとしてのチャットルーム（新しい構造）
+    match /users/{userId}/chatRooms/{chatRoomId} {
+      allow read, write: if isAuthenticated() && userId == request.auth.uid;
+    }
+    
+    // ユーザーのプロファイルサブコレクション
+    match /users/{userId}/profile/{profileId} {
+      allow read, write: if isAuthenticated() && userId == request.auth.uid;
+    }
+    
+    // ユーザードキュメント自体へのアクセス
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && userId == request.auth.uid;
+    }
+    
+    // テストユーザー用の特別なアクセス権限
+    match /users/{userId}/{document=**} {
+      allow read, write: if isAuthenticated() && isTestUser() && userId == request.auth.uid;
+    }
+    
+    // 処理済みファイルへのアクセスルール
+    match /processed_files/{fileId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+} 

@@ -3,7 +3,7 @@ import { View, StyleSheet, SafeAreaView, ScrollView, Text } from 'react-native';
 import { useTaskStore } from './store/tasks';
 import { useAuthStore } from './store/auth';
 import TaskList from './features/tasks/components/TaskList';
-import TaskCategorySummary from './features/tasks/components/TaskCategorySummary';
+import ProgressCarousel from './features/tasks/components/ProgressCarousel';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 
 // カテゴリサマリーの型定義
@@ -120,19 +120,28 @@ export default function Home() {
         <Text style={styles.headerTitle}>タスク一覧</Text>
       </View>
       
-      <ScrollView style={styles.content}>
-        <TaskCategorySummary 
+      <View style={styles.carouselContainer}>
+        <ProgressCarousel 
           categories={categories}
           totalCompleted={totalCompleted}
           totalTasks={totalTasks}
+          themeColor="#4CAF50"
         />
-        
-        <TaskList 
-          tasks={tasks} 
-          isLoading={isLoading} 
-          error={error}
-        />
-      </ScrollView>
+      </View>
+      
+      <View style={styles.taskListContainer}>
+        <ScrollView 
+          style={styles.content}
+          scrollEnabled={true}
+          showsVerticalScrollIndicator={false}
+        >
+          <TaskList 
+            tasks={tasks} 
+            isLoading={isLoading} 
+            error={error}
+          />
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -153,6 +162,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333333',
+  },
+  carouselContainer: {
+    zIndex: 10,
+  },
+  taskListContainer: {
+    flex: 1,
+    marginTop: 8,
   },
   content: {
     flex: 1,

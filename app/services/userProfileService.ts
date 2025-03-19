@@ -323,10 +323,17 @@ const DEFAULT_CATEGORY = 'woodwind';
 const DEFAULT_INSTRUMENT = 'clarinet';
 const DEFAULT_MODEL = 'standard';
 
+// 新しいデータ構造を使用するかどうかのフラグ
+let useNewStructure = false;
+
+// 新しいデータ構造の使用を設定する関数
+export const setUseNewStructure = (useNew: boolean): void => {
+  useNewStructure = useNew;
+};
+
 // ユーザープロファイルの作成
 export const createUserProfile = async (user: User) => {
-  const userProfileRef = doc(db, 'userProfiles', user.uid);
-  
+  // プロファイルデータを作成
   const defaultProfile: UserProfile = {
     userId: user.uid,
     displayName: user.displayName || '',
@@ -341,7 +348,16 @@ export const createUserProfile = async (user: User) => {
     updatedAt: new Date()
   };
   
-  await setDoc(userProfileRef, defaultProfile);
+  // 新しい構造を使用する場合
+  if (useNewStructure) {
+    const userProfileRef = doc(db, `users/${user.uid}/profile`, 'main');
+    await setDoc(userProfileRef, defaultProfile);
+  } else {
+    // 従来の構造を使用する場合
+    const userProfileRef = doc(db, 'userProfiles', user.uid);
+    await setDoc(userProfileRef, defaultProfile);
+  }
+  
   return defaultProfile;
 };
 
@@ -355,8 +371,17 @@ export const getUserProfile = async (): Promise<UserProfile | null> => {
       return null;
     }
     
-    const userProfileRef = doc(db, 'userProfiles', user.uid);
-    const docSnap = await getDoc(userProfileRef);
+    let docSnap;
+    
+    if (useNewStructure) {
+      // 新構造を使用する場合
+      const userProfileRef = doc(db, `users/${user.uid}/profile`, 'main');
+      docSnap = await getDoc(userProfileRef);
+    } else {
+      // 従来の構造を使用する場合
+      const userProfileRef = doc(db, 'userProfiles', user.uid);
+      docSnap = await getDoc(userProfileRef);
+    }
     
     if (docSnap.exists()) {
       return docSnap.data() as UserProfile;
@@ -378,7 +403,16 @@ export const saveSelectedCategory = async (categoryId: string): Promise<boolean>
       throw new Error('ユーザーがログインしていません');
     }
     
-    const userProfileRef = doc(db, 'userProfiles', user.uid);
+    let userProfileRef;
+    
+    if (useNewStructure) {
+      // 新構造を使用する場合
+      userProfileRef = doc(db, `users/${user.uid}/profile`, 'main');
+    } else {
+      // 従来の構造を使用する場合
+      userProfileRef = doc(db, 'userProfiles', user.uid);
+    }
+    
     const docSnap = await getDoc(userProfileRef);
     
     if (docSnap.exists()) {
@@ -424,7 +458,16 @@ export const saveSelectedInstrument = async (categoryId: string, instrumentId: s
       throw new Error('無効な楽器です');
     }
     
-    const userProfileRef = doc(db, 'userProfiles', user.uid);
+    let userProfileRef;
+    
+    if (useNewStructure) {
+      // 新構造を使用する場合
+      userProfileRef = doc(db, `users/${user.uid}/profile`, 'main');
+    } else {
+      // 従来の構造を使用する場合
+      userProfileRef = doc(db, 'userProfiles', user.uid);
+    }
+    
     const docSnap = await getDoc(userProfileRef);
     
     if (docSnap.exists()) {

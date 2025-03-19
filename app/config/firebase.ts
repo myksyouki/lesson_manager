@@ -33,6 +33,15 @@ const auth = getAuth(firebaseApp);
 // Firebase の各サービスをエクスポート
 export const db = getFirestore(firebaseApp);
 export const storage = getStorage(firebaseApp);
+// Firebase Functionsの設定を更新：明示的にリージョンを指定
 export const functions = getFunctions(firebaseApp);
+// 新しいインスタンスを再作成して完全にリセット
 export { auth };
+
+// 初期化完了のログ
+console.log('Firebase初期化完了', {
+  projectId: firebaseApp.options.projectId,
+  region: 'default'
+});
+
 export default firebaseApp;

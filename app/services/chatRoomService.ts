@@ -1,71 +1,134 @@
-import { collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { ChatMessage } from './difyService';
+import { collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where, serverTimestamp, Timestamp, orderBy, deleteDoc } from 'firebase/firestore';
+import { db, auth } from '../config/firebase';
+import { ChatMessage } from '../types/chatRoom';
+import { getFirestore } from 'firebase/firestore';
+
+// 新しいデータ構造を使用するフラグ (trueに変更)
+let useNewStructure = true;
+
+// 新しいデータ構造の使用を設定する関数
+export const setUseNewStructure = (useNew: boolean): void => {
+  useNewStructure = useNew;
+};
 
 // チャットルームの型定義
 export interface ChatRoom {
   id: string;
   title: string;
   topic: string;
+  modelType: string; // 追加: モデルタイプ（standard, artist名前など）
   conversationId?: string;
   messages: ChatMessage[];
   createdAt: Timestamp | any; // serverTimestampの型対応
   updatedAt: Timestamp | any; // serverTimestampの型対応
   userId: string;
+  instrument?: string;
+  initialMessage?: string; // 初期メッセージ（オプショナルに変更）
+}
+
+// チャットルーム作成用のデータ型
+export interface CreateChatRoomData {
+  title: string;
+  topic: string;
+  initialMessage?: string;
+  modelType?: string;
 }
 
 // チャットルームの作成
 export const createChatRoom = async (
-  userId: string,
   title: string,
   topic: string,
-  initialMessage?: string
+  initialMessage: string,
+  modelType: string = 'standard'
 ): Promise<ChatRoom> => {
   try {
-    const initialMessages: ChatMessage[] = initialMessage 
-      ? [{ role: 'user', content: initialMessage }] 
-      : [];
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('ユーザーが認証されていません');
+    }
 
-    const chatRoomData = {
+    console.log('チャットルーム作成開始:', {
       title,
       topic,
-      messages: initialMessages,
-      userId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      initialMessageLength: initialMessage.length,
+      modelType,
+      useNewStructure
+    });
+
+    // 初期メッセージを作成
+    const userMessage: ChatMessage = {
+      id: `msg_${Date.now()}`,
+      content: initialMessage,
+      sender: 'user',
+      timestamp: Timestamp.now(),
     };
 
-    // Firestoreにドキュメントを追加
-    const docRef = await addDoc(collection(db, 'chatRooms'), chatRoomData);
-    
-    // ドキュメントが確実に作成されたことを確認
-    const docSnap = await getDoc(docRef);
-    
-    if (!docSnap.exists()) {
-      throw new Error('チャットルームの作成に失敗しました。ドキュメントが見つかりません。');
+    // チャットルームデータを作成
+    const newChatRoom: Omit<ChatRoom, 'id'> = {
+      title,
+      topic,
+      userId: currentUser.uid,
+      initialMessage,
+      modelType,
+      messages: [userMessage],
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+
+    let docRef;
+
+    // 新しい構造を使用（ユーザーのサブコレクションにチャットルームを作成）
+    if (useNewStructure) {
+      const userChatRoomsRef = collection(db, `users/${currentUser.uid}/chatRooms`);
+      docRef = await addDoc(userChatRoomsRef, newChatRoom);
+
+      console.log('チャットルーム作成完了 (新構造):', {
+        path: `users/${currentUser.uid}/chatRooms/${docRef.id}`,
+        id: docRef.id,
+        title,
+        modelType,
+      });
+    } else {
+      // 従来の構造
+      const chatRoomsRef = collection(db, 'chatRooms');
+      docRef = await addDoc(chatRoomsRef, newChatRoom);
+
+      console.log('チャットルーム作成完了 (従来構造):', {
+        path: `chatRooms/${docRef.id}`,
+        id: docRef.id,
+        title,
+        modelType,
+      });
     }
     
-    // 現在のタイムスタンプを使用
-    const now = Timestamp.now();
-    
-    // 作成されたチャットルームデータを返す
+    // 作成したチャットルームデータを返す
     return {
       id: docRef.id,
-      ...docSnap.data(),
-      messages: initialMessages, // サーバーのタイムスタンプの代わりにクライアント側の値を使用
-      createdAt: now,
-      updatedAt: now,
-    } as ChatRoom;
+      ...newChatRoom,
+    };
   } catch (error) {
-    console.error('チャットルーム作成中にエラーが発生しました:', error);
-    throw new Error('チャットルームの作成に失敗しました。後でもう一度お試しください。');
+    console.error('チャットルーム作成エラー:', error);
+    throw error;
   }
 };
 
 // チャットルームの取得
 export const getChatRoom = async (roomId: string): Promise<ChatRoom | null> => {
   try {
-    const docRef = doc(db, 'chatRooms', roomId);
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('ユーザーが認証されていません');
+    }
+
+    let docRef;
+    if (useNewStructure) {
+      // 新構造を使用する場合
+      docRef = doc(db, `users/${currentUser.uid}/chatRooms`, roomId);
+    } else {
+      // 従来の構造を使用する場合
+      docRef = doc(db, 'chatRooms', roomId);
+    }
+    
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
@@ -83,49 +146,162 @@ export const getChatRoom = async (roomId: string): Promise<ChatRoom | null> => {
 };
 
 // ユーザーのチャットルーム一覧を取得
-export const getUserChatRooms = async (userId: string): Promise<ChatRoom[]> => {
+export const getUserChatRooms = async (): Promise<ChatRoom[]> => {
   try {
-    // インデックスが作成されるまでの一時的な回避策として、orderByを削除
-    const q = query(
-      collection(db, 'chatRooms'),
-      where('userId', '==', userId)
-      // インデックスが作成されたら以下の行を復活させる
-      // orderBy('updatedAt', 'desc')
-    );
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('ユーザーが認証されていません');
+    }
+
+    let querySnapshot;
     
-    const querySnapshot = await getDocs(q);
-    // クライアント側でソートする
-    const chatRooms = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as ChatRoom));
-    
-    // updatedAtでソート（降順）
-    return chatRooms.sort((a, b) => {
-      // Timestampオブジェクトかどうかをチェック
-      const aTimestamp = a.updatedAt;
-      const bTimestamp = b.updatedAt;
+    if (useNewStructure) {
+      // 新構造を使用する場合（ユーザーのサブコレクション）
+      const chatRoomsRef = collection(db, `users/${currentUser.uid}/chatRooms`);
+      const q = query(chatRoomsRef, orderBy('updatedAt', 'desc'));
+      querySnapshot = await getDocs(q);
       
-      let aTime = 0;
-      let bTime = 0;
+      console.log(`新構造でチャットルーム一覧を取得: ${querySnapshot.size}件`);
+    } else {
+      // 従来の構造を使用する場合
+      const chatRoomsRef = collection(db, 'chatRooms');
+      const q = query(
+        chatRoomsRef,
+        where('userId', '==', currentUser.uid),
+        orderBy('updatedAt', 'desc')
+      );
+      querySnapshot = await getDocs(q);
       
-      if (aTimestamp instanceof Timestamp) {
-        aTime = aTimestamp.toMillis();
-      } else if (aTimestamp && typeof aTimestamp === 'object' && 'seconds' in aTimestamp) {
-        aTime = (aTimestamp as any).seconds * 1000;
-      }
-      
-      if (bTimestamp instanceof Timestamp) {
-        bTime = bTimestamp.toMillis();
-      } else if (bTimestamp && typeof bTimestamp === 'object' && 'seconds' in bTimestamp) {
-        bTime = (bTimestamp as any).seconds * 1000;
-      }
-      
-      return bTime - aTime;
+      console.log(`従来構造でチャットルーム一覧を取得: ${querySnapshot.size}件`);
+    }
+
+    const chatRooms: ChatRoom[] = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      chatRooms.push({
+        id: doc.id,
+        ...data,
+      } as ChatRoom);
+    });
+
+    return chatRooms;
+  } catch (error) {
+    console.error('チャットルーム一覧取得エラー:', error);
+    throw error;
+  }
+};
+
+// チャットルームの詳細を取得
+export const getChatRoomById = async (id: string): Promise<ChatRoom | null> => {
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('ユーザーが認証されていません');
+    }
+
+    let chatRoomRef;
+    if (useNewStructure) {
+      // 新構造を使用する場合
+      chatRoomRef = doc(db, `users/${currentUser.uid}/chatRooms`, id);
+      console.log(`新構造でチャットルーム詳細を取得: ${chatRoomRef.path}`);
+    } else {
+      // 従来の構造を使用する場合
+      chatRoomRef = doc(db, 'chatRooms', id);
+      console.log(`従来構造でチャットルーム詳細を取得: ${chatRoomRef.path}`);
+    }
+
+    const chatRoomDoc = await getDoc(chatRoomRef);
+
+    if (!chatRoomDoc.exists()) {
+      console.log(`チャットルームが見つかりません: ${id}`);
+      return null;
+    }
+
+    const data = chatRoomDoc.data();
+    return {
+      id: chatRoomDoc.id,
+      ...data,
+    } as ChatRoom;
+  } catch (error) {
+    console.error(`チャットルーム(ID: ${id})の取得エラー:`, error);
+    throw error;
+  }
+};
+
+// チャットルームのメッセージを更新
+export const updateChatRoomMessages = async (
+  roomId: string,
+  messages: ChatMessage[]
+): Promise<void> => {
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('ユーザーが認証されていません');
+    }
+
+    let chatRoomRef;
+    if (useNewStructure) {
+      // 新構造を使用する場合
+      chatRoomRef = doc(db, `users/${currentUser.uid}/chatRooms`, roomId);
+    } else {
+      // 従来の構造を使用する場合
+      chatRoomRef = doc(db, 'chatRooms', roomId);
+    }
+
+    const chatRoomDoc = await getDoc(chatRoomRef);
+
+    if (!chatRoomDoc.exists()) {
+      throw new Error('チャットルームが存在しません');
+    }
+
+    const data = chatRoomDoc.data();
+    if (data.userId !== currentUser.uid) {
+      throw new Error('このチャットルームを編集する権限がありません');
+    }
+
+    await updateDoc(chatRoomRef, {
+      messages,
+      updatedAt: Timestamp.now(),
     });
   } catch (error) {
-    console.error('チャットルーム一覧取得中にエラーが発生しました:', error);
-    throw new Error('チャットルーム一覧の取得に失敗しました。後でもう一度お試しください。');
+    console.error('チャットルームメッセージ更新エラー:', error);
+    throw error;
+  }
+};
+
+// チャットルームを削除
+export const deleteChatRoom = async (roomId: string): Promise<void> => {
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('ユーザーが認証されていません');
+    }
+
+    let chatRoomRef;
+    if (useNewStructure) {
+      // 新構造を使用する場合
+      chatRoomRef = doc(db, `users/${currentUser.uid}/chatRooms`, roomId);
+    } else {
+      // 従来の構造を使用する場合
+      chatRoomRef = doc(db, 'chatRooms', roomId);
+    }
+
+    const chatRoomDoc = await getDoc(chatRoomRef);
+
+    if (!chatRoomDoc.exists()) {
+      throw new Error('チャットルームが存在しません');
+    }
+
+    const data = chatRoomDoc.data();
+    if (data.userId !== currentUser.uid) {
+      throw new Error('このチャットルームを削除する権限がありません');
+    }
+
+    await deleteDoc(chatRoomRef);
+  } catch (error) {
+    console.error('チャットルーム削除エラー:', error);
+    throw error;
   }
 };
 
@@ -136,7 +312,20 @@ export const addMessageToChatRoom = async (
   conversationId?: string
 ): Promise<void> => {
   try {
-    const docRef = doc(db, 'chatRooms', roomId);
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('ユーザーが認証されていません');
+    }
+
+    let docRef;
+    if (useNewStructure) {
+      // 新構造を使用する場合
+      docRef = doc(db, `users/${currentUser.uid}/chatRooms`, roomId);
+    } else {
+      // 従来の構造を使用する場合
+      docRef = doc(db, 'chatRooms', roomId);
+    }
+    
     const docSnap = await getDoc(docRef);
     
     if (!docSnap.exists()) {
@@ -170,7 +359,20 @@ export const updateChatRoom = async (
   updates: Partial<Omit<ChatRoom, 'id' | 'createdAt' | 'updatedAt'>>
 ): Promise<void> => {
   try {
-    const docRef = doc(db, 'chatRooms', roomId);
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('ユーザーが認証されていません');
+    }
+
+    let docRef;
+    if (useNewStructure) {
+      // 新構造を使用する場合
+      docRef = doc(db, `users/${currentUser.uid}/chatRooms`, roomId);
+    } else {
+      // 従来の構造を使用する場合
+      docRef = doc(db, 'chatRooms', roomId);
+    }
+    
     await updateDoc(docRef, {
       ...updates,
       updatedAt: serverTimestamp(),
@@ -178,29 +380,5 @@ export const updateChatRoom = async (
   } catch (error) {
     console.error('チャットルーム更新中にエラーが発生しました:', error);
     throw new Error('チャットルームの更新に失敗しました。後でもう一度お試しください。');
-  }
-};
-
-/**
- * 指定されたIDのチャットルームを取得する
- * @param id チャットルームID
- * @returns チャットルーム情報
- */
-export const getChatRoomById = async (id: string) => {
-  try {
-    const chatRoomRef = doc(db, 'chatRooms', id);
-    const chatRoomSnap = await getDoc(chatRoomRef);
-    
-    if (chatRoomSnap.exists()) {
-      return {
-        id: chatRoomSnap.id,
-        ...chatRoomSnap.data()
-      } as ChatRoom;
-    }
-    
-    throw new Error('Chat room not found');
-  } catch (error) {
-    console.error('Error getting chat room:', error);
-    throw error;
   }
 };
