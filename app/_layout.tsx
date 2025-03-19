@@ -13,6 +13,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useGoogleAuth } from './store/auth';
 import { getUserProfile } from './services/userProfileService';
 import { auth } from './config/firebase';
+import { initializeDatabaseStructure } from './services/dbConfig';
+import { useFonts } from 'expo-font';
 
 declare global {
   interface Window {
@@ -29,6 +31,9 @@ export default function RootLayout() {
   const theme = useTheme();
   const { request, promptAsync } = useGoogleAuth();
   const [isMounted, setIsMounted] = useState(false);
+  
+  // SpaceMonoフォントの読み込みを削除し、FontAwesomeのみ読み込む
+  const [loaded, error] = useFonts(FontAwesome.font);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -63,6 +68,26 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [isLoading]);
+
+  // データベース構造設定の初期化
+  useEffect(() => {
+    // アプリ起動時にデータベース構造設定を初期化
+    const initializeDB = async () => {
+      try {
+        await initializeDatabaseStructure();
+        console.log('データベース構造設定の初期化が完了しました');
+      } catch (error) {
+        console.error('データベース構造設定の初期化に失敗しました:', error);
+      }
+    };
+    
+    initializeDB();
+  }, []);
+
+  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
+  useEffect(() => {
+    if (error) throw error;
+  }, [error]);
 
   // Show loading screen while checking authentication
   if (isLoading) {

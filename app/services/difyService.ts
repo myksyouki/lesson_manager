@@ -1,5 +1,8 @@
 import axios from 'axios';
 import { getDifyConfig } from './userProfileService';
+import { instrumentCategories } from './userProfileService';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import firebaseApp from '../config/firebase';
 
 // Dify APIの設定
 // 注: これらは環境変数として管理することをお勧めします
@@ -41,12 +44,50 @@ export interface PracticeMenu {
 export interface PracticeMenuResponse {
   practiceMenus: PracticeMenu[];
   rawContent: string;
+  practice_menu?: PracticeMenuItem[];
+  summary?: string;
+}
+
+// 練習メニュー生成のAPI応答型
+export interface PracticeMenuApiResponse {
+  practice_menu: PracticeMenuItem[];
+  summary: string;
 }
 
 // ユーザー設定に基づいてAPIキーとAPP IDを取得
-const getDifySettings = async (): Promise<{ apiKey: string; appId: string }> => {
+const getDifySettings = async (modelType?: string): Promise<{ apiKey: string; appId: string }> => {
   try {
-    // ユーザープロファイルからDify設定を取得
+    // modelTypeが指定されている場合は、そのモデル専用の設定を取得
+    if (modelType) {
+      // カテゴリ、楽器、モデルをパースする
+      // データ形式: categoryId-instrumentId-modelId (例: 'woodwind-saxophone-ueno')
+      const parts = modelType.split('-');
+      if (parts.length >= 3) {
+        const categoryId = parts[0];
+        const instrumentId = parts[1];
+        const modelId = parts[2];
+        
+        // 対応するモデルを検索
+        for (const category of instrumentCategories) {
+          if (category.id === categoryId) {
+            for (const instrument of category.instruments) {
+              if (instrument.id === instrumentId) {
+                for (const model of instrument.models) {
+                  if (model.id === modelId) {
+                    return {
+                      apiKey: model.difyApiKey,
+                      appId: model.difyAppId
+                    };
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // modelTypeが指定されていない場合や対応するモデルが見つからない場合は、ユーザープロファイルから取得
     const difyConfig = await getDifyConfig();
     
     if (difyConfig && difyConfig.apiKey && difyConfig.appId) {
@@ -73,81 +114,78 @@ const getDifySettings = async (): Promise<{ apiKey: string; appId: string }> => 
   }
 };
 
-// レッスンAIとのチャット
+// レッスンAIとのチャット（Firebase Functions経由）
 export const sendMessageToLessonAI = async (
   message: string, 
-  conversationId?: string
+  conversationId?: string,
+  modelType?: string,
+  roomId?: string
 ): Promise<{ 
   answer: string; 
   conversationId: string; 
 }> => {
   try {
-    // ユーザー設定に基づいたDify設定を取得
-    const { apiKey } = await getDifySettings();
-    
-    console.log('Dify API呼び出し:', {
-      url: `${DIFY_API_BASE_URL}/chat-messages`,
-      apiKey: apiKey ? apiKey.substring(0, 10) + '...' : 'なし',
-      message,
-      conversationId
+    console.log('DifyにメッセージAPI呼び出し開始:', {
+      messageLength: message.length,
+      conversationId: conversationId || 'なし',
+      modelType: modelType || 'standard',
+      roomId: roomId || 'なし'
     });
 
-    if (!apiKey) {
-      throw new Error('Dify APIキーが設定されていません。.envファイルまたはユーザー設定を確認してください。');
+    if (!roomId) {
+      console.error('チャットルームIDが指定されていません');
+      throw new Error('チャットルームIDが指定されていません');
     }
 
-    // ストリーミングモードではなくブロッキングモードを使用
-    const response = await axios.post(
-      `${DIFY_API_BASE_URL}/chat-messages`,
-      {
-        inputs: {},
-        query: message,
-        response_mode: 'blocking', // streamingからblockingに戻す
-        conversation_id: conversationId,
-        user: 'user'
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
+    // モデルタイプから楽器名を抽出
+    let instrumentName = undefined;
+    if (modelType) {
+      const parts = modelType.split('-');
+      if (parts.length >= 2) {
+        instrumentName = parts[1].toLowerCase();
+        console.log('モデルタイプから楽器名を抽出:', instrumentName);
       }
-    );
+    }
 
-    console.log('Dify API応答:', {
-      status: response.status,
-      conversation_id: response.data.conversation_id,
-      answer_length: response.data.answer?.length || 0
+    // Firebase Functions経由でDify APIと通信
+    const functions = getFunctions(firebaseApp);
+    const sendMessageFunction = httpsCallable(functions, 'dify_standard-sendMessageToDify');
+
+    console.log('Firebase Functionsを使用してリクエスト送信');
+    
+    // Firebase Functionsに送信
+    const result = await sendMessageFunction({
+      message,
+      conversationId,
+      modelType,
+      roomId,
+      instrumentName
     });
 
-    // レスポンスが空の場合のエラーメッセージ
-    if (!response.data.answer) {
-      console.error('Dify APIからの応答が空です');
-    }
+    const data = result.data as any;
+    console.log('Firebase Functions応答:', {
+      success: data.success,
+      hasAnswer: !!data.answer,
+      conversationId: data.conversationId,
+      instrument: data.instrument
+    });
 
     return {
-      answer: response.data.answer || 'AIからの応答を取得できませんでした。もう一度お試しください。',
-      conversationId: response.data.conversation_id || conversationId || ''
+      answer: data.answer || 'AIからの応答を取得できませんでした。もう一度お試しください。',
+      conversationId: data.conversationId || conversationId || ''
     };
   } catch (error: any) {
     console.error('レッスンAIへのメッセージ送信中にエラーが発生しました:', error);
     
-    if (error.response) {
-      console.error('エラーステータス:', error.response.status);
-      console.error('エラーレスポンス:', error.response.data);
+    // エラーメッセージを取得
+    let errorMessage = 'AIとの通信に失敗しました';
+    if (error.message) {
+      errorMessage = error.message;
+    } else if (error.details) {
+      errorMessage = error.details.message || 'AIとの通信に失敗しました';
     }
     
-    // APIキーが間違っている可能性があるエラーメッセージ
-    if (error.response?.status === 401) {
-      throw new Error('認証エラー: APIキーが無効です。Difyダッシュボードで正しいシークレットキーを確認してください。');
-    } else if (error.response?.status === 404) {
-      throw new Error('エンドポイントが見つかりません。Dify APIのURLが正しいか確認してください。');
-    } else if (error.response?.status === 405) {
-      // Method Not Allowed - APIが特定のHTTPメソッドを受け付けない場合
-      throw new Error('APIエラー: このエンドポイントはこのメソッドをサポートしていません。Dify APIのドキュメントを確認してください。');
-    }
-    
-    throw new Error(`AIとの通信に失敗しました: ${error.message}`);
+    throw new Error(errorMessage);
   }
 };
 
@@ -282,7 +320,7 @@ export const createPracticeMenu = async (chatHistory: ChatMessage[]): Promise<Pr
         console.log('フォールバックメソッドリクエストボディ:', JSON.stringify(completionRequestBody, null, 2));
         
         const completionResponse = await axios.post(
-          `${DIFY_API_BASE_URL}/completion-messages`,
+          `${DIFY_API_BASE_URL}/chat-messages`,
           completionRequestBody,
           {
             headers: {
@@ -297,16 +335,24 @@ export const createPracticeMenu = async (chatHistory: ChatMessage[]): Promise<Pr
           answer_length: completionResponse.data.answer?.length || 0
         });
         
-        const rawContent = completionResponse.data.answer || '練習メニューを生成できませんでした。もう一度お試しください。';
-        const practiceMenus = parsePracticeMenus(rawContent);
+        const fallbackRawContent = completionResponse.data.answer || '練習メニューを生成できませんでした。もう一度お試しください。';
+        const fallbackPracticeMenus = parsePracticeMenus(fallbackRawContent);
+        
+        console.log('メソッド2で練習メニュー生成成功（フォールバック）:', {
+          menuCount: fallbackPracticeMenus.length,
+          rawContentLength: fallbackRawContent.length
+        });
         
         return {
-          practiceMenus,
-          rawContent
+          practiceMenus: fallbackPracticeMenus,
+          rawContent: fallbackRawContent
         };
-      } catch (fallbackError) {
-        console.error('フォールバックメソッドでも失敗しました:', fallbackError);
-        throw fallbackError;
+      } catch (fallbackError: any) {
+        console.error('フォールバック方法も失敗しました:', fallbackError);
+        return {
+          practiceMenus: [],
+          rawContent: '練習メニュー生成時にエラーが発生しました: ' + error.message
+        };
       }
     }
     
@@ -408,11 +454,6 @@ export interface PracticeMenuItem {
   category?: string;       // カテゴリ（ロングトーン、音階、曲練習など）
 }
 
-export interface PracticeMenuResponse {
-  practice_menu: PracticeMenuItem[];
-  summary: string;         // メニュー全体の概要
-}
-
 /**
  * Dify APIを使用して練習メニューを生成する
  */
@@ -441,7 +482,13 @@ export const generatePracticeMenu = async (request: PracticeMenuRequest): Promis
     );
 
     // APIレスポンスのパース
-    return parseDifyResponse(response.data);
+    const apiResponse = parseDifyResponse(response.data);
+    return {
+      practiceMenus: [],
+      rawContent: apiResponse.summary || '',
+      practice_menu: apiResponse.practice_menu,
+      summary: apiResponse.summary
+    };
   } catch (error) {
     console.error('Dify API エラー:', error);
     throw new Error('練習メニューの生成に失敗しました');
@@ -472,7 +519,7 @@ const createPromptFromRequest = (request: PracticeMenuRequest): string => {
 /**
  * Dify APIのレスポンスをパースして使いやすい形式に変換
  */
-const parseDifyResponse = (response: any): PracticeMenuResponse => {
+const parseDifyResponse = (response: any): PracticeMenuApiResponse => {
   try {
     // レスポンスからJSONを抽出（通常はmarkdown形式のJSONとして返されることが多い）
     const content = response.answer || '';

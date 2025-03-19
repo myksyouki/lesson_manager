@@ -55,21 +55,29 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       set({ isLoading: true, error: null });
 
       const tasksRef = collection(db, 'tasks');
-      const q = query(tasksRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+      const q = query(tasksRef, where('userId', '==', userId), orderBy('updatedAt', 'desc'));
       const querySnapshot = await getDocs(q);
 
       const tasks = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        return {
+        const task: Task = {
           id: doc.id,
           title: data.title || '',
           description: data.description || '',
           dueDate: data.dueDate || '',
           isCompleted: data.isCompleted || false,
+          completed: data.isCompleted || data.completed || false,
+          isPinned: data.isPinned || false,
           createdAt: data.createdAt || '',
           updatedAt: data.updatedAt || '',
           attachments: data.attachments || [],
+          userId: data.userId || '',
+          lessonId: data.lessonId || '',
+          chatRoomId: data.chatRoomId || '',
+          tags: data.tags || [],
+          priority: data.priority || 'medium'
         };
+        return task;
       }) as Task[];
 
       set({ tasks, isLoading: false });
@@ -91,7 +99,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         userId: user.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        attachments: taskData.attachments || []
+        attachments: taskData.attachments || [],
+        isPinned: false
       };
 
       const docRef = await addDoc(collection(db, 'tasks'), task);
@@ -101,7 +110,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         id: docRef.id, 
         ...taskData,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        isPinned: false
       };
 
       set((state) => ({
@@ -445,7 +455,23 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       
       // すでにピン留めされている場合は解除する
       if (task.isPinned) {
-        await get().updateTask(taskId, { isPinned: false });
+        // Firestoreのタスクを更新
+        const taskRef = doc(db, 'tasks', taskId);
+        await updateDoc(taskRef, {
+          isPinned: false,
+          updatedAt: serverTimestamp()
+        });
+        
+        // ローカルのタスクを更新
+        set((state) => ({
+          tasks: state.tasks.map((t) =>
+            t.id === taskId ? { 
+              ...t, 
+              isPinned: false,
+              updatedAt: new Date().toISOString() 
+            } : t
+          )
+        }));
         return true;
       }
       
@@ -456,8 +482,23 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         return false;
       }
       
-      // ピン留めする
-      await get().updateTask(taskId, { isPinned: true });
+      // Firestoreのタスクを更新
+      const taskRef = doc(db, 'tasks', taskId);
+      await updateDoc(taskRef, {
+        isPinned: true,
+        updatedAt: serverTimestamp()
+      });
+      
+      // ローカルのタスクを更新
+      set((state) => ({
+        tasks: state.tasks.map((t) =>
+          t.id === taskId ? { 
+            ...t, 
+            isPinned: true,
+            updatedAt: new Date().toISOString() 
+          } : t
+        )
+      }));
       return true;
     } catch (error: any) {
       console.error('ピン留め状態の切り替えエラー:', error);

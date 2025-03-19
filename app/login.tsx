@@ -24,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen() {
-  const { signIn, signUp, signInWithGoogle, signInAsTestUser, user, isLoading, error, clearError } = useAuthStore();
+  const { login, register, signInWithGoogle, signInAsTestUser, user, isLoading, error, clearError } = useAuthStore();
   const { request, response, promptAsync } = useGoogleAuth();
 
   const [email, setEmail] = useState('');
@@ -88,7 +88,7 @@ export default function LoginScreen() {
 
   const handleAuth = async () => {
     if (!email || !password) return;
-    isSignUp ? await signUp(email, password) : await signIn(email, password);
+    isSignUp ? await register(email, password) : await login(email, password);
   };
 
   const handleGoogleSignIn = async () => {
@@ -100,7 +100,12 @@ export default function LoginScreen() {
   };
 
   const handleTestUserSignIn = async () => {
-    await signInAsTestUser();
+    try {
+      await signInAsTestUser();
+    } catch (error) {
+      console.error('テストユーザーログインエラー:', error);
+      setErrorMessage('テストユーザーログインに失敗しました');
+    }
   };
 
   const toggleAuthMode = () => {
@@ -115,7 +120,7 @@ export default function LoginScreen() {
     }
 
     try {
-      await signUp(email, password);
+      await register(email, password);
       setEmail('');
       setPassword('');
       setErrorMessage('');

@@ -20,6 +20,7 @@ import { Lesson } from './store/lessons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
 import { createChatRoom } from './services/chatRoomService';
+import { getUserProfile } from './services/userProfileService';
 
 // トピックの選択肢
 const TOPICS = [
@@ -42,9 +43,29 @@ export default function ConsultAIScreen() {
   const [title, setTitle] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
   const [initialMessage, setInitialMessage] = useState('');
+  const [userModelType, setUserModelType] = useState<string>('');
   const theme = useTheme();
   const { lessons } = useLessonStore();
   const { user } = useAuthStore();
+
+  // ユーザーのモデルタイプを取得
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const profile = await getUserProfile();
+        if (profile) {
+          const modelType = `${profile.selectedCategory}-${profile.selectedInstrument}-${profile.selectedModel}`;
+          setUserModelType(modelType);
+        }
+      } catch (error) {
+        console.error('ユーザープロファイル取得エラー:', error);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [user]);
 
   // 選択されたレッスンを取得
   useEffect(() => {
@@ -170,12 +191,13 @@ ${initialMessage}
         user.uid,
         title.trim(),
         selectedTopic,
-        formattedMessage.trim()
+        formattedMessage.trim(),
+        userModelType
       );
       
       // 作成したチャットルームに遷移
       router.push({
-        pathname: '/chat-room',
+        pathname: '/chat-room' as any,
         params: { id: chatRoom.id }
       });
     } catch (error) {

@@ -52,7 +52,13 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
   // レッスンドキュメントの状態を監視
   useEffect(() => {
     if (lessonDocId) {
-      const unsubscribe = onSnapshot(doc(db, 'lessons', lessonDocId), (docSnapshot) => {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error("ユーザーがログインしていません");
+        return;
+      }
+      
+      const unsubscribe = onSnapshot(doc(db, `users/${user.uid}/lessons`, lessonDocId), (docSnapshot) => {
         if (docSnapshot.exists()) {
           const data = docSnapshot.data();
           setProcessingStatus(data.status);

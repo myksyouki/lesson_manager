@@ -9,27 +9,52 @@ import { Lesson } from '../../types/lesson';
  */
 class LessonService {
   /**
+   * アプリ設定（常にユーザーベース構造を使用）
+   */
+  private useNewStructure = true;
+  
+  /**
+   * 新しいデータ構造を使用するかどうかを設定する
+   * 常にtrueを返すように修正
+   * @param useNew 新しい構造を使用する場合はtrue
+   */
+  setUseNewStructure(useNew: boolean): void {
+    // 常にtrueを設定（引数は無視）
+    this.useNewStructure = true;
+  }
+
+  /**
    * レッスンデータを取得する
    * @param lessonId レッスンID
+   * @param userId ユーザーID
    * @returns レッスンデータ
    */
-  async getLesson(lessonId: string): Promise<Lesson> {
+  async getLesson(lessonId: string, userId: string): Promise<Lesson> {
     try {
-      // Firestoreから直接取得
-      const lessonDoc = await getDoc(doc(db, 'lessons', lessonId));
-      
-      if (!lessonDoc.exists()) {
-        throw new Error('レッスンが見つかりません');
-      }
-      
-      return {
-        id: lessonDoc.id,
-        ...lessonDoc.data(),
-      } as Lesson;
+      return this.getLessonNewStructure(userId, lessonId);
     } catch (error) {
       console.error('レッスンの取得に失敗しました:', error);
       throw error;
     }
+  }
+
+  /**
+   * ユーザーベース構造でのレッスン取得
+   * @param userId ユーザーID
+   * @param lessonId レッスンID
+   * @returns レッスンデータ
+   */
+  async getLessonNewStructure(userId: string, lessonId: string): Promise<Lesson> {
+    const lessonDoc = await getDoc(doc(db, `users/${userId}/lessons`, lessonId));
+    
+    if (!lessonDoc.exists()) {
+      throw new Error('レッスンが見つかりません');
+    }
+    
+    return {
+      id: lessonDoc.id,
+      ...lessonDoc.data(),
+    } as Lesson;
   }
 
   /**
@@ -39,22 +64,26 @@ class LessonService {
    */
   async getUserLessons(userId: string): Promise<Lesson[]> {
     try {
-      const lessonsQuery = query(
-        collection(db, 'lessons'),
-        where('user_id', '==', userId),
-        orderBy('created_at', 'desc')
-      );
-      
-      const lessonsSnapshot = await getDocs(lessonsQuery);
-      
-      return lessonsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Lesson[];
+      return this.getUserLessonsNewStructure(userId);
     } catch (error) {
       console.error('レッスン一覧の取得に失敗しました:', error);
       throw error;
     }
+  }
+  
+  /**
+   * ユーザーベース構造でのレッスン一覧取得
+   * @param userId ユーザーID
+   * @returns レッスン一覧
+   */
+  async getUserLessonsNewStructure(userId: string): Promise<Lesson[]> {
+    const lessonsRef = collection(db, `users/${userId}/lessons`);
+    const lessonsSnapshot = await getDocs(query(lessonsRef, orderBy('created_at', 'desc')));
+    
+    return lessonsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Lesson[];
   }
 
   /**
@@ -64,39 +93,78 @@ class LessonService {
    */
   async createLesson(lessonData: Omit<Lesson, 'id'>): Promise<string> {
     try {
-      const newLessonRef = doc(collection(db, 'lessons'));
+      const userId = lessonData.user_id;
+      if (!userId) {
+        throw new Error('ユーザーIDが指定されていません');
+      }
+      
       const processingId = `proc_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      
-      await setDoc(newLessonRef, {
-        ...lessonData,
-        created_at: new Date(),
-        updated_at: new Date(),
-        status: 'pending',
-        processingId: processingId, // 処理IDを追加
-      });
-      
-      return newLessonRef.id;
+      return this.createLessonNewStructure(lessonData, userId, processingId);
     } catch (error) {
       console.error('レッスンの作成に失敗しました:', error);
       throw error;
     }
+  }
+  
+  /**
+   * ユーザーベース構造でのレッスン作成
+   * @param lessonData レッスンデータ
+   * @param userId ユーザーID
+   * @param processingId 処理ID
+   * @returns 作成されたレッスンのID
+   */
+  async createLessonNewStructure(
+    lessonData: Omit<Lesson, 'id'>, 
+    userId: string, 
+    processingId: string
+  ): Promise<string> {
+    const newLessonRef = doc(collection(db, `users/${userId}/lessons`));
+    
+    await setDoc(newLessonRef, {
+      ...lessonData,
+      created_at: new Date(),
+      updated_at: new Date(),
+      status: 'pending',
+      processingId: processingId,
+    });
+    
+    return newLessonRef.id;
   }
 
   /**
    * レッスンを更新する
    * @param lessonId レッスンID
    * @param lessonData 更新するレッスンデータ
+   * @param userId ユーザーID
    */
-  async updateLesson(lessonId: string, lessonData: Partial<Lesson>): Promise<void> {
+  async updateLesson(lessonId: string, lessonData: Partial<Lesson>, userId: string): Promise<void> {
     try {
-      await updateDoc(doc(db, 'lessons', lessonId), {
-        ...lessonData,
-        updated_at: new Date(),
-      });
+      if (!userId) {
+        throw new Error('ユーザーIDが指定されていません');
+      }
+      
+      return this.updateLessonNewStructure(lessonId, lessonData, userId);
     } catch (error) {
       console.error('レッスンの更新に失敗しました:', error);
       throw error;
     }
+  }
+  
+  /**
+   * ユーザーベース構造でのレッスン更新
+   * @param lessonId レッスンID
+   * @param lessonData 更新するレッスンデータ
+   * @param userId ユーザーID
+   */
+  async updateLessonNewStructure(
+    lessonId: string, 
+    lessonData: Partial<Lesson>, 
+    userId: string
+  ): Promise<void> {
+    await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), {
+      ...lessonData,
+      updated_at: new Date(),
+    });
   }
 
   /**
@@ -108,8 +176,8 @@ class LessonService {
    */
   async uploadAudioFile(lessonId: string, audioFile: Blob, userId: string): Promise<string> {
     try {
-      // まずレッスンデータを取得して処理IDを確認
-      const lessonDoc = await getDoc(doc(db, 'lessons', lessonId));
+      // レッスンデータを取得
+      const lessonDoc = await getDoc(doc(db, `users/${userId}/lessons`, lessonId));
       if (!lessonDoc.exists()) {
         throw new Error('レッスンが見つかりません');
       }
@@ -131,13 +199,15 @@ class LessonService {
       const downloadURL = await getDownloadURL(storageRef);
       
       // レッスンデータを更新
-      await updateDoc(doc(db, 'lessons', lessonId), {
+      const updateData = {
         audioUrl: downloadURL,
         audioPath: filePath,
         status: 'processing',
         updated_at: new Date(),
-        processingId: processingId, // 処理IDを確実に設定
-      });
+        processingId: processingId,
+      };
+      
+      await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), updateData);
       
       // Firebase Functionsに処理を依頼
       await this.processAudio(lessonId, filePath, userId, processingId);
@@ -162,16 +232,19 @@ class LessonService {
         lessonId,
         filePath,
         userId,
-        processingId, // 処理IDを追加
+        processingId,
+        useNewStructure: this.useNewStructure, // 新構造を使用するかどうかを伝える
       });
     } catch (error) {
       console.error('音声処理のリクエストに失敗しました:', error);
       // エラーが発生しても、アップロード自体は成功しているのでスローしない
       // 代わりにレッスンのステータスを更新
-      await updateDoc(doc(db, 'lessons', lessonId), {
+      const errorData = {
         status: 'error',
         error: '音声処理の開始に失敗しました',
-      });
+      };
+      
+      await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), errorData);
     }
   }
 
@@ -186,25 +259,40 @@ class LessonService {
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() - months);
       
-      const lessonsQuery = query(
-        collection(db, 'lessons'),
-        where('user_id', '==', userId),
-        where('created_at', '>=', startDate),
-        orderBy('created_at', 'desc')
-      );
-      
-      const lessonsSnapshot = await getDocs(lessonsQuery);
-      
-      return lessonsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Lesson[];
+      return this.getRecentLessonsNewStructure(userId, startDate);
     } catch (error) {
       console.error(`最近${months}ヶ月のレッスン取得に失敗しました:`, error);
       throw error;
     }
   }
+  
+  /**
+   * 新構造での直近レッスン取得
+   * @param userId ユーザーID
+   * @param startDate 開始日
+   * @returns レッスン一覧
+   */
+  async getRecentLessonsNewStructure(userId: string, startDate: Date): Promise<Lesson[]> {
+    const lessonsRef = collection(db, `users/${userId}/lessons`);
+    const lessonsQuery = query(
+      lessonsRef,
+      where('created_at', '>=', startDate),
+      orderBy('created_at', 'desc')
+    );
+    
+    const lessonsSnapshot = await getDocs(lessonsQuery);
+    
+    return lessonsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Lesson[];
+  }
 }
 
 // シングルトンインスタンスをエクスポート
 export const lessonService = new LessonService();
+
+// インスタンスのメソッドを直接エクスポート
+export const setUseNewStructure = (useNew: boolean): void => {
+  lessonService.setUseNewStructure(useNew);
+};

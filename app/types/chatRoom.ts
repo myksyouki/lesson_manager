@@ -11,10 +11,12 @@ export interface ChatRoom {
   id: string;
   title: string;
   topic: string;
-  initialMessage: string;
+  initialMessage?: string;
   userId: string;
+  modelType: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   messages?: ChatMessage[];
   lessonData?: any;
+  conversationId?: string;
 } 

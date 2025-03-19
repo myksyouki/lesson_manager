@@ -51,8 +51,8 @@ export const processAudioFile = async (
 
     // まず同じレッスンIDを持つ他のドキュメントをチェック
     try {
-      const lessonsRef = collection(db, "lessons");
-      const q = query(lessonsRef, where("user_id", "==", user.uid));
+      const lessonsRef = collection(db, `users/${user.uid}/lessons`);
+      const q = query(lessonsRef);
       const querySnapshot = await getDocs(q);
       
       let existingLessonCount = 0;
@@ -73,7 +73,7 @@ export const processAudioFile = async (
 
     // まず既存のドキュメントをチェックして一貫性を確保
     try {
-      const lessonRef = doc(db, "lessons", lessonId);
+      const lessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
       const lessonSnapshot = await getDoc(lessonRef);
       
       if (lessonSnapshot.exists()) {
@@ -115,7 +115,7 @@ export const processAudioFile = async (
     
     // レッスンデータからlessonUniqIdを取得
     try {
-      const lessonRef = doc(db, "lessons", lessonId);
+      const lessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
       const lessonSnapshot = await getDoc(lessonRef);
       
       if (lessonSnapshot.exists()) {
@@ -129,7 +129,7 @@ export const processAudioFile = async (
           // このlessonUniqIdで他のドキュメントも検索して重複チェック
           try {
             const uniqIdQuery = query(
-              collection(db, "lessons"), 
+              collection(db, `users/${user.uid}/lessons`), 
               where("lessonUniqId", "==", lessonData.lessonUniqId)
             );
             const uniqIdSnapshot = await getDocs(uniqIdQuery);
@@ -165,7 +165,7 @@ export const processAudioFile = async (
     console.log(`設定するaudioPath: ${audioPath}`);
 
     // Get the lesson document reference
-    const lessonRef = doc(db, "lessons", lessonId);
+    const lessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
 
     // Update the lesson status to 'processing'
     await updateDoc(lessonRef, {
@@ -233,38 +233,28 @@ const updateLessonWithAIResults = async (
   processingId?: string
 ) => {
   try {
-    const lessonRef = doc(db, "lessons", lessonId);
+    // Get the lesson document to get the user ID
+    const user = auth.currentUser;
+    if (!user) {
+      console.error("ユーザーがログインしていません");
+      return;
+    }
+
+    // Update the lesson document with AI results
+    const lessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
     await updateDoc(lessonRef, {
       transcription,
       summary,
       tags,
       status: 'completed',
-      updated_at: serverTimestamp(),
-      ...(processingId ? { processingId } : {}),
+      updated_at: serverTimestamp()
     });
 
-    // Update local store
-    const { lessons, setLessons } = useLessonStore.getState();
-    const updatedLessons = lessons.map(lesson => {
-      if (lesson.id === lessonId) {
-        return {
-          ...lesson,
-          transcription,
-          summary,
-          tags,
-          status: 'completed',
-          ...(processingId ? { processingId } : {}),
-        };
-      }
-      return lesson;
-    });
-    
-    setLessons(updatedLessons);
-    
-    return { success: true };
+    console.log(`レッスン ${lessonId} にAI結果を更新しました`);
   } catch (error) {
-    console.error('レッスン更新エラー:', error);
-    return { success: false, error };
+    console.error("AI結果の更新に失敗しました:", error);
+    await updateLessonStatus(lessonId, 'error', '音声処理の結果更新に失敗しました');
+    throw error;
   }
 };
 
@@ -275,10 +265,18 @@ const updateLessonStatus = async (
   errorMessage: string | null = null
 ) => {
   try {
-    const lessonRef = doc(db, "lessons", lessonId);
+    const user = auth.currentUser;
+    if (!user) {
+      console.error("ユーザーがログインしていません");
+      return;
+    }
+    
+    // Update the lesson document status
+    const lessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
+    
     const updateData: any = {
       status,
-      updated_at: serverTimestamp(),
+      updated_at: serverTimestamp()
     };
     
     if (errorMessage) {
@@ -286,42 +284,26 @@ const updateLessonStatus = async (
     }
     
     await updateDoc(lessonRef, updateData);
-    
-    // Update local store
-    const { lessons, setLessons } = useLessonStore.getState();
-    const updatedLessons = lessons.map(lesson => {
-      if (lesson.id === lessonId) {
-        return {
-          ...lesson,
-          status,
-          error: errorMessage || undefined,
-        };
-      }
-      return lesson;
-    });
-    
-    setLessons(updatedLessons);
-    
-    return { success: true };
+    console.log(`レッスン ${lessonId} のステータスを ${status} に更新しました`);
   } catch (error) {
-    console.error('レッスンステータス更新エラー:', error);
-    return { success: false, error };
+    console.error("レッスンステータスの更新に失敗しました:", error);
   }
 };
 
 // 録音ファイルを処理する関数
 export const processRecordingFile = async (recordingUri: string): Promise<{ success: boolean; lessonId?: string; error?: any }> => {
   try {
+    // Check if user is authenticated
     const user = auth.currentUser;
     if (!user) {
-      throw new Error('ユーザーが認証されていません');
+      return { success: false, error: 'ユーザーがログインしていません' };
     }
 
     // Generate a unique processing ID
     const processingId = `recording_${user.uid}_${Date.now()}`;
     
     // Create a new lesson document for this recording
-    const lessonRef = await addDoc(collection(db, 'lessons'), {
+    const lessonRef = await addDoc(collection(db, `users/${user.uid}/lessons`), {
       teacher: 'レコーダーから',
       date: new Date().toLocaleDateString('ja-JP'),
       user_id: user.uid,
@@ -339,7 +321,7 @@ export const processRecordingFile = async (recordingUri: string): Promise<{ succ
       error: result.error
     };
   } catch (error) {
-    console.error('録音処理エラー:', error);
+    console.error('録音ファイルの処理中にエラーが発生しました:', error);
     return { success: false, error };
   }
 };

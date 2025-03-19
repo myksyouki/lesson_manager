@@ -166,6 +166,8 @@ const TaskCategorySummary: React.FC<TaskCategorySummaryProps> = ({
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.categoriesScrollContainer}
+        scrollEnabled={false}
+        nestedScrollEnabled={true}
       >
         <TaskAchievementBadge 
           type="monthly" 

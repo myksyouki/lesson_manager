@@ -21,6 +21,7 @@ import { getUserChatRooms, ChatRoom } from '../services/chatRoomService';
 import { useTheme } from '../theme';
 import Animated, { FadeIn, SlideInRight, SlideInUp } from 'react-native-reanimated';
 import { RippleButton } from '../components/RippleButton';
+import { instrumentCategories } from '../services/userProfileService';
 
 // テーマの色を直接定義
 const colors = {
@@ -43,6 +44,41 @@ const colors = {
 
 // AIレッスンタブのテーマカラー
 const AI_THEME_COLOR = '#7C4DFF';
+
+// モデルタイプからわかりやすい名前を取得する関数
+const getModelDisplayName = (modelType: string): string => {
+  if (!modelType) return 'スタンダード';
+  
+  try {
+    // 形式: categoryId-instrumentId-modelId (例: 'woodwind-saxophone-ueno')
+    const parts = modelType.split('-');
+    if (parts.length < 3) return 'スタンダード';
+    
+    const categoryId = parts[0];
+    const instrumentId = parts[1];
+    const modelId = parts[2];
+    
+    // カテゴリ、楽器、モデルを検索
+    for (const category of instrumentCategories) {
+      if (category.id === categoryId) {
+        for (const instrument of category.instruments) {
+          if (instrument.id === instrumentId) {
+            for (const model of instrument.models) {
+              if (model.id === modelId) {
+                return model.isArtist ? `アーティストモデル: ${model.name}` : model.name;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return 'スタンダード';
+  } catch (error) {
+    console.error('モデル名取得エラー:', error);
+    return 'スタンダード';
+  }
+};
 
 export default function AILessonScreen() {
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
@@ -101,7 +137,9 @@ export default function AILessonScreen() {
       }
       
       console.log('Navigating to chat-room-form');
-      router.push('/chat-room-form');
+      router.push({
+        pathname: '/chat-room-form' as any
+      });
     } catch (error) {
       console.error('チャットルーム作成画面へのナビゲーションエラー:', error);
       Alert.alert('エラー', 'チャットルーム作成画面に移動できませんでした。');
@@ -111,7 +149,7 @@ export default function AILessonScreen() {
   const handleOpenRoom = useCallback((roomId: string) => {
     console.log('Opening room:', roomId);
     router.push({
-      pathname: '/chat-room',
+      pathname: '/chat-room' as any,
       params: { id: roomId }
     });
   }, [router]);
@@ -131,6 +169,11 @@ export default function AILessonScreen() {
             <Text style={[styles.chatRoomTopic, { backgroundColor: theme.colors.primaryLight, color: theme.colors.textInverse }]}>
               {item.topic}
             </Text>
+            {item.modelType && (
+              <Text style={[styles.modelType, { backgroundColor: theme.colors.secondaryLight, color: theme.colors.textInverse }]}>
+                {getModelDisplayName(item.modelType)}
+              </Text>
+            )}
           </View>
           <Text style={[styles.date, { color: theme.colors.textTertiary }]}>
             {!item.updatedAt ? '日付なし' 
@@ -309,14 +352,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   chatRoomTopic: {
-    fontSize: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
     borderRadius: 12,
+    fontSize: 12,
+    fontWeight: '500',
     overflow: 'hidden',
-    backgroundColor: '#9575CD',
-    color: '#FFFFFF',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    marginRight: 8,
+  },
+  modelType: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: '500',
+    overflow: 'hidden',
   },
   date: {
     fontSize: 12,
