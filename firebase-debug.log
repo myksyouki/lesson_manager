@@ -1,0 +1,17 @@
+[debug] [2025-03-21T14:17:51.267Z] ----------------------------------------------------------------------
+[debug] [2025-03-21T14:17:51.268Z] Command:       /Users/miyakoshiyuuki/.nvm/versions/node/v18.20.7/bin/node /Users/miyakoshiyuuki/.nvm/versions/node/v18.20.7/bin/firebase functions:shell
+[debug] [2025-03-21T14:17:51.268Z] CLI Version:   13.34.0
+[debug] [2025-03-21T14:17:51.268Z] Platform:      darwin
+[debug] [2025-03-21T14:17:51.268Z] Node Version:  v18.20.7
+[debug] [2025-03-21T14:17:51.269Z] Time:          Fri Mar 21 2025 23:17:51 GMT+0900 (日本標準時)
+[debug] [2025-03-21T14:17:51.269Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-03-21T14:17:51.365Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-03-21T14:17:51.365Z] > authorizing via signed-in user (youki.miya0511@gmail.com)
+[debug] [2025-03-21T14:17:51.365Z] [iam] checking project lesson-manager-99ab9 for permissions ["firebase.projects.get"]
+[debug] [2025-03-21T14:17:51.365Z] Checked if tokens are valid: true, expires at: 1742567708868
+[debug] [2025-03-21T14:17:51.365Z] Checked if tokens are valid: true, expires at: 1742567708868
+[debug] [2025-03-21T14:17:51.366Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/lesson-manager-99ab9:testIamPermissions [none]
+[debug] [2025-03-21T14:17:51.366Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/lesson-manager-99ab9:testIamPermissions x-goog-quota-user=projects/lesson-manager-99ab9
+[debug] [2025-03-21T14:17:51.366Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/lesson-manager-99ab9:testIamPermissions {"permissions":["firebase.projects.get"]}
+[debug] [2025-03-21T14:17:52.471Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/lesson-manager-99ab9:testIamPermissions 200

@@ -1,5 +1,5 @@
 import { ref, uploadBytesResumable, getDownloadURL, updateMetadata } from 'firebase/storage';
-import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db, storage, auth } from '../config/firebase';
 import { processAudioFile } from './audioProcessing';
 
@@ -35,6 +35,19 @@ export const saveLesson = async (
       throw new Error('ユーザーが認証されていません');
     }
 
+    // ユーザープロファイルから楽器情報を取得
+    const userProfileRef = doc(db, `users/${userId}/profile`, 'main');
+    const userProfileDoc = await getDoc(userProfileRef);
+    let instrumentName = 'standard'; // デフォルト値
+
+    if (userProfileDoc.exists()) {
+      const profileData = userProfileDoc.data();
+      if (profileData.selectedInstrument) {
+        instrumentName = profileData.selectedInstrument;
+        console.log(`ユーザープロファイルから楽器情報を取得しました: ${instrumentName}`);
+      }
+    }
+
     // Firestoreにレッスンデータを保存
     onStatusChange?.('saving', 'レッスンデータを保存中...');
     
@@ -44,6 +57,7 @@ export const saveLesson = async (
     const lessonData = {
       ...formData,
       user_id: userId,
+      instrument: instrumentName, // 楽器情報を追加
       createdAt: new Date(),
       status: 'pending',
       audioUrl: '',
@@ -51,10 +65,10 @@ export const saveLesson = async (
     };
     
     // Firestoreにドキュメントを作成（ユーザーベース構造）
-    console.log('Firestoreにレッスンデータを保存します', { teacherName: formData.teacherName, lessonUniqId });
+    console.log('Firestoreにレッスンデータを保存します', { teacherName: formData.teacherName, instrument: instrumentName, lessonUniqId });
     const docRef = await addDoc(collection(db, `users/${userId}/lessons`), lessonData);
     const lessonId = docRef.id;
-    console.log(`レッスンが作成されました。ID: ${lessonId}, lessonUniqId: ${lessonUniqId}`);
+    console.log(`レッスンが作成されました。ID: ${lessonId}, instrument: ${instrumentName}, lessonUniqId: ${lessonUniqId}`);
     
     // 音声ファイルがある場合は処理を続行
     if (audioFile && audioFile.uri) {
@@ -108,6 +122,7 @@ export const saveLesson = async (
                   lessonId,
                   userId,
                   lessonUniqId,  // メタデータにlessonUniqIdを追加
+                  instrument: instrumentName, // メタデータに楽器情報を追加
                 }
               });
               

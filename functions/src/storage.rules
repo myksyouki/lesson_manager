@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// Firebase Storageのセキュリティルール
+service firebase.storage {
+  match /b/{bucket}/o {
+    // デフォルトルール：未認証ユーザーはアクセス不可
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // publicディレクトリは誰でも読み込み可能
+    match /public/{userId}/{filename} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ユーザーは自分のディレクトリにのみアクセス可能
+    match /users/{userId}/{filename} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // audio/usersディレクトリもユーザーごとにアクセス制限
+    match /audio/users/{userId}/{filename} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // audioディレクトリも同様
+    match /audio/{userId}/{filename} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // 直接ユーザーIDをパスに持つパターン
+    match /{userId}/{filename} {
+      // ユーザーIDがFirebaseの有効なUIDパターンに一致する場合のみ適用
+      allow read, write: if request.auth != null && 
+                          request.auth.uid == userId && 
+                          userId.matches('^[a-zA-Z0-9]+$');
+    }
+  }
+} 

@@ -1,0 +1,5 @@
+i  Importing functions configs from projects [lesson-manager-99ab9]
+i  Importing configs from projects: [lesson-manager-99ab9]
+✔  Wrote functions/.env.default
+✔  Wrote functions/.env.local
+✔  Wrote functions/.env

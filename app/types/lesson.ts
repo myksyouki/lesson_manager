@@ -21,6 +21,7 @@ export interface Lesson {
   error?: string;
   processingId?: string;   // レッスン処理の一意識別子
   duplicateOf?: string;    // 重複の場合、オリジナルレッスンのID
+  instrument?: string;     // 楽器の種類 (saxophone, flute など)
   created_at: Date | any;  // Firestoreのタイムスタンプ型に対応
   updated_at: Date | any;  // Firestoreのタイムスタンプ型に対応
 }

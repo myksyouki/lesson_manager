@@ -521,7 +521,16 @@ export const saveSelectedModel = async (categoryId: string, instrumentId: string
       throw new Error('無効なモデルです');
     }
     
-    const userProfileRef = doc(db, 'userProfiles', user.uid);
+    let userProfileRef;
+    
+    if (useNewStructure) {
+      // 新構造を使用する場合
+      userProfileRef = doc(db, `users/${user.uid}/profile`, 'main');
+    } else {
+      // 従来の構造を使用する場合
+      userProfileRef = doc(db, 'userProfiles', user.uid);
+    }
+    
     const docSnap = await getDoc(userProfileRef);
     
     if (docSnap.exists()) {
@@ -559,7 +568,16 @@ export const completeOnboarding = async (): Promise<boolean> => {
       throw new Error('ユーザーがログインしていません');
     }
     
-    const userProfileRef = doc(db, 'userProfiles', user.uid);
+    let userProfileRef;
+    
+    if (useNewStructure) {
+      // 新構造を使用する場合
+      userProfileRef = doc(db, `users/${user.uid}/profile`, 'main');
+    } else {
+      // 従来の構造を使用する場合
+      userProfileRef = doc(db, 'userProfiles', user.uid);
+    }
+    
     const docSnap = await getDoc(userProfileRef);
     
     if (docSnap.exists()) {

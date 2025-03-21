@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Platform, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 
 interface SummaryDisplayProps {
   summary: string | null;
   status: string | null;
+  tags?: string[];
 }
 
-export const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ summary, status }) => {
+export const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ summary, status, tags = [] }) => {
   const [expanded, setExpanded] = useState(false);
   const maxCharacters = 200; // 折りたたみ状態で表示する最大文字数
   
@@ -49,6 +50,25 @@ export const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ summary, status 
     }
   };
 
+  const renderTags = () => {
+    if (!tags || tags.length === 0) return null;
+    
+    return (
+      <View style={styles.tagsContainer}>
+        <Text style={styles.tagsTitle}>タグ</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagsScrollView}>
+          <View style={styles.tagsRow}>
+            {tags.map((tag, index) => (
+              <View key={index} style={styles.tag}>
+                <Text style={styles.tagText}>#{tag}</Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.outerContainer}>
       <LinearGradient
@@ -63,8 +83,11 @@ export const SummaryDisplay: React.FC<SummaryDisplayProps> = ({ summary, status 
         </View>
         
         {summary ? (
-          <View style={styles.summaryContainer}>
-            {renderSummary()}
+          <View style={styles.contentContainer}>
+            <View style={styles.summaryContainer}>
+              {renderSummary()}
+            </View>
+            {renderTags()}
           </View>
         ) : (
           <View style={styles.placeholderContainer}>
@@ -134,9 +157,13 @@ const styles = StyleSheet.create({
     color: '#202124',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  summaryContainer: {
+  contentContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 12,
+    padding: 0,
+    overflow: 'hidden',
+  },
+  summaryContainer: {
     padding: 16,
   },
   summaryText: {
@@ -179,6 +206,38 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
     marginRight: 4,
+  },
+  tagsContainer: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+    padding: 16,
+  },
+  tagsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#202124',
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  tagsScrollView: {
+    marginHorizontal: -4,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    paddingHorizontal: 4,
+  },
+  tag: {
+    backgroundColor: '#E8F0FD',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginRight: 8,
+  },
+  tagText: {
+    color: '#4285F4',
+    fontSize: 14,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 });
 

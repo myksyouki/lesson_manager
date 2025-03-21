@@ -121,6 +121,7 @@ export const LessonForm: React.FC<LessonFormProps> = ({
             <SummaryDisplay
               summary={formData.summary}
               status={formData.status}
+              tags={formData.tags}
             />
           </View>
 
