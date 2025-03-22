@@ -13,8 +13,9 @@ import {
   Platform,
   Alert,
   Image,
+  Pressable,
 } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/auth';
 import { getUserChatRooms, ChatRoom } from '../services/chatRoomService';
@@ -45,9 +46,71 @@ const colors = {
 // AIレッスンタブのテーマカラー
 const AI_THEME_COLOR = '#7C4DFF';
 
+// タブの定義
+const TABS = {
+  PRACTICE: 'practice',
+  CONSULTATION: 'consultation',
+};
+
+// サンプルの練習チャットルーム
+const PRACTICE_CHAT_ROOMS: ChatRoom[] = [
+  {
+    id: 'practice-1',
+    title: 'ロングトーン練習',
+    topic: '息の安定性',
+    modelType: 'practice',
+    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    userId: 'sample',
+    messages: [],
+  },
+  {
+    id: 'practice-2',
+    title: '高音域練習',
+    topic: '音域拡大',
+    modelType: 'practice',
+    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    userId: 'sample',
+    messages: [],
+  },
+  {
+    id: 'practice-3',
+    title: 'アーティキュレーション',
+    topic: '表現力',
+    modelType: 'practice',
+    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    userId: 'sample',
+    messages: [],
+  },
+  {
+    id: 'practice-4',
+    title: 'リズム練習',
+    topic: '正確さ',
+    modelType: 'practice',
+    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    userId: 'sample',
+    messages: [],
+  },
+  {
+    id: 'practice-5',
+    title: '楽曲解釈',
+    topic: '音楽性',
+    modelType: 'practice',
+    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    userId: 'sample',
+    messages: [],
+  },
+];
+
 // モデルタイプからわかりやすい名前を取得する関数
 const getModelDisplayName = (modelType: string): string => {
   if (!modelType) return 'スタンダード';
+  
+  if (modelType === 'practice') return '練習用';
   
   try {
     // 形式: categoryId-instrumentId-modelId (例: 'woodwind-saxophone-ueno')
@@ -61,11 +124,13 @@ const getModelDisplayName = (modelType: string): string => {
     // カテゴリ、楽器、モデルを検索
     for (const category of instrumentCategories) {
       if (category.id === categoryId) {
-        for (const instrument of category.instruments) {
+        for (const instrument of category.instruments || []) {
           if (instrument.id === instrumentId) {
-            for (const model of instrument.models) {
-              if (model.id === modelId) {
-                return model.isArtist ? `アーティストモデル: ${model.name}` : model.name;
+            if (instrument.models) {
+              for (const model of instrument.models) {
+                if (model.id === modelId) {
+                  return model.isArtist ? `アーティストモデル: ${model.name}` : model.name;
+                }
               }
             }
           }
@@ -85,6 +150,7 @@ export default function AILessonScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>(TABS.CONSULTATION);
   const router = useRouter();
   const { user } = useAuthStore();
   const theme = useTheme();
@@ -154,6 +220,46 @@ export default function AILessonScreen() {
     });
   }, [router]);
 
+  const renderTabBar = () => (
+    <View style={styles.tabContainer}>
+      <Pressable
+        style={[
+          styles.tabButton,
+          activeTab === TABS.PRACTICE && styles.activeTabButton
+        ]}
+        onPress={() => setActiveTab(TABS.PRACTICE)}
+      >
+        <Text
+          style={[
+            styles.tabText,
+            activeTab === TABS.PRACTICE && styles.activeTabText
+          ]}
+        >
+          練習
+        </Text>
+        {activeTab === TABS.PRACTICE && <View style={styles.tabIndicator} />}
+      </Pressable>
+      
+      <Pressable
+        style={[
+          styles.tabButton,
+          activeTab === TABS.CONSULTATION && styles.activeTabButton
+        ]}
+        onPress={() => setActiveTab(TABS.CONSULTATION)}
+      >
+        <Text
+          style={[
+            styles.tabText,
+            activeTab === TABS.CONSULTATION && styles.activeTabText
+          ]}
+        >
+          相談
+        </Text>
+        {activeTab === TABS.CONSULTATION && <View style={styles.tabIndicator} />}
+      </Pressable>
+    </View>
+  );
+
   const renderChatRoomItem = useCallback(({ item, index }: { item: ChatRoom, index: number }) => (
     <Animated.View 
       entering={SlideInRight.delay(index * 100).springify().damping(15)}
@@ -179,6 +285,31 @@ export default function AILessonScreen() {
             {!item.updatedAt ? '日付なし' 
               : new Date(item.updatedAt.seconds * 1000).toLocaleDateString('ja-JP')}
           </Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
+      </RippleButton>
+    </Animated.View>
+  ), [theme.colors, handleOpenRoom]);
+
+  const renderPracticeChatRoomItem = useCallback(({ item, index }: { item: ChatRoom, index: number }) => (
+    <Animated.View 
+      entering={SlideInRight.delay(index * 100).springify().damping(15)}
+    >
+      <RippleButton
+        onPress={() => handleOpenRoom(item.id)}
+        rippleColor={theme.colors.ripple} 
+        style={styles.chatRoomItem}
+      >
+        <View style={styles.practiceIconContainer}>
+          <FontAwesome5 name="music" size={20} color={'#FFFFFF'} />
+        </View>
+        <View style={styles.chatRoomContent}>
+          <Text style={[styles.chatRoomTitle, { color: theme.colors.text }]}>{item.title}</Text>
+          <View style={styles.topicContainer}>
+            <Text style={[styles.chatRoomTopic, { backgroundColor: theme.colors.primaryLight, color: theme.colors.textInverse }]}>
+              {item.topic}
+            </Text>
+          </View>
         </View>
         <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
       </RippleButton>
@@ -222,58 +353,84 @@ export default function AILessonScreen() {
     );
   }, [handleCreateRoom]);
 
+  const renderConsultationTab = () => (
+    <>
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadChatRooms}>
+            <Text style={styles.retryButtonText}>再試行</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {loading && !refreshing ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={AI_THEME_COLOR} />
+          <Text style={styles.loadingText}>読み込み中...</Text>
+        </View>
+      ) : (
+        <>
+          {chatRooms.length > 0 ? (
+            <FlatList
+              data={chatRooms}
+              renderItem={renderChatRoomItem}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.chatRoomsList}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  colors={[AI_THEME_COLOR]}
+                  tintColor={AI_THEME_COLOR}
+                />
+              }
+            />
+          ) : (
+            <EmptyState />
+          )}
+        </>
+      )}
+
+      {chatRooms.length > 0 && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={handleCreateRoom}
+        >
+          <MaterialIcons name="add" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
+    </>
+  );
+
+  const renderPracticeTab = () => (
+    <>
+      <FlatList
+        data={PRACTICE_CHAT_ROOMS}
+        renderItem={renderPracticeChatRoomItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.chatRoomsList}
+        showsVerticalScrollIndicator={false}
+      />
+    </>
+  );
+
   console.log('Render state:', { loading, refreshing, chatRoomsLength: chatRooms.length, error });
 
-  // シンプルな表示に変更して問題を特定しやすくする
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={loadChatRooms}>
-              <Text style={styles.retryButtonText}>再試行</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {loading && !refreshing ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={AI_THEME_COLOR} />
-            <Text style={styles.loadingText}>読み込み中...</Text>
-          </View>
-        ) : (
-          <>
-            {chatRooms.length > 0 ? (
-              <FlatList
-                data={chatRooms}
-                renderItem={renderChatRoomItem}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.chatRoomsList}
-                showsVerticalScrollIndicator={false}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={handleRefresh}
-                    colors={[AI_THEME_COLOR]}
-                    tintColor={AI_THEME_COLOR}
-                  />
-                }
-              />
-            ) : (
-              <EmptyState />
-            )}
-          </>
-        )}
-
-        {chatRooms.length > 0 && (
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={handleCreateRoom}
-          >
-            <MaterialIcons name="add" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-        )}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>AIレッスン</Text>
+        </View>
+        
+        {renderTabBar()}
+        
+        {activeTab === TABS.PRACTICE 
+          ? renderPracticeTab()
+          : renderConsultationTab()
+        }
       </View>
     </SafeAreaView>
   );
@@ -286,6 +443,58 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 24 : 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#202124',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    height: 48,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tabButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  activeTabButton: {
+    backgroundColor: '#fff',
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#5F6368',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  activeTabText: {
+    color: AI_THEME_COLOR,
+    fontWeight: '600',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    height: 3,
+    width: '50%',
+    backgroundColor: AI_THEME_COLOR,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
   loadingContainer: {
     flex: 1,
@@ -336,6 +545,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+  },
+  practiceIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: AI_THEME_COLOR,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   chatRoomContent: {
     flex: 1,

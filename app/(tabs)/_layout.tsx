@@ -116,10 +116,12 @@ const TabBarBackground = ({
 // タブインジケーターコンポーネント
 const TabIndicator = ({ 
   focused, 
-  color 
+  color,
+  routeName
 }: { 
   focused: boolean; 
-  color: string 
+  color: string;
+  routeName: string;
 }) => {
   const scaleX = useRef(new Animated.Value(0)).current;
   
@@ -132,7 +134,8 @@ const TabIndicator = ({
     }).start();
   }, [focused]);
   
-  if (!focused) return null;
+  // レッスンとAIレッスンタブでは表示しない
+  if (!focused || routeName === 'lessons' || routeName === 'ai-lesson') return null;
   
   return (
     <Animated.View
@@ -224,7 +227,7 @@ export default function TabLayout() {
               >
                 {children}
               </Animated.Text>
-              <TabIndicator focused={focused} color={color} />
+              <TabIndicator focused={focused} color={color} routeName={route.name} />
             </View>
           );
         },
