@@ -40,6 +40,7 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
 
   // グローバルストア
   const addLesson = useLessonStore(state => state.addLesson);
+  const fetchLessons = useLessonStore(state => state.fetchLessons);
 
   // 進捗ハンドラー
   const handleProgress = (progress: number) => {
@@ -148,6 +149,16 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
       );
 
       setLessonDocId(lessonId);
+
+      // 音声ファイルがない場合は、ストアを手動で更新して即座に表示を反映
+      if (!selectedFile) {
+        const userId = auth.currentUser?.uid;
+        if (userId) {
+          // Firestoreから最新のレッスンデータを取得してグローバルストアを更新
+          await fetchLessons(userId);
+          console.log('レッスンデータを更新しました');
+        }
+      }
 
       // リダイレクト前に処理中状態をクリアする
       setIsProcessing(false);

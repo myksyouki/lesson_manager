@@ -145,6 +145,15 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     
     // 日付が一致するレッスンを検索
     return lessons.some(lesson => {
+      // デバッグ情報
+      if (lessons.length > 0 && date.getDate() === 1) { // 月の1日の場合のみログ出力（大量のログを避けるため）
+        console.log(`日付比較 - カレンダーの日付: ${formattedDate}, レッスンの日付: ${lesson.date}`, {
+          dayMatch: date.getDate(),
+          monthMatch: date.getMonth() + 1,
+          yearMatch: date.getFullYear()
+        });
+      }
+      
       // レッスンの日付が文字列形式の場合の処理
       if (typeof lesson.date === 'string') {
         // 直接比較
@@ -154,19 +163,37 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         
         // 日付形式が異なる可能性があるため、日付オブジェクトに変換して比較
         try {
-          // "YYYY年MM月DD日" 形式の文字列をパース
-          const dateParts = lesson.date.match(/(\d+)年(\d+)月(\d+)日/);
-          if (dateParts) {
-            const lessonDate = new Date(
-              parseInt(dateParts[1]), // 年
-              parseInt(dateParts[2]) - 1, // 月（0-11）
-              parseInt(dateParts[3]) // 日
+          // 様々な形式の日付文字列をパース
+          let lessonDateObj: Date | null = null;
+          
+          // "YYYY年MM月DD日" 形式
+          const jpDatePattern = /(\d+)年(\d+)月(\d+)日/;
+          const jpMatches = lesson.date.match(jpDatePattern);
+          if (jpMatches) {
+            lessonDateObj = new Date(
+              parseInt(jpMatches[1]), // 年
+              parseInt(jpMatches[2]) - 1, // 月（0-11）
+              parseInt(jpMatches[3]) // 日
             );
-            
+          } 
+          // "YYYY-MM-DD" 形式
+          else if (lesson.date.includes('-')) {
+            const parts = lesson.date.split('-');
+            if (parts.length === 3) {
+              lessonDateObj = new Date(
+                parseInt(parts[0]),
+                parseInt(parts[1]) - 1,
+                parseInt(parts[2])
+              );
+            }
+          }
+          
+          if (lessonDateObj) {
+            // 年月日が一致するか確認
             return (
-              lessonDate.getFullYear() === date.getFullYear() &&
-              lessonDate.getMonth() === date.getMonth() &&
-              lessonDate.getDate() === date.getDate()
+              lessonDateObj.getFullYear() === date.getFullYear() &&
+              lessonDateObj.getMonth() === date.getMonth() &&
+              lessonDateObj.getDate() === date.getDate()
             );
           }
         } catch (e) {
@@ -176,7 +203,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
       
       return false;
     });
-  }, [lessons]);
+  }, [lessons, formatDate]);
 
   // タスクの練習日があるかどうかを確認する関数
   const hasPracticeTask = useCallback((date: Date) => {

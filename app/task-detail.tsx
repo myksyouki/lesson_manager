@@ -124,7 +124,6 @@ export default function TaskDetail() {
         taskId={task.id}
         isPinned={task.isPinned || false}
         onBack={handleBack}
-        onToggleComplete={handleToggleComplete}
       />
       
       <ScrollView style={styles.contentContainer}>

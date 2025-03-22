@@ -20,6 +20,34 @@ function generateUUID() {
 }
 
 /**
+ * ISO形式の日付文字列をYYYY年MM月DD日形式に変換する関数
+ */
+function formatDateToJapanese(dateStr: string): string {
+  try {
+    // dateStrがYYYY-MM-DD形式であることを期待
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) {
+      console.error('日付形式が正しくありません:', dateStr);
+      return dateStr; // 変換できない場合はそのまま返す
+    }
+    
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]);
+    const day = parseInt(parts[2]);
+    
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+      console.error('日付の数値変換に失敗しました:', dateStr);
+      return dateStr;
+    }
+    
+    return `${year}年${month}月${day}日`;
+  } catch (error) {
+    console.error('日付変換エラー:', error);
+    return dateStr;
+  }
+}
+
+/**
  * レッスンデータをFirestoreに保存する
  */
 export const saveLesson = async (
@@ -54,9 +82,15 @@ export const saveLesson = async (
     const lessonUniqId = generateUUID(); // 固有のlessonUniqIdを生成
     const hasAudioFile = audioFile && audioFile.uri && audioFile.name;
     
+    // 日付をYYYY年MM月DD日形式に変換 (ISO形式の場合のみ)
+    const japaneseDate = formData.date.includes('-') 
+      ? formatDateToJapanese(formData.date) 
+      : formData.date;
+    
     // ドキュメントを作成（新規レッスン）
     const lessonData = {
       ...formData,
+      date: japaneseDate, // 日本語形式の日付に変換
       user_id: userId,
       instrument: instrumentName, // 楽器情報を追加
       createdAt: new Date(),
@@ -69,14 +103,15 @@ export const saveLesson = async (
     // Firestoreにドキュメントを作成（ユーザーベース構造）
     console.log('Firestoreにレッスンデータを保存します', { 
       teacherName: formData.teacherName, 
-      instrument: instrumentName, 
+      instrument: instrumentName,
+      date: japaneseDate, // 日本語形式の日付をログに出力
       lessonUniqId,
       hasAudio: !!hasAudioFile
     });
     
     const docRef = await addDoc(collection(db, `users/${userId}/lessons`), lessonData);
     const lessonId = docRef.id;
-    console.log(`レッスンが作成されました。ID: ${lessonId}, instrument: ${instrumentName}, lessonUniqId: ${lessonUniqId}`);
+    console.log(`レッスンが作成されました。ID: ${lessonId}, instrument: ${instrumentName}, date: ${japaneseDate}, lessonUniqId: ${lessonUniqId}`);
     
     // 処理ID生成
     const timestamp = new Date().getTime();

@@ -9,7 +9,6 @@ interface TaskDetailHeaderProps {
   taskId: string;
   isPinned: boolean;
   onBack: () => void;
-  onToggleComplete: () => void;
 }
 
 export const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
@@ -18,7 +17,6 @@ export const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
   taskId,
   isPinned,
   onBack,
-  onToggleComplete,
 }) => {
   const { togglePin, canPinMoreTasks } = useTaskStore();
 
@@ -64,16 +62,6 @@ export const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
             color={isPinned ? "#FFD700" : "#8E8E93"} 
           />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.completeButton}
-          onPress={onToggleComplete}
-        >
-          <Ionicons
-            name={isCompleted ? "checkmark-circle" : "ellipse-outline"}
-            size={28}
-            color={isCompleted ? "#34C759" : "#8E8E93"}
-          />
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -107,9 +95,6 @@ const styles = StyleSheet.create({
   pinButton: {
     padding: 8,
     marginRight: 8,
-  },
-  completeButton: {
-    padding: 8,
   },
 });
 

@@ -65,6 +65,9 @@ export const ScheduleScreen = observer(() => {
     const formattedSelectedDate = formatDate(selectedDate);
     
     return lessonStore.lessons.filter(lesson => {
+      // デバッグログ - 問題の検出のため
+      console.log(`レッスン日付比較: カレンダー日付=${formattedSelectedDate}, レッスン日付=${lesson.date}`);
+      
       // レッスンの日付が文字列形式の場合の処理
       if (typeof lesson.date === 'string') {
         // 直接比較
@@ -74,20 +77,45 @@ export const ScheduleScreen = observer(() => {
         
         // 日付形式が異なる可能性があるため、日付オブジェクトに変換して比較
         try {
-          // "YYYY年MM月DD日" 形式の文字列をパース
-          const dateParts = lesson.date.match(/(\d+)年(\d+)月(\d+)日/);
-          if (dateParts) {
-            const lessonDate = new Date(
-              parseInt(dateParts[1]), // 年
-              parseInt(dateParts[2]) - 1, // 月（0-11）
-              parseInt(dateParts[3]) // 日
+          // 様々な形式の日付文字列をパース
+          let lessonDateObj: Date | null = null;
+          
+          // "YYYY年MM月DD日" 形式
+          const jpDatePattern = /(\d+)年(\d+)月(\d+)日/;
+          const jpMatches = lesson.date.match(jpDatePattern);
+          if (jpMatches) {
+            lessonDateObj = new Date(
+              parseInt(jpMatches[1]), // 年
+              parseInt(jpMatches[2]) - 1, // 月（0-11）
+              parseInt(jpMatches[3]) // 日
             );
-            
-            return (
-              lessonDate.getFullYear() === selectedDate.getFullYear() &&
-              lessonDate.getMonth() === selectedDate.getMonth() &&
-              lessonDate.getDate() === selectedDate.getDate()
+          } 
+          // "YYYY-MM-DD" 形式
+          else if (lesson.date.includes('-')) {
+            const parts = lesson.date.split('-');
+            if (parts.length === 3) {
+              lessonDateObj = new Date(
+                parseInt(parts[0]),
+                parseInt(parts[1]) - 1,
+                parseInt(parts[2])
+              );
+            }
+          }
+          
+          if (lessonDateObj) {
+            // 年月日が一致するか確認
+            const match = (
+              lessonDateObj.getFullYear() === selectedDate.getFullYear() &&
+              lessonDateObj.getMonth() === selectedDate.getMonth() &&
+              lessonDateObj.getDate() === selectedDate.getDate()
             );
+            if (match) {
+              console.log('日付が一致しました:', {
+                lessonDate: lesson.date,
+                selectedDate: formattedSelectedDate
+              });
+            }
+            return match;
           }
         } catch (e) {
           console.error('日付のパースエラー:', e);
@@ -109,6 +137,9 @@ export const ScheduleScreen = observer(() => {
     return taskStore.tasks.filter(task => {
       if (!task.practiceDate) return false;
       
+      // デバッグログ - 問題の検出のため
+      console.log(`タスク日付比較: カレンダー日付=${formattedSelectedDate}, タスク練習日=`, task.practiceDate);
+      
       // 練習日の形式に応じて比較
       if (typeof task.practiceDate === 'string') {
         // 文字列形式の場合
@@ -118,20 +149,45 @@ export const ScheduleScreen = observer(() => {
         
         // 日付形式が異なる可能性があるため、日付オブジェクトに変換して比較
         try {
-          // "YYYY年MM月DD日" 形式の文字列をパース
-          const dateParts = task.practiceDate.match(/(\d+)年(\d+)月(\d+)日/);
-          if (dateParts) {
-            const practiceDate = new Date(
-              parseInt(dateParts[1]), // 年
-              parseInt(dateParts[2]) - 1, // 月（0-11）
-              parseInt(dateParts[3]) // 日
+          // 様々な形式の日付文字列をパース
+          let practiceDateObj: Date | null = null;
+          
+          // "YYYY年MM月DD日" 形式
+          const jpDatePattern = /(\d+)年(\d+)月(\d+)日/;
+          const jpMatches = task.practiceDate.match(jpDatePattern);
+          if (jpMatches) {
+            practiceDateObj = new Date(
+              parseInt(jpMatches[1]), // 年
+              parseInt(jpMatches[2]) - 1, // 月（0-11）
+              parseInt(jpMatches[3]) // 日
             );
-            
-            return (
-              practiceDate.getFullYear() === selectedDate.getFullYear() &&
-              practiceDate.getMonth() === selectedDate.getMonth() &&
-              practiceDate.getDate() === selectedDate.getDate()
+          } 
+          // "YYYY-MM-DD" 形式
+          else if (task.practiceDate.includes('-')) {
+            const parts = task.practiceDate.split('-');
+            if (parts.length === 3) {
+              practiceDateObj = new Date(
+                parseInt(parts[0]),
+                parseInt(parts[1]) - 1,
+                parseInt(parts[2])
+              );
+            }
+          }
+          
+          if (practiceDateObj) {
+            // 年月日が一致するか確認
+            const match = (
+              practiceDateObj.getFullYear() === selectedDate.getFullYear() &&
+              practiceDateObj.getMonth() === selectedDate.getMonth() &&
+              practiceDateObj.getDate() === selectedDate.getDate()
             );
+            if (match) {
+              console.log('タスク日付が一致しました:', {
+                practiceDate: task.practiceDate,
+                selectedDate: formattedSelectedDate
+              });
+            }
+            return match;
           }
         } catch (e) {
           console.error('日付のパースエラー:', e);
@@ -228,6 +284,7 @@ export const ScheduleScreen = observer(() => {
     
     // レッスンセクション
     if (selectedDateLessons.length > 0) {
+      console.log(`レッスンセクション追加: ${selectedDateLessons.length}件のレッスンがあります`);
       items.push({
         id: 'lessonHeader',
         type: 'lessonHeader'
@@ -235,16 +292,20 @@ export const ScheduleScreen = observer(() => {
       
       // 各レッスンを個別のアイテムとして追加
       selectedDateLessons.forEach(lesson => {
+        console.log(`レッスン追加: ID=${lesson.id}, 概要=${lesson.summary}`);
         items.push({
           id: `lesson-${lesson.id}`,
           type: 'lesson',
           data: lesson
         });
       });
+    } else {
+      console.log('表示すべきレッスンはありません');
     }
     
     // タスクセクション
     if (selectedDateTasks.length > 0) {
+      console.log(`タスクセクション追加: ${selectedDateTasks.length}件のタスクがあります`);
       items.push({
         id: 'taskHeader',
         type: 'taskHeader'
@@ -252,29 +313,43 @@ export const ScheduleScreen = observer(() => {
       
       // 各タスクを個別のアイテムとして追加
       selectedDateTasks.forEach(task => {
+        console.log(`タスク追加: ID=${task.id}, タイトル=${task.title}`);
         items.push({
           id: `task-${task.id}`,
           type: 'task',
           data: task
         });
       });
+    } else {
+      console.log('表示すべきタスクはありません');
     }
     
     // 予定なしセクション
     if (selectedDateLessons.length === 0 && selectedDateTasks.length === 0) {
+      console.log('予定なしセクションを追加します');
       items.push({
         id: 'empty',
         type: 'empty'
       });
     }
     
+    console.log(`スケジュールアイテム生成完了: 合計${items.length}件のアイテム`);
     return items;
   }, [selectedDateLessons, selectedDateTasks]);
 
+  // FlatListのキー抽出関数を修正
+  const keyExtractor = (item: ScheduleItem) => {
+    console.log(`キー抽出: ID=${item.id}, Type=${item.type}`);
+    return item.id;
+  };
+
   // FlatListのレンダリング関数
   const renderItem = ({ item }: { item: ScheduleItem }) => {
+    console.log(`レンダリング: Type=${item.type}, ID=${item.id}`);
+    
     switch (item.type) {
       case 'calendar':
+        console.log('カレンダーをレンダリングします');
         return (
           <View style={styles.calendarContainer}>
             <CalendarHeader 
@@ -294,6 +369,7 @@ export const ScheduleScreen = observer(() => {
         );
         
       case 'dateTitle':
+        console.log('日付タイトルをレンダリングします');
         return (
           <Text style={styles.dateTitle}>
             {`${selectedDate.getFullYear()}年${selectedDate.getMonth() + 1}月${selectedDate.getDate()}日`}
@@ -301,6 +377,7 @@ export const ScheduleScreen = observer(() => {
         );
         
       case 'lessonHeader':
+        console.log('レッスンヘッダーをレンダリングします');
         return (
           <View style={styles.sectionHeader}>
             <Ionicons name="school" size={18} color={colors.primary} />
@@ -310,9 +387,11 @@ export const ScheduleScreen = observer(() => {
         
       case 'lesson':
         // レッスンアイテムを直接レンダリング
+        console.log(`レッスンアイテムをレンダリングします: ID=${item.data?.id}, 概要=${item.data?.summary}`);
         return renderLessonItem(item.data);
         
       case 'taskHeader':
+        console.log('タスクヘッダーをレンダリングします');
         return (
           <View style={styles.sectionHeader}>
             <Ionicons name="musical-notes" size={18} color={colors.secondary} />
@@ -321,9 +400,11 @@ export const ScheduleScreen = observer(() => {
         );
         
       case 'task':
+        console.log(`タスクアイテムをレンダリングします: ID=${item.data?.id}, タイトル=${item.data?.title}`);
         return renderTaskItem(item.data);
         
       case 'empty':
+        console.log('予定なしメッセージをレンダリングします');
         return (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>予定はありません</Text>
@@ -331,6 +412,7 @@ export const ScheduleScreen = observer(() => {
         );
         
       default:
+        console.log(`不明なタイプ: ${item.type}`);
         return null;
     }
   };
@@ -346,7 +428,7 @@ export const ScheduleScreen = observer(() => {
         contentContainerStyle={styles.scrollContent}
         data={getScheduleItems()}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
       />
     </View>
   );
@@ -373,10 +455,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   calendarContainer: {
     backgroundColor: colors.background,
@@ -400,7 +483,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    marginTop: 8,
+    marginTop: 16,
   },
   sectionTitle: {
     fontSize: 16,
@@ -413,6 +496,7 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 16,
   },
   emptyText: {
     fontSize: 16,

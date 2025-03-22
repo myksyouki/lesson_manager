@@ -77,12 +77,6 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
           <Text style={styles.description}>{task.description || '詳細はありません'}</Text>
         </View>
         
-        {/* 期限セクション */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>期限</Text>
-          <Text style={styles.infoText}>{formatTaskDate(task.dueDate)}</Text>
-        </View>
-        
         {/* 練習予定日セクション */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>

@@ -134,8 +134,8 @@ const TabIndicator = ({
     }).start();
   }, [focused]);
   
-  // レッスンとAIレッスンタブでは表示しない
-  if (!focused || routeName === 'lessons' || routeName === 'ai-lesson') return null;
+  // レッスン、AIレッスン、スケジュールタブでは表示しない
+  if (!focused || routeName === 'lessons' || routeName === 'ai-lesson' || routeName === 'schedule') return null;
   
   return (
     <Animated.View

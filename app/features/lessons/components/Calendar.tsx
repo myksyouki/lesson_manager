@@ -28,8 +28,16 @@ export const Calendar: React.FC<CalendarProps> = ({
   initialDate = new Date(),
   isTablet,
 }) => {
-  const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
-  const [currentMonth, setCurrentMonth] = useState<Date>(initialDate);
+  const safeInitialDate = () => {
+    if (!initialDate || isNaN(initialDate.getTime())) {
+      console.log('Invalid initialDate provided to Calendar, using current date instead');
+      return new Date();
+    }
+    return initialDate;
+  };
+  
+  const [selectedDate, setSelectedDate] = useState<Date>(safeInitialDate());
+  const [currentMonth, setCurrentMonth] = useState<Date>(safeInitialDate());
   
   const calendarWidth = Math.min(isTablet ? 600 : 350, 600);
   const daySize = Math.floor(calendarWidth / 7);

@@ -68,6 +68,22 @@ export const LessonForm: React.FC<LessonFormProps> = ({
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
   };
 
+  // 日本語形式の日付文字列をDateオブジェクトに変換する関数
+  const parseDateString = (dateString: string): Date => {
+    // 'YYYY年MM月DD日' 形式を解析
+    if (!dateString) return new Date();
+    
+    const matches = dateString.match(/(\d+)年(\d+)月(\d+)日/);
+    if (matches && matches.length === 4) {
+      const [_, year, month, day] = matches;
+      // 月は0から始まるので1を引く
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    // マッチしない場合はそのまま変換を試みる
+    return new Date(dateString);
+  };
+
   const handleDateSelect = (date: Date) => {
     onUpdateFormData({ date: formatDate(date) });
     setShowCalendar(false);
@@ -246,11 +262,11 @@ export const LessonForm: React.FC<LessonFormProps> = ({
 
       {showCalendar && (
         <Calendar
-          isVisible={showCalendar}
           onClose={() => setShowCalendar(false)}
           onSelectDate={handleDateSelect}
-          initialDate={formData.date ? new Date(formData.date.replace(/年|月|日/g, '/')) : new Date()}
+          initialDate={parseDateString(formData.date)}
           isTablet={isTablet}
+          isVisible={showCalendar}
         />
       )}
     </>
