@@ -3,7 +3,7 @@
  * 
  * 1. オーディオ分割
  * 2. Whisper文字起こし
- * 3. Dify送信→要約とタグ生成
+ * 3. 要約およびタグ生成（OpenAI/Gemini）
  */
 
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
@@ -18,20 +18,20 @@ import * as crypto from 'crypto';
 import ffmpeg from 'fluent-ffmpeg';
 import axios from 'axios';
 
-import { transcribeAudioWithWhisper } from './whisper';
-import { generateSummaryWithDify } from './dify-client';
+import { transcribeAudioWithWhisper, transcribeAudioChunks } from './whisper';
+import { generateSummaryWithKnowledgeBase } from './genkit';
 
 // Promiseベースの関数
 const fsPromises = fs.promises;
 const storage = new Storage();
 
-// チャンクサイズ設定（10分 = 600秒）
-const CHUNK_DURATION = 600;
-const CHUNK_OVERLAP = 20;
+// チャンクサイズ設定
+const CHUNK_DURATION = 600;  // 10分 = 600秒
+const CHUNK_OVERLAP = 20;    // 20秒オーバーラップ
 
 /**
- * 音声ファイルを3段階処理（分割→文字起こし→Dify要約）で処理
- * v1とv2のAPIの両方に対応
+ * 音声ファイルを処理するメイン関数
+ * 分割→文字起こし→要約のパイプラインを実行
  */
 export async function processAudio(data: any, contextOrRequest?: functions.https.CallableContext | CallableRequest) {
   try {
@@ -41,7 +41,7 @@ export async function processAudio(data: any, contextOrRequest?: functions.https
       throw new Error('必須パラメータが不足しています');
     }
     
-    console.log(`音声ファイル処理開始 (V3): ${lessonId}`);
+    console.log(`音声ファイル処理開始: ${lessonId}`);
     
     // Firestoreのデータベース参照を取得
     const db = admin.firestore();
@@ -58,7 +58,7 @@ export async function processAudio(data: any, contextOrRequest?: functions.https
     // ---------- ステップ1: 音声ファイルダウンロードと分割準備 ----------
     
     // 一時ディレクトリを作成
-    const tmpDir = path.join(os.tmpdir(), `audio-v3-${lessonId}-${Date.now()}`);
+    const tmpDir = path.join(os.tmpdir(), `audio-process-${lessonId}-${Date.now()}`);
     await fsPromises.mkdir(tmpDir, { recursive: true });
     
     try {
@@ -88,7 +88,7 @@ export async function processAudio(data: any, contextOrRequest?: functions.https
       
       // ---------- ステップ2: 音声分割とWhisper文字起こし ----------
       
-      // 音声ファイルが長い場合は分割処理
+      // 文字起こし処理開始
       let transcription = '';
       await lessonRef.update({ 
         status: 'transcribing',
@@ -116,32 +116,28 @@ export async function processAudio(data: any, contextOrRequest?: functions.https
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
       
-      // ---------- ステップ3: Difyで要約とタグ生成 ----------
+      // ---------- ステップ3: 要約とタグ生成 ----------
       
-      console.log(`Difyで要約とタグの生成開始`);
+      console.log(`要約とタグの生成開始`);
       await lessonRef.update({
         status: 'summarizing',
         progress: 80,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
       
-      // Dify API呼び出し前のデバッグログ
-      console.log(`[DEBUG] Dify API呼び出し開始: instrumentName=${instrumentName || 'general'}, transcription=${transcription.length}文字`);
       try {
-        // Difyによる要約とタグの生成
-        const { summary, tags, lessonId: returnedLessonId } = await generateSummaryWithDify(
+        // OpenAI/Geminiによる要約とタグの生成
+        const { summary, tags } = await generateSummaryWithKnowledgeBase(
           transcription,
-          instrumentName || 'general',
-          lessonId
+          instrumentName || 'general'
         );
         
-        console.log(`[DEBUG] Dify API呼び出し成功: summary=${summary.length}文字, tags=${JSON.stringify(tags)}, returnedLessonId=${returnedLessonId}`);
+        console.log(`要約生成成功: summary=${summary.length}文字, tags=${JSON.stringify(tags)}`);
         
         // 処理完了
         await lessonRef.update({
           summary: summary,
           tags: tags,
-          lessonId: lessonId, // 一貫性のためにオリジナルのlessonIdを使用
           status: 'completed',
           progress: 100,
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -156,26 +152,17 @@ export async function processAudio(data: any, contextOrRequest?: functions.https
           tags
         };
       } catch (error: any) {
-        console.error(`[DEBUG] Dify API呼び出しエラー:`, error);
+        console.error(`要約生成エラー:`, error);
         
-        // エラー詳細をログに出力
-        if (error.response) {
-          console.error(`[DEBUG] Dify APIレスポンスエラー:`, {
-            status: error.response.status,
-            data: JSON.stringify(error.response.data || {})
-          });
-        }
-        
-        // エラー状態に更新するが、完了状態には設定しない
+        // エラー状態に更新
         await lessonRef.update({
           error: "要約の生成中にエラーが発生しました。",
           errorDetails: error instanceof Error ? error.message : JSON.stringify(error),
-          status: 'processing-error', // エラー状態を明示
-          progress: 90, // 完了ではなく中断状態を示す
+          status: 'processing-error',
+          progress: 90,
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
         
-        // エラーを上位に伝播させる
         throw error;
       }
       
@@ -189,7 +176,7 @@ export async function processAudio(data: any, contextOrRequest?: functions.https
     }
     
   } catch (error) {
-    console.error(`音声処理エラー (V3):`, error);
+    console.error(`音声処理エラー:`, error);
     throw new HttpsError(
       'internal',
       '音声処理中にエラーが発生しました',
@@ -222,8 +209,7 @@ async function processLongAudio(
     const chunksDir = path.join(tmpDir, 'chunks');
     await fsPromises.mkdir(chunksDir, { recursive: true });
     
-    // ステップ1: チャンク分割処理
-    console.log(`ステップ1: 音声分割開始`);
+    // チャンク分割処理
     const chunkPaths: string[] = [];
     
     for (let i = 0; i < numChunks; i++) {
@@ -248,44 +234,36 @@ async function processLongAudio(
           .run();
       });
       
-      // 進捗更新: 20%→30%
-      const progress = 20 + Math.floor((i / numChunks) * 10);
-      await lessonRef.update({ progress });
-    }
-    
-    console.log(`ステップ1: 音声分割完了 (${chunkPaths.length}チャンク)`);
-    // 分割完了
-    await lessonRef.update({
-      status: 'chunked',
-      progress: 30,
-      chunks: chunkPaths.length
-    });
-    
-    // ステップ2: 各チャンクを文字起こし
-    console.log(`ステップ2: チャンク文字起こし開始`);
-    const transcriptions: string[] = [];
-    
-    for (let i = 0; i < chunkPaths.length; i++) {
-      console.log(`チャンク ${i+1}/${chunkPaths.length} の文字起こし開始`);
-      const chunkTranscription = await transcribeAudioWithWhisper(chunkPaths[i]);
-      transcriptions.push(chunkTranscription);
-      
-      // 進捗更新: 30%→70%
-      const progress = 30 + Math.floor((i / chunkPaths.length) * 40);
+      // 進捗更新（20%〜50%の範囲で分割処理の進捗を表示）
+      const chunkProgress = 20 + Math.floor((i + 1) / numChunks * 30);
       await lessonRef.update({ 
-        progress,
-        currentChunk: i + 1,
-        totalChunks: chunkPaths.length
+        progress: chunkProgress,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp() 
       });
     }
     
-    console.log(`ステップ2: チャンク文字起こし完了`);
+    // 各チャンクを文字起こし
+    console.log(`チャンク分割完了、文字起こし開始: ${chunkPaths.length}チャンク`);
     
-    // 結果を結合
-    return transcriptions.join('\n');
+    // 進捗コールバック関数
+    const updateTranscriptionProgress = async (progress: number, current: number, total: number) => {
+      // 50%〜70%の範囲で文字起こし処理の進捗を表示
+      const transcriptionProgress = 50 + Math.floor(progress * 20);
+      await lessonRef.update({ 
+        progress: transcriptionProgress,
+        status: `transcribing ${current}/${total}`,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    };
+    
+    // 文字起こし実行
+    const transcription = await transcribeAudioChunks(chunkPaths, updateTranscriptionProgress);
+    
+    console.log(`全チャンクの文字起こし完了: ${transcription.length}文字`);
+    return transcription;
     
   } catch (error) {
-    console.error(`長い音声処理エラー:`, error);
+    console.error(`長い音声ファイル処理エラー:`, error);
     throw error;
   }
 }
@@ -294,34 +272,29 @@ async function processLongAudio(
  * URLからファイルをダウンロード
  */
 async function downloadFileFromUrl(url: string, destination: string): Promise<void> {
+  console.log(`ファイルダウンロード: ${url} -> ${destination}`);
+  
   try {
-    console.log(`ファイルダウンロード開始: ${url}`);
-    
-    // ダウンロード用のaxiosを使用
     const response = await axios({
       method: 'GET',
       url: url,
       responseType: 'stream',
-      timeout: 60000, // 60秒タイムアウト
+      timeout: 30000 // 30秒タイムアウト
     });
     
-    // 宛先ディレクトリを作成
-    const destDir = path.dirname(destination);
-    await fsPromises.mkdir(destDir, { recursive: true });
-    
-    // ストリームとしてファイルに書き込み
     const writer = fs.createWriteStream(destination);
     
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       response.data.pipe(writer);
       
-      writer.on('error', (err: Error) => {
-        writer.close();
-        reject(err);
+      writer.on('finish', () => {
+        console.log(`ファイルダウンロード完了: ${destination}`);
+        resolve();
       });
       
-      writer.on('finish', () => {
-        resolve();
+      writer.on('error', (err: any) => {
+        console.error(`ファイル書き込みエラー:`, err);
+        reject(err);
       });
     });
   } catch (error) {
@@ -334,26 +307,21 @@ async function downloadFileFromUrl(url: string, destination: string): Promise<vo
  * 音声ファイルの情報を取得
  */
 async function getAudioInfo(filepath: string): Promise<{ duration: number; sizeInMB: number }> {
-  try {
-    // ファイルサイズを取得
-    const stats = await fsPromises.stat(filepath);
-    const sizeInMB = stats.size / (1024 * 1024);
-    
-    // ffmpegで音声の長さを取得
-    const duration = await new Promise<number>((resolve, reject) => {
-      ffmpeg.ffprobe(filepath, (err, metadata) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        
-        resolve(metadata.format.duration || 0);
+  return new Promise<{ duration: number; sizeInMB: number }>((resolve, reject) => {
+    ffmpeg.ffprobe(filepath, (err, metadata) => {
+      if (err) {
+        console.error(`音声情報取得エラー:`, err);
+        reject(err);
+        return;
+      }
+      
+      const fileSizeInBytes = fs.statSync(filepath).size;
+      const sizeInMB = fileSizeInBytes / (1024 * 1024);
+      
+      resolve({
+        duration: metadata.format.duration || 0,
+        sizeInMB: sizeInMB
       });
     });
-    
-    return { duration, sizeInMB };
-  } catch (error) {
-    console.error(`音声情報取得エラー:`, error);
-    throw error;
-  }
+  });
 } 
