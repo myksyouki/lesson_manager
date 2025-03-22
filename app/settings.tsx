@@ -81,6 +81,9 @@ export default function SettingsScreen() {
     }
   };
 
+  // ユーザーが管理者かどうかをチェック
+  const isAdmin = user?.isAdmin || false;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
@@ -94,40 +97,109 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        {/* 一般設定セクション */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>一般設定</Text>
-          <TouchableOpacity style={styles.infoItem} onPress={() => router.push('/notifications')}>
-            <Text style={styles.infoLabel}>通知設定</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.infoItem} onPress={() => router.push('/privacy-policy')}>
-            <Text style={styles.infoLabel}>プライバシーポリシー</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
-          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>アカウント</Text>
+          {user && (
+            <View style={styles.userInfo}>
+              <View style={styles.avatarContainer}>
+                {user.photoURL ? (
+                  <Image source={{ uri: user.photoURL }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, styles.defaultAvatar]}>
+                    <Text style={styles.avatarText}>{user.displayName?.[0] || user.email?.[0] || '?'}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.userDetails}>
+                <Text style={styles.userName}>{user.displayName || 'ユーザー'}</Text>
+                <Text style={styles.userEmail}>{user.email || ''}</Text>
+              </View>
+            </View>
+          )}
+
           <TouchableOpacity 
-            style={styles.infoItem} 
-            onPress={() => router.push('/theme-settings')}
+            style={styles.menuItem} 
+            onPress={() => router.push('/profile')}
           >
-            <Text style={styles.infoLabel}>テーマ設定</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.infoItem} 
-            onPress={() => router.push('/instrument-settings')}
-          >
-            <Text style={styles.infoLabel}>楽器・モデル設定</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.infoItem} onPress={() => alert('キャッシュをクリアしました')}>
-            <Text style={styles.infoLabel}>キャッシュをクリア</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.infoItem} onPress={() => router.push('/sync')}>
-            <Text style={styles.infoLabel}>データ同期</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+            <MaterialIcons name="person" size={24} color="#555" />
+            <Text style={styles.menuItemText}>プロフィール設定</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#aaa" />
           </TouchableOpacity>
         </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>アプリ設定</Text>
+          
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            onPress={() => router.push('/instrument-settings')}
+          >
+            <MaterialIcons name="music-note" size={24} color="#555" />
+            <Text style={styles.menuItemText}>楽器・モデル設定</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#aaa" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            onPress={() => router.push('/api-settings')}
+          >
+            <MaterialIcons name="settings" size={24} color="#555" />
+            <Text style={styles.menuItemText}>AI処理設定</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#aaa" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            onPress={() => router.push('/theme-settings')}
+          >
+            <MaterialIcons name="color-lens" size={24} color="#555" />
+            <Text style={styles.menuItemText}>テーマ設定</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#aaa" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            onPress={() => router.push('/language')}
+          >
+            <MaterialIcons name="language" size={24} color="#555" />
+            <Text style={styles.menuItemText}>言語設定</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#aaa" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            onPress={() => router.push('/notifications')}
+          >
+            <MaterialIcons name="notifications" size={24} color="#555" />
+            <Text style={styles.menuItemText}>通知設定</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#aaa" />
+          </TouchableOpacity>
+        </View>
+
+        {/* 管理者向けセクション */}
+        {isAdmin && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>管理者機能</Text>
+            
+            <TouchableOpacity 
+              style={styles.menuItem} 
+              onPress={() => router.push('/admin/knowledge-management')}
+            >
+              <MaterialIcons name="psychology" size={24} color="#555" />
+              <Text style={styles.menuItemText}>楽器ナレッジベース管理</Text>
+              <MaterialIcons name="chevron-right" size={24} color="#aaa" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem} 
+              onPress={() => router.push('/admin/db-migration')}
+            >
+              <MaterialIcons name="storage" size={24} color="#555" />
+              <Text style={styles.menuItemText}>データベース管理</Text>
+              <MaterialIcons name="chevron-right" size={24} color="#aaa" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* 新規追加: ログアウトボタンを一般設定の下、アプリ情報の上に配置 */}
         <View style={styles.section}>
@@ -378,5 +450,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  avatarContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: 'hidden',
+    marginRight: 16,
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+  },
+  defaultAvatar: {
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: 'white',
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#1C1C1E',
+    marginLeft: 16,
   },
 });

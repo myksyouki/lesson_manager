@@ -7,16 +7,39 @@ const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', 
 
 /**
  * 日付を「YYYY年MM月DD日(曜日)」形式でフォーマットする
- * @param date 日付オブジェクト
+ * @param date 日付オブジェクトまたは日付文字列
  * @returns フォーマットされた日付文字列
  */
-export const formatDate = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = MONTHS[date.getMonth()];
-  const day = date.getDate();
-  const dayOfWeek = DAYS[date.getDay()];
-  
-  return `${year}年${month}${day}日(${dayOfWeek})`;
+export const formatDate = (date: Date | string): string => {
+  try {
+    // 引数がstring型の場合はDateオブジェクトに変換
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    // 無効な日付かどうかチェック
+    if (isNaN(dateObj.getTime())) {
+      console.error('formatDate: 無効な日付が渡されました', date);
+      return '日付なし';
+    }
+    
+    const year = dateObj.getFullYear();
+    const month = MONTHS[dateObj.getMonth()];
+    const day = dateObj.getDate();
+    const dayOfWeek = DAYS[dateObj.getDay()];
+    
+    console.log('formatDate - 処理中の日付:', {
+      元の値: date,
+      変換後: dateObj,
+      年: year,
+      月: month,
+      日: day,
+      曜日: dayOfWeek
+    });
+    
+    return `${year}年${month}${day}日(${dayOfWeek})`;
+  } catch (err) {
+    console.error('formatDate: 日付変換エラー', err, date);
+    return '日付エラー';
+  }
 };
 
 /**

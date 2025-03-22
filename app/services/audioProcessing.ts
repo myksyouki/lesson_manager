@@ -2,11 +2,24 @@ import { uploadAudioFile } from './storage';
 import { useLessonStore } from '../store/lessons';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
-import { auth, db } from '../config/firebase';
+import { auth, db, functions } from '../config/firebase';
 import { collection, addDoc, updateDoc, doc, serverTimestamp, getDoc, query, where, getDocs } from "firebase/firestore";
+import { httpsCallable } from 'firebase/functions';
 
 // アップロード中のレッスンIDを追跡して重複処理を防止
 const processingLessons = new Map<string, number>();
+
+// 処理結果の型を定義
+interface ProcessAudioResult {
+  success: boolean;
+  lessonId: string;
+  lessonUniqId?: string;
+  transcription?: string;
+  summary?: string;
+  tags?: string[];
+  error?: any;
+  errorDetails?: any; // エラー詳細情報用のプロパティを追加
+}
 
 // Process audio file: upload, transcribe, summarize, and save to Firestore
 export const processAudioFile = async (
@@ -14,15 +27,7 @@ export const processAudioFile = async (
   fileUri: string, 
   fileName: string,
   processingId: string
-): Promise<{ 
-  success: boolean; 
-  lessonId: string; 
-  lessonUniqId?: string;
-  transcription?: string; 
-  summary?: string; 
-  tags?: string[]; 
-  error?: any 
-}> => {
+): Promise<ProcessAudioResult> => {
   try {
     // 同じレッスンIDが処理中かチェック
     if (processingLessons.has(lessonId)) {
@@ -87,13 +92,68 @@ export const processAudioFile = async (
           console.log(`既存のファイル名を使用: ${lessonData.audioFileName}`);
           console.log(`既存の処理IDを使用: ${lessonData.processingId}`);
           
-          const uploadResult = await uploadAudioFile(fileUri, lessonData.audioFileName);
+          const uploadResult = await uploadAudioFile(fileUri, lessonData.audioFileName, lessonId);
           
           if (!uploadResult.success) {
             throw new Error('ファイルのアップロードに失敗しました');
           }
           
-          console.log(`音声ファイルをアップロードしました。Storage Triggerが処理を開始します。`);
+          // Firebase Functions を直接呼び出して処理を開始
+          const audioUrl = uploadResult.url || `gs://${process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET}/audio/${user.uid}/${lessonData.audioFileName}`;
+          console.log(`Firebase Functions APIを直接呼び出して音声処理を開始します: ${audioUrl}`);
+          
+          // レッスンのステータスを更新して処理中であることを示す
+          await updateDoc(lessonRef, {
+            status: 'processing',
+            message: 'Firebase Functionsで処理中...',
+            audioUrl: audioUrl
+          });
+          
+          // Firebase Functions APIを直接呼び出し
+          const processAudio = httpsCallable(functions, 'processAudioV3FuncV2');
+          const result = await processAudio({
+            audioUrl: audioUrl,
+            lessonId: lessonId,
+            userId: user.uid,
+            instrumentName: lessonData.instrument || 'standard'
+          });
+          
+          console.log('Firebase Functions API呼び出し結果:', result.data);
+          
+          // 処理結果が返ってきたらステータスを確認
+          const updatedLessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
+          const updatedLessonSnap = await getDoc(updatedLessonRef);
+          
+          if (updatedLessonSnap.exists()) {
+            const updatedLessonData = updatedLessonSnap.data();
+            
+            // サーバー側でエラーが発生した場合（processing-errorなど）
+            if (updatedLessonData.status && updatedLessonData.status.includes('error')) {
+              console.log(`サーバー処理でエラーが発生しました: ${updatedLessonData.status}`);
+              
+              // エラーステータスを保持しつつ、リトライ可能にする
+              await updateDoc(updatedLessonRef, {
+                retryable: true,
+                clientMessage: 'サーバー側で処理エラーが発生しました。後でリトライしてください。',
+                updated_at: serverTimestamp()
+              });
+              
+              // エラー情報を含んだ結果を返す
+              return {
+                success: false,
+                lessonId: lessonId,
+                error: updatedLessonData.error || '処理エラー',
+                errorDetails: updatedLessonData.errorDetails || '詳細不明'
+              };
+            }
+            
+            // 処理が完了していることを確認
+            if (updatedLessonData.status === 'completed') {
+              console.log(`レッスン ${lessonId} の処理が正常に完了しました`);
+            } else {
+              console.log(`レッスン ${lessonId} のステータスが予期しない値です: ${updatedLessonData.status}`);
+            }
+          }
           
           // 処理完了したら追跡から削除
           processingLessons.delete(lessonId);
@@ -177,20 +237,115 @@ export const processAudioFile = async (
     });
 
     // Upload the audio file to Firebase Storage
-    const uploadResult = await uploadAudioFile(fileUri, fileNameWithUniqId);
+    const uploadResult = await uploadAudioFile(fileUri, fileNameWithUniqId, lessonId);
 
     if (!uploadResult.success) {
       throw new Error('ファイルのアップロードに失敗しました');
     }
 
-    // Storage Triggerが自動的に処理を行うため、APIエンドポイントの呼び出しは不要
-    console.log(`音声ファイルをアップロードしました。Storage Triggerが処理を開始します。`);
+    // レッスンデータを取得して楽器情報を確認
+    const lessonSnapshot = await getDoc(lessonRef);
+    const instrumentName = lessonSnapshot.exists() && lessonSnapshot.data().instrument 
+      ? lessonSnapshot.data().instrument 
+      : 'standard';
+
+    // Firebase Functions APIを直接呼び出す
+    const audioUrl = uploadResult.url || `gs://${process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET}/audio/${user.uid}/${fileNameWithUniqId}`;
+    console.log(`Firebase Functions APIを直接呼び出して音声処理を開始します: ${audioUrl}`);
     
-    // レッスンのステータスを更新して、処理中であることを示す
+    // レッスンのステータスを更新して処理中であることを示す
     await updateDoc(lessonRef, {
       status: 'processing',
-      message: 'Storage Triggerによる処理を待機中...',
+      message: 'Firebase Functionsで処理中...',
+      audioUrl: audioUrl
     });
+    
+    try {
+      // Firebase Functions APIを直接呼び出し
+      const processAudio = httpsCallable(functions, 'processAudioV3FuncV2');
+      console.log('Firebase Functions 呼び出しパラメータ:', {
+        audioUrl,
+        lessonId,
+        userId: user.uid,
+        instrumentName
+      });
+      
+      // 呼び出しパラメータをロギングして確認
+      console.log('processAudioV3FuncV2関数を呼び出し中...', JSON.stringify({
+        audioUrl, lessonId, userId: user.uid, instrumentName
+      }));
+      
+      const result = await processAudio({
+        audioUrl: audioUrl,
+        lessonId: lessonId,
+        userId: user.uid,
+        instrumentName: instrumentName
+      });
+      
+      console.log('Firebase Functions API呼び出し結果:', result.data);
+      
+      // 処理結果が返ってきたらステータスを確認
+      const updatedLessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
+      const updatedLessonSnap = await getDoc(updatedLessonRef);
+      
+      if (updatedLessonSnap.exists()) {
+        const updatedLessonData = updatedLessonSnap.data();
+        
+        // サーバー側でエラーが発生した場合（processing-errorなど）
+        if (updatedLessonData.status && updatedLessonData.status.includes('error')) {
+          console.log(`サーバー処理でエラーが発生しました: ${updatedLessonData.status}`);
+          
+          // エラーステータスを保持しつつ、リトライ可能にする
+          await updateDoc(updatedLessonRef, {
+            retryable: true,
+            clientMessage: 'サーバー側で処理エラーが発生しました。後でリトライしてください。',
+            updated_at: serverTimestamp()
+          });
+          
+          // エラー情報を含んだ結果を返す
+          return {
+            success: false,
+            lessonId: lessonId,
+            error: updatedLessonData.error || '処理エラー',
+            errorDetails: updatedLessonData.errorDetails || '詳細不明'
+          };
+        }
+        
+        // 処理が完了していることを確認
+        if (updatedLessonData.status === 'completed') {
+          console.log(`レッスン ${lessonId} の処理が正常に完了しました`);
+        } else {
+          console.log(`レッスン ${lessonId} のステータスが予期しない値です: ${updatedLessonData.status}`);
+        }
+      }
+    } catch (functionsError) {
+      console.error('Firebase Functions API呼び出しエラー:', functionsError);
+      
+      // エラー情報を詳細に記録
+      const errorDetails = functionsError instanceof Error 
+        ? { name: functionsError.name, message: functionsError.message, stack: functionsError.stack }
+        : functionsError;
+      
+      // 既存のドキュメントを再確認して更新する
+      const existingLessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
+      const existingLessonSnap = await getDoc(existingLessonRef);
+      
+      if (existingLessonSnap.exists()) {
+        await updateDoc(existingLessonRef, {
+          status: 'error',
+          error: 'Firebase Functions APIの呼び出しに失敗しました',
+          errorDetails: JSON.stringify(errorDetails),
+          updated_at: serverTimestamp(),
+          retryable: true
+        });
+        
+        console.log(`既存のレッスン ${lessonId} にエラー情報を更新しました`);
+      } else {
+        console.error(`レッスン ${lessonId} のドキュメントが見つかりません。新規作成はしません。`);
+      }
+      
+      throw new Error(`Firebase Functions API呼び出しエラー: ${functionsError instanceof Error ? functionsError.message : JSON.stringify(functionsError)}`);
+    }
     
     // 処理完了したら追跡から削除
     processingLessons.delete(lessonId);
@@ -202,13 +357,24 @@ export const processAudioFile = async (
   } catch (error) {
     console.error('音声処理エラー:', error);
     
+    // エラーの詳細情報を取得
+    const errorDetails = error instanceof Error 
+      ? { name: error.name, message: error.message, stack: error.stack }
+      : error;
+    
     try {
       // エラーが発生した場合はステータスを更新
-      await updateLessonStatus(
-        lessonId, 
-        'error', 
-        error instanceof Error ? error.message : '不明なエラー'
-      );
+      const user = auth.currentUser;
+      if (user) {
+        const lessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
+        await updateDoc(lessonRef, {
+          status: 'error',
+          errorMessage: error instanceof Error ? error.message : '不明なエラー',
+          errorDetails: JSON.stringify(errorDetails),
+          updated_at: serverTimestamp()
+        });
+        console.log(`レッスン ${lessonId} のエラー状態を更新しました`);
+      }
     } catch (updateError) {
       console.error('エラーステータス更新失敗:', updateError);
     } finally {
@@ -219,7 +385,8 @@ export const processAudioFile = async (
     return { 
       success: false, 
       lessonId,
-      error
+      error,
+      errorDetails
     };
   }
 };
@@ -288,6 +455,79 @@ const updateLessonStatus = async (
   } catch (error) {
     console.error("レッスンステータスの更新に失敗しました:", error);
   }
+};
+
+// レッスンのステータスを定期的に監視する関数
+const startStatusMonitoring = (lessonId: string, userId: string, fileName: string) => {
+  console.log(`レッスン ${lessonId} のステータス監視を開始します`);
+  
+  // 処理状況の確認をスケジュール（5秒ごと）
+  let checkCount = 0;
+  const maxChecks = 60; // 最大5分間（60回 × 5秒）監視
+  
+  const checkInterval = setInterval(async () => {
+    try {
+      checkCount++;
+      
+      // レッスンドキュメントを取得
+      const lessonRef = doc(db, `users/${userId}/lessons`, lessonId);
+      const lessonDoc = await getDoc(lessonRef);
+      
+      if (!lessonDoc.exists()) {
+        console.log(`レッスン ${lessonId} が見つかりません。監視を停止します。`);
+        clearInterval(checkInterval);
+        return;
+      }
+      
+      const lessonData = lessonDoc.data();
+      const status = lessonData.status;
+      
+      console.log(`レッスン ${lessonId} の現在のステータス: ${status}`);
+      
+      // 処理が完了した場合（completed または error）
+      if (status === 'completed' || status === 'error') {
+        console.log(`レッスン ${lessonId} の処理が完了しました。ステータス: ${status}`);
+        clearInterval(checkInterval);
+        
+        // 直接レッスンストアは使用せず、更新完了ログのみ出力
+        console.log('処理が完了しました。レッスン一覧を更新してください。');
+        
+        return;
+      }
+      
+      // queued状態の場合、処理をトリガーするためにHTTPSリクエストを送信
+      if (status === 'queued') {
+        console.log(`レッスン ${lessonId} が処理キューに登録されています。処理を促します。`);
+        
+        // レッスンのステータスを更新して手動トリガー
+        if (checkCount % 3 === 0) { // 15秒ごとに更新を促す
+          await updateDoc(lessonRef, {
+            message: `処理キューで待機中...（${checkCount}回目の確認）`,
+            updatedAt: new Date()
+          });
+        }
+      }
+      
+      // 最大チェック回数に達したら監視を終了
+      if (checkCount >= maxChecks) {
+        console.log(`レッスン ${lessonId} の監視がタイムアウトしました。処理は続行中の可能性があります。`);
+        clearInterval(checkInterval);
+        
+        // ステータスを更新してユーザーに通知
+        await updateDoc(lessonRef, {
+          message: '処理が長時間完了していません。画面を再読み込みして確認してください。',
+          updatedAt: new Date()
+        });
+      }
+    } catch (error) {
+      console.error(`ステータス監視エラー（レッスン ${lessonId}）:`, error);
+      
+      // エラーが続く場合は監視を停止
+      if (checkCount > 10) { // 10回以上エラーが続いたら停止
+        clearInterval(checkInterval);
+      }
+    }
+  }, 5000); // 5秒ごとにチェック
 };
 
 // 録音ファイルを処理する関数

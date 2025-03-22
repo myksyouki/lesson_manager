@@ -74,16 +74,27 @@ export const useCalendar = (
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日(${DAYS[date.getDay()]})`;
   };
 
-  // 日付選択ハンドラー
+  // 日付を選択
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    const formattedDate = formatDate(date);
+    setShowCalendar(false);
+    
+    // ISO形式の日付文字列 (YYYY-MM-DD) を生成
+    const isoFormattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    
+    // 表示用の日付文字列
+    const displayFormattedDate = formatDate(date);
+    
+    console.log('日付選択:', { 
+      date, 
+      isoFormatted: isoFormattedDate, 
+      displayFormatted: displayFormattedDate 
+    });
     
     if (onDateChange) {
-      onDateChange(date, formattedDate);
+      // コールバックには日付オブジェクトとISO形式の文字列を渡す
+      onDateChange(date, isoFormattedDate);
     }
-    
-    setShowCalendar(false);
   };
 
   return {

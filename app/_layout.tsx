@@ -114,58 +114,33 @@ export default function RootLayout() {
       >
         {!user ? (
           <React.Fragment>
-            <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen name="index" redirect />
+            <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           </React.Fragment>
         ) : (
           <React.Fragment>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
-            <Stack.Screen 
-              name="lesson-form" 
-              options={{ 
-                presentation: 'modal',
-                animation: 'slide_from_bottom',
-                gestureEnabled: true,
-                gestureDirection: 'vertical',
-              }} 
-            />
-            <Stack.Screen 
-              name="lesson-detail" 
-              options={{ 
-                presentation: 'modal',
-                animation: 'slide_from_right',
-                gestureEnabled: true,
-                gestureDirection: 'horizontal',
-              }} 
-            />
-            <Stack.Screen 
-              name="shared-audio" 
-              options={{ 
-                presentation: 'modal', 
-                title: '音声ファイル処理中',
-                animation: 'fade',
-              }} 
-            />
-            <Stack.Screen 
-              name="task-detail" 
-              options={{ 
-                presentation: 'modal',
-                animation: 'slide_from_right',
-                gestureEnabled: true,
-                gestureDirection: 'horizontal',
-              }} 
-            />
-            <Stack.Screen 
-              name="task-form" 
-              options={{ 
-                presentation: 'modal',
-                animation: 'slide_from_bottom',
-                gestureEnabled: true,
-                gestureDirection: 'vertical',
-              }} 
-            />
-            <Stack.Screen name="instrument-settings" />
+            <Stack.Screen name="lesson-detail" options={{ title: 'レッスン詳細' }} />
+            <Stack.Screen name="chat-room" options={{ title: 'チャットルーム' }} />
+            <Stack.Screen name="chat-room-form" options={{ title: 'チャットルーム作成' }} />
+            <Stack.Screen name="lesson-form" options={{ title: 'レッスン作成' }} />
+            <Stack.Screen name="task-detail" options={{ title: '課題詳細' }} />
+            <Stack.Screen name="task-form" options={{ title: '課題作成' }} />
+            <Stack.Screen name="generate-tasks" options={{ title: '課題生成' }} />
+            <Stack.Screen name="consult-ai" options={{ title: 'AIに相談' }} />
+            <Stack.Screen name="settings" options={{ title: '設定' }} />
+            <Stack.Screen name="profile" options={{ title: 'プロフィール' }} />
+            <Stack.Screen name="instrument-settings" options={{ title: '楽器設定' }} />
+            <Stack.Screen name="api-settings" options={{ title: 'API設定' }} />
+            <Stack.Screen name="theme-settings" options={{ title: 'テーマ設定' }} />
+            <Stack.Screen name="language" options={{ title: '言語設定' }} />
+            <Stack.Screen name="notifications" options={{ title: '通知設定' }} />
+            <Stack.Screen name="privacy-policy" options={{ title: 'プライバシーポリシー' }} />
+            <Stack.Screen name="sync" options={{ title: 'データ同期' }} />
+            <Stack.Screen name="shared-audio" options={{ title: '共有音声' }} />
+            <Stack.Screen name="admin/knowledge-management" options={{ title: 'ナレッジベース管理' }} />
+            <Stack.Screen name="admin/knowledge-edit" options={{ title: 'ナレッジ編集' }} />
+            <Stack.Screen name="admin/db-migration" options={{ title: 'DB移行' }} />
           </React.Fragment>
         )}
       </Stack>

@@ -7,6 +7,7 @@ import {
   Platform,
   GestureResponderEvent,
   Alert,
+  Pressable,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -30,10 +31,10 @@ interface LessonCardProps {
 
 const LessonCard: React.FC<LessonCardProps> = ({
   id,
-  teacher,
-  date,
-  pieces,
-  tags,
+  teacher = '講師名なし',
+  date = '日付なし',
+  pieces = [],
+  tags = [],
   isFavorite = false,
   showFavoriteButton = true,
   isSelectionMode = false,
@@ -112,6 +113,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
       />
+      
       {isSelectionMode && (
         <View style={[
           styles.selectionIndicator,
@@ -124,6 +126,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
           />
         </View>
       )}
+      
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
           <Text style={[
@@ -133,7 +136,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
               fontFamily: theme.typography.fontFamily.medium
             }
           ]}>
-            {teacher}
+            {teacher || '講師名なし'}
           </Text>
           <Text style={[
             styles.dateText, 
@@ -142,7 +145,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
               fontFamily: theme.typography.fontFamily.regular
             }
           ]}>
-            {date}
+            {date || '日付なし'}
           </Text>
         </View>
         
@@ -156,12 +159,12 @@ const LessonCard: React.FC<LessonCardProps> = ({
           ]} 
           numberOfLines={2}
         >
-          {pieces[0] || '曲名なし'}
+          {Array.isArray(pieces) && pieces.length > 0 ? pieces[0] : '曲名なし'}
         </Text>
         
         <View style={styles.cardFooter}>
           <View style={styles.tagsContainer}>
-            {tags.slice(0, 3).map((tag, index) => (
+            {Array.isArray(tags) && tags.length > 0 && tags.slice(0, 3).map((tag, index) => (
               <View 
                 key={index} 
                 style={[
@@ -185,7 +188,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
                 </Text>
               </View>
             ))}
-            {tags.length > 3 && (
+            {Array.isArray(tags) && tags.length > 3 && (
               <Text 
                 style={[
                   styles.moreTagsText, 

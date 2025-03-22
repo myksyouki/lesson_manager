@@ -49,24 +49,47 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
   fetchLessons: async (userId) => {
     try {
       set({ isLoading: true, error: null });
+      console.log(`ユーザーID: ${userId} のレッスンデータを取得します`);
 
       const lessonsRef = collection(db, `users/${userId}/lessons`);
       const q = query(lessonsRef);
       const querySnapshot = await getDocs(q);
 
+      console.log(`Firestoreから取得したドキュメント数: ${querySnapshot.size}`);
+      
+      if (querySnapshot.empty) {
+        console.log(`ユーザーID: ${userId} のレッスンが見つかりませんでした`);
+        set({ lessons: [], isLoading: false });
+        return;
+      }
+      
+      // 各ドキュメントの構造を確認
+      querySnapshot.docs.forEach((doc, index) => {
+        if (index < 3) { // 最初の3つだけログ出力（大量になりすぎないように）
+          console.log(`ドキュメントID: ${doc.id}, データ構造:`, 
+            Object.keys(doc.data()).join(', '));
+        }
+      });
+
       const lessons = querySnapshot.docs.map(doc => {
         const data = doc.data();
+        
+        // データ構造が想定と異なる場合のデバッグ情報
+        if (!data.teacher && !data.teacherName) {
+          console.log(`警告: ドキュメント ${doc.id} に講師名が含まれていません:`, data);
+        }
+        
         return {
           id: doc.id,
           user_id: data.user_id || data.userId || '',
           teacher: data.teacher || data.teacherName || '',
           date: data.date || '',
           piece: data.piece || '',
-          pieces: data.pieces || [],
+          pieces: Array.isArray(data.pieces) ? data.pieces : [],
           summary: data.summary || '',
           notes: data.notes || '',
-          tags: data.tags || [],
-          isFavorite: data.isFavorite || false,
+          tags: Array.isArray(data.tags) ? data.tags : [],
+          isFavorite: Boolean(data.isFavorite),
           status: data.status || 'pending',
           transcription: data.transcription || '',
           audioUrl: data.audioUrl || '',
@@ -74,16 +97,32 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
           fileName: data.fileName || data.audioFileName || '',
           error: data.error || '',
           processingId: data.processingId || '',
-          created_at: data.created_at || '',
-          updated_at: data.updated_at || ''
+          created_at: data.created_at || data.createdAt || '',
+          updated_at: data.updated_at || data.updatedAt || '',
+          isDeleted: Boolean(data.isDeleted),
+          duplicate: Boolean(data.duplicate)
         };
       }).filter(lesson => {
         // 削除済みレッスンと重複レッスンをフィルタリング
-        return (lesson.status !== 'duplicate');
+        return (lesson.status !== 'duplicate' && lesson.isDeleted !== true);
       });
+
+      console.log(`有効なレッスン数: ${lessons.length}`);
+      if (lessons.length > 0) {
+        console.log('最初のレッスンサンプル:', {
+          id: lessons[0].id,
+          teacher: lessons[0].teacher,
+          date: lessons[0].date,
+          pieces: lessons[0].pieces,
+          status: lessons[0].status,
+          summaryExists: !!lessons[0].summary,
+          tagsCount: lessons[0].tags?.length || 0
+        });
+      }
 
       set({ lessons, isLoading: false });
     } catch (error: any) {
+      console.error('レッスンデータ取得エラー:', error);
       set({ error: error.message, isLoading: false });
     }
   },

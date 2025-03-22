@@ -7,8 +7,10 @@ import NetInfo from '@react-native-community/netinfo';
 
 // 上限ファイルサイズ: 100MB
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
-// Wi-Fi推奨アラートの閾値: 40MB
-const WIFI_RECOMMENDED_SIZE = 40 * 1024 * 1024;
+// 最大音声長: 90分 (秒単位)
+const MAX_AUDIO_DURATION = 90 * 60;
+// Wi-Fi推奨アラートの閾値: 30MB
+const WIFI_RECOMMENDED_SIZE = 30 * 1024 * 1024;
 
 interface SelectedFile {
   uri: string;
@@ -82,10 +84,10 @@ export const useFileUpload = (
     }
     
     // モバイル通信かつ大きなファイルの場合はWi-Fi推奨アラート
-    if (size > WIFI_RECOMMENDED_SIZE && (networkType === 'cellular' || networkType === 'unknown')) {
+    if (size > WIFI_RECOMMENDED_SIZE && networkType !== 'wifi') {
       Alert.alert(
         'Wi-Fi接続の推奨',
-        `大きなファイル（${(size / (1024 * 1024)).toFixed(2)}MB）をアップロードしようとしています。このファイルは40MB以上の大きさがあります。モバイルデータ通信量を節約するため、Wi-Fi接続への切り替えをおすすめします。`,
+        `大きなファイル（${(size / (1024 * 1024)).toFixed(2)}MB）をアップロードしようとしています。このファイルは30MB以上の大きさがあります。モバイルデータ通信量を節約するため、Wi-Fi接続への切り替えをおすすめします。`,
         [
           { text: 'キャンセル', style: 'cancel' },
           { 

@@ -20,11 +20,11 @@ function generateUUID() {
 }
 
 /**
- * レッスンデータをFirestoreに保存し、音声ファイルがある場合はStorageにアップロードする
+ * レッスンデータをFirestoreに保存する
  */
 export const saveLesson = async (
   formData: LessonFormData,
-  audioFile: { uri: string; name: string } | null,
+  audioFile: { uri: string; name: string } | null, // 音声ファイルを受け取れるように変更
   onProgress?: (progress: number) => void,
   onStatusChange?: (status: string, message: string) => void
 ): Promise<string> => {
@@ -52,6 +52,7 @@ export const saveLesson = async (
     onStatusChange?.('saving', 'レッスンデータを保存中...');
     
     const lessonUniqId = generateUUID(); // 固有のlessonUniqIdを生成
+    const hasAudioFile = audioFile && audioFile.uri && audioFile.name;
     
     // ドキュメントを作成（新規レッスン）
     const lessonData = {
@@ -59,121 +60,94 @@ export const saveLesson = async (
       user_id: userId,
       instrument: instrumentName, // 楽器情報を追加
       createdAt: new Date(),
-      status: 'pending',
+      // 音声ファイルがあれば処理中、なければ完了状態
+      status: hasAudioFile ? 'processing' : 'completed',
       audioUrl: '',
       lessonUniqId: lessonUniqId, // 固有のIDを保存
     };
     
     // Firestoreにドキュメントを作成（ユーザーベース構造）
-    console.log('Firestoreにレッスンデータを保存します', { teacherName: formData.teacherName, instrument: instrumentName, lessonUniqId });
+    console.log('Firestoreにレッスンデータを保存します', { 
+      teacherName: formData.teacherName, 
+      instrument: instrumentName, 
+      lessonUniqId,
+      hasAudio: !!hasAudioFile
+    });
+    
     const docRef = await addDoc(collection(db, `users/${userId}/lessons`), lessonData);
     const lessonId = docRef.id;
     console.log(`レッスンが作成されました。ID: ${lessonId}, instrument: ${instrumentName}, lessonUniqId: ${lessonUniqId}`);
     
-    // 音声ファイルがある場合は処理を続行
-    if (audioFile && audioFile.uri) {
+    // 処理ID生成
+    const timestamp = new Date().getTime();
+    const processingId = hasAudioFile 
+      ? `processing_${userId}_${timestamp}` 
+      : `completed_${userId}_${timestamp}`;
+    
+    // ドキュメントを更新してステータスとprocessingIdを設定
+    await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), {
+      status: hasAudioFile ? 'processing' : 'completed',
+      processingId: processingId,
+      processing_id: processingId, // 両方のフィールド名に対応
+      lessonUniqId: lessonUniqId,
+      updated_at: new Date()
+    });
+    
+    console.log(`レッスンステータスを更新しました。ID: ${lessonId}, Status: ${hasAudioFile ? 'processing' : 'completed'}, processingId: ${processingId}`);
+    
+    // 音声ファイルがある場合は処理を開始
+    if (hasAudioFile && audioFile) {
       onStatusChange?.('uploading', '音声ファイルをアップロード中...');
       
-      // タイムスタンプは一度だけ生成
-      const timestamp = new Date().getTime();
-      const fileExt = audioFile.name.split('.').pop() || 'mp3';
-      const fileName = `${lessonId}.${fileExt}`;
-      
-      // 一貫した処理IDを生成
-      const processingId = `lesson_${userId}_${timestamp}`;
-      
-      console.log(`レッスンID: ${lessonId} に対するファイル名を生成しました: ${fileName}`);
-      console.log(`処理ID: ${processingId}`);
-      
-      // 最初にドキュメントを更新して、音声処理前にファイルパスと処理IDを設定する
-      await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), {
-        status: 'uploading',
-        processingId: processingId,
-        audioFileName: fileName,
-        audioPath: `audio/${userId}/${fileName}`,
-        lessonUniqId: lessonUniqId
-      });
-      
-      // Storageにファイルをアップロード
-      const storageRef = ref(storage, `audio/${userId}/${fileName}`);
-      
-      // ファイルをフェッチ
-      const response = await fetch(audioFile.uri);
-      const blob = await response.blob();
-      
-      // アップロード処理
-      const uploadTask = uploadBytesResumable(storageRef, blob);
-      
-      return new Promise((resolve, reject) => {
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            onProgress?.(progress);
-          },
-          (error) => {
-            reject(error);
-          },
-          async () => {
-            try {
-              // メタデータを更新
-              await updateMetadata(storageRef, {
-                customMetadata: {
-                  lessonId,
-                  userId,
-                  lessonUniqId,  // メタデータにlessonUniqIdを追加
-                  instrument: instrumentName, // メタデータに楽器情報を追加
-                }
-              });
-              
-              // ダウンロードURLを取得
-              const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-              
-              // レッスンドキュメントを更新
-              await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), {
-                audioUrl: downloadUrl,
-                status: 'processing'
-              });
-              
-              // アップロード完了を通知 - クライアントにすぐにリダイレクトさせる
-              onStatusChange?.('audio_uploaded', 'アップロードが完了しました！');
-              
-              // バックグラウンドで音声処理を開始
-              processAudioFile(lessonId, audioFile.uri, audioFile.name, processingId)
-                .then(() => {
-                  console.log(`バックグラウンドでの音声処理が開始されました: ${lessonId}`);
-                })
-                .catch(error => {
-                  console.error('バックグラウンド処理エラー:', error);
-                });
-              
-              // アップロード完了後すぐにレッスンIDを返す
-              resolve(lessonId);
-            } catch (error) {
-              reject(error);
-            }
-          }
+      try {
+        // 音声処理を開始
+        console.log(`音声処理を開始します。ID: ${lessonId}, URI: ${audioFile.uri.substring(0, 30)}..., ファイル名: ${audioFile.name}`);
+        const result = await processAudioFile(
+          lessonId,
+          audioFile.uri,
+          audioFile.name,
+          processingId
         );
-      });
-    } else {
-      // 音声ファイルがない場合は、適切なステータスを設定
-      // これにより、サーバー側での重複処理を防止
-      const completedTimestamp = new Date().getTime();
-      const processingId = `completed_${userId}_${completedTimestamp}`;
-      
-      // ドキュメントを更新してlessonUniqIdとステータスを設定
-      await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), {
-        status: 'completed',
-        processingId: processingId,
-        processing_id: processingId, // 両方のフィールド名に対応
-        lessonUniqId: lessonUniqId,
-        updated_at: new Date()
-      });
-      
-      console.log(`音声なしレッスンを作成しました。ID: ${lessonId}, Status: completed, processingId: ${processingId}`);
+        
+        if (result.success) {
+          onStatusChange?.('processing', '音声ファイルを処理中...');
+          console.log(`音声処理が開始されました: ${lessonId}`);
+        } else {
+          // エラーの詳細を取得して表示
+          const errorMessage = (result.error instanceof Error) ? 
+            `${result.error.name}: ${result.error.message}` : 
+            JSON.stringify(result.error);
+          
+          console.error(`音声処理の開始に失敗しました: ${errorMessage}`);
+          onStatusChange?.('error', `音声処理の開始に失敗しました: ${errorMessage}`);
+          
+          // エラー時はステータスを更新
+          await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), {
+            status: 'error',
+            errorMessage: errorMessage || '不明なエラー',
+            updated_at: new Date()
+          });
+        }
+      } catch (uploadError) {
+        // エラーの詳細を取得して表示
+        const errorMessage = (uploadError instanceof Error) ? 
+          `${uploadError.name}: ${uploadError.message}` : 
+          JSON.stringify(uploadError);
+        
+        console.error(`音声アップロードエラー: ${errorMessage}`);
+        onStatusChange?.('error', `音声アップロードに失敗しました: ${errorMessage}`);
+        
+        // エラー時はステータスを更新
+        await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), {
+          status: 'error',
+          errorMessage: errorMessage || '不明なエラー',
+          updated_at: new Date()
+        });
+      }
     }
     
     return lessonId;
+    
   } catch (error) {
     console.error('レッスン保存エラー:', error);
     throw error;

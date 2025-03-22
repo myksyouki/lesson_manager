@@ -6,28 +6,51 @@ import {
   TouchableOpacity,
   Platform,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 import { LessonFormData } from '../../../../services/lessonService';
 import { TextField } from '../../../../components/ui/TextField';
 import { Button } from '../../../../components/ui/Button';
 import { Card, CardBody } from '../../../../components/ui/Card';
 import { useTheme } from '../../../../theme';
+import { formatDate } from '../../../../utils/dateUtils';
 
 interface FormInputsProps {
   formData: LessonFormData;
   onUpdateFormData: (data: Partial<LessonFormData>) => void;
   onShowCalendar: () => void;
+  isEditMode?: boolean;
+  openDatePicker: () => void;
 }
 
 const FormInputs: React.FC<FormInputsProps> = ({
   formData,
   onUpdateFormData,
   onShowCalendar,
+  isEditMode = false,
+  openDatePicker,
 }) => {
   const [newPiece, setNewPiece] = useState('');
   const [newTag, setNewTag] = useState('');
   const theme = useTheme();
+
+  // formDataのデバッグログ
+  React.useEffect(() => {
+    console.log('FormInputs formData:', formData);
+    console.log('FormInputs date:', formData.date);
+    // 日付が存在する場合は変換してみる
+    if (formData.date) {
+      try {
+        const dateObj = new Date(formData.date);
+        console.log('FormInputs 変換後の日付オブジェクト:', dateObj);
+        console.log('FormInputs 表示用フォーマット:', formatDate(dateObj));
+      } catch (err) {
+        console.error('日付変換エラー:', err);
+      }
+    }
+  }, [formData]);
 
   // 定義済みのタグリスト
   const predefinedTags = useMemo(() => 
@@ -123,7 +146,27 @@ const FormInputs: React.FC<FormInputsProps> = ({
           accessibilityHint="カレンダーから日付を選択するために押します"
         >
           <Text style={[styles.dateText, { color: theme.colors.text }]}>
-            {formData.date}
+            {(() => {
+              // 日付表示のための関数
+              try {
+                if (!formData.date) {
+                  return '日付を選択';
+                }
+                
+                const dateObj = new Date(formData.date);
+                
+                // 無効な日付の場合
+                if (isNaN(dateObj.getTime())) {
+                  console.error('無効な日付:', formData.date);
+                  return '日付を選択';
+                }
+                
+                return formatDate(dateObj);
+              } catch (err) {
+                console.error('日付表示エラー:', err);
+                return '日付を選択';
+              }
+            })()}
           </Text>
           <MaterialIcons 
             name="calendar-today" 
@@ -411,6 +454,72 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     padding: 16,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  multilineInput: {
+    height: 120,
+    textAlignVertical: 'top',
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  picker: {
+    height: 50,
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  modelInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  modelInfoText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+  },
+  uploadContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  uploadButtonText: {
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  uploadHint: {
+    fontSize: 14,
+    color: '#666',
   },
 });
 

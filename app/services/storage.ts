@@ -6,10 +6,16 @@ import { Platform } from 'react-native';
 // import { v4 as uuidv4 } from 'uuid';
 import { getFileHash } from './fileUtils';
 import type { UploadTaskSnapshot } from 'firebase/storage';
+import NetInfo from '@react-native-community/netinfo';
+import { Alert } from 'react-native';
 
 // Supported file types and size limits
 const SUPPORTED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/m4a', 'audio/x-m4a'];
-const MAX_FILE_SIZE = 1024 * 1024 * 500; // 500MB (90分の音声ファイルに対応)
+const MAX_FILE_SIZE = 1024 * 1024 * 100; // 100MB (90分の音声ファイルに対応)
+// 最大音声長: 90分
+const MAX_AUDIO_DURATION = 90 * 60; // 秒単位
+// Wi-Fi推奨の閾値
+const WIFI_RECOMMENDED_SIZE = 30 * 1024 * 1024; // 30MB
 
 // Upload audio file to Firebase Storage
 export interface UploadProgress {
@@ -34,6 +40,7 @@ export interface UploadResult {
 export const uploadAudioFile = async (
   uri: string,
   fileName: string,
+  lessonId?: string,
   onProgress?: (progress: UploadProgress) => void
 ): Promise<UploadResult> => {
   try {
@@ -84,6 +91,60 @@ export const uploadAudioFile = async (
       throw new Error(`ファイルサイズが上限（${MAX_FILE_SIZE / 1024 / 1024}MB）を超えています`);
     }
 
+    // 大きなファイル（30MB以上）かつWi-Fi接続がない場合はアラート表示
+    if (fileInfo.size > WIFI_RECOMMENDED_SIZE) {
+      const netInfoState = await NetInfo.fetch();
+      if (netInfoState.type !== 'wifi') {
+        return new Promise((resolve, reject) => {
+          Alert.alert(
+            'Wi-Fi接続の推奨',
+            `大きなファイル（${(fileInfo.size / (1024 * 1024)).toFixed(2)}MB）をアップロードしようとしています。モバイルデータ通信量を節約するため、Wi-Fi接続への切り替えをおすすめします。`,
+            [
+              { text: 'キャンセル', style: 'cancel', onPress: () => reject(new Error('ユーザーによるキャンセル')) },
+              { text: 'このまま続ける', onPress: () => {
+                // 続行処理（非同期関数を直接呼び出せないため、setTimeout使用）
+                setTimeout(async () => {
+                  try {
+                    // 続行処理
+                    const result = await continueUpload(validUri, fileName, fileInfo, lessonId, onProgress);
+                    resolve(result);
+                  } catch (error) {
+                    reject(error);
+                  }
+                }, 0);
+              }}
+            ]
+          );
+        });
+      }
+    }
+
+    // 通常のアップロード処理を続行
+    return await continueUpload(validUri, fileName, fileInfo, lessonId, onProgress);
+
+  } catch (error) {
+    console.error('Error uploading audio file:', error);
+    return {
+      success: false,
+      error,
+      metadata: {
+        fileSize: 0,
+        mimeType: '',
+        duration: 0
+      }
+    };
+  }
+};
+
+// アップロード処理の続行部分（コードの分割）
+async function continueUpload(
+  validUri: string, 
+  fileName: string, 
+  fileInfo: FileSystem.FileInfo & { size?: number }, 
+  lessonId?: string,
+  onProgress?: (progress: UploadProgress) => void
+): Promise<UploadResult> {
+  try {
     // Get file metadata
     const mimeType = await getMimeType(validUri);
     if (!SUPPORTED_TYPES.includes(mimeType)) {
@@ -115,7 +176,9 @@ export const uploadAudioFile = async (
     const uploadTask = uploadBytesResumable(fileRef, blob, {
       customMetadata: {
         uploadedAt: new Date().toISOString(),
-        originalFileName: fileName
+        originalFileName: fileName,
+        lessonId: lessonId || user.uid + '_' + Date.now(), // 指定されたレッスンIDまたは生成したIDを使用
+        userId: user.uid // ユーザーIDを追加
       }
     });
 
@@ -137,7 +200,7 @@ export const uploadAudioFile = async (
     // Get the public URL and metadata
     const publicUrl = await getDownloadURL(fileRef);
     const metadata = {
-      fileSize: fileInfo.size,
+      fileSize: fileInfo.size || 0,
       mimeType,
       duration: await getAudioDuration(validUri)
     };
@@ -150,18 +213,10 @@ export const uploadAudioFile = async (
       metadata
     };
   } catch (error) {
-    console.error('Error uploading audio file:', error);
-    return {
-      success: false,
-      error,
-      metadata: {
-        fileSize: 0,
-        mimeType: '',
-        duration: 0
-      }
-    };
+    console.error('Error in continueUpload:', error);
+    throw error;
   }
-};
+}
 
 // Get MIME type from file URI
 const getMimeType = async (uri: string): Promise<string> => {

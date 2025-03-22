@@ -14,8 +14,8 @@ export const processAudioServerSide = async (lessonId: string, audioPath: string
     // Update lesson status to processing
     await updateLessonStatus(lessonId, 'processing');
     
-    // Firebase Functionsを呼び出す
-    const processAudio = httpsCallable(functions, 'processAudio');
+    // Firebase Functionsを呼び出す（v2 API版）
+    const processAudio = httpsCallable(functions, 'processAudioV3FuncV2');
     const result = await processAudio({
       filePath: audioPath,
       userId: 'current-user-id', // 実際のユーザーIDに置き換える必要があります

@@ -41,7 +41,17 @@ export default function LessonDetail() {
 
     console.log(`レッスン詳細画面: ID ${params.id} のリアルタイム監視を開始します`);
 
-    const lessonRef = doc(db, 'lessons', params.id as string);
+    // 現在のユーザーIDを取得
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      console.error('ユーザーが認証されていません');
+      return;
+    }
+
+    // 正しいパスでレッスンデータにアクセス
+    const lessonRef = doc(db, `users/${userId}/lessons`, params.id as string);
+    console.log(`レッスンパス: users/${userId}/lessons/${params.id}`);
+    
     const unsubscribe = onSnapshot(lessonRef, (docSnapshot) => {
       if (docSnapshot.exists()) {
         const lessonData = docSnapshot.data();
@@ -72,6 +82,15 @@ export default function LessonDetail() {
         
         setCurrentLesson(updatedLesson);
         
+        // サマリーとタグのデバッグログ
+        console.log(`レッスン詳細: サマリーとタグ`, {
+          summaryLength: (lessonData.summary || '').length,
+          summaryPreview: (lessonData.summary || '').substring(0, 50) + '...',
+          tagsReceived: Array.isArray(lessonData.tags),
+          tagsCount: Array.isArray(lessonData.tags) ? lessonData.tags.length : 0,
+          tags: lessonData.tags
+        });
+        
         // 更新されたデータをフォームデータに反映
         setFormData(prevData => {
           const newData = {
@@ -90,7 +109,9 @@ export default function LessonDetail() {
           console.log(`フォームデータを更新:`, JSON.stringify({
             status: newData.status,
             summary: newData.summary ? '有り' : 'なし',
-            transcription: newData.transcription ? '有り' : 'なし'
+            summaryLength: newData.summary.length,
+            transcription: newData.transcription ? '有り' : 'なし',
+            tags: newData.tags
           }, null, 2));
           
           return newData;
@@ -110,10 +131,16 @@ export default function LessonDetail() {
       let updatedPieces = [...(formData.pieces || [])];
       
       // 現在のユーザーIDを取得
-      const userId = auth.currentUser?.uid || 'dummy-user-id';
+      const userId = auth.currentUser?.uid;
+      if (!userId) {
+        console.error('ユーザーが認証されていません');
+        Alert.alert('エラー', 'ユーザー認証が必要です');
+        return;
+      }
       
-      // レッスンドキュメントへの参照を取得
-      const lessonRef = doc(db, 'lessons', formData.id);
+      // レッスンドキュメントへの正しい参照を取得
+      const lessonRef = doc(db, `users/${userId}/lessons`, formData.id);
+      console.log(`レッスンの更新: users/${userId}/lessons/${formData.id}`);
       
       // 更新したレッスンデータをFirestoreに直接保存
       await updateDoc(lessonRef, {
@@ -144,8 +171,16 @@ export default function LessonDetail() {
 
   const handleToggleFavorite = async () => {
     try {
-      // レッスンドキュメントへの参照を取得
-      const lessonRef = doc(db, 'lessons', formData.id);
+      // 現在のユーザーIDを取得
+      const userId = auth.currentUser?.uid;
+      if (!userId) {
+        console.error('ユーザーが認証されていません');
+        Alert.alert('エラー', 'ユーザー認証が必要です');
+        return;
+      }
+      
+      // レッスンドキュメントへの正しい参照を取得
+      const lessonRef = doc(db, `users/${userId}/lessons`, formData.id);
       
       // お気に入り状態を反転
       const newFavoriteState = !formData.isFavorite;
@@ -178,8 +213,16 @@ export default function LessonDetail() {
 
   const handleDelete = async () => {
     try {
-      // レッスンドキュメントへの参照を取得
-      const lessonRef = doc(db, 'lessons', formData.id);
+      // 現在のユーザーIDを取得
+      const userId = auth.currentUser?.uid;
+      if (!userId) {
+        console.error('ユーザーが認証されていません');
+        Alert.alert('エラー', 'ユーザー認証が必要です');
+        return;
+      }
+      
+      // レッスンドキュメントへの正しい参照を取得
+      const lessonRef = doc(db, `users/${userId}/lessons`, formData.id);
       
       // 論理削除を実行（isDeletedフラグを設定）
       await updateDoc(lessonRef, {

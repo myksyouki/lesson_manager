@@ -7,11 +7,6 @@ import { useLessonStore } from '../store/lessons';
 import { auth } from '../config/firebase';
 import { router } from 'expo-router';
 
-interface SelectedFile {
-  uri: string;
-  name: string;
-}
-
 interface UseLessonFormReturn {
   formData: LessonFormData;
   isProcessing: boolean;
@@ -20,7 +15,7 @@ interface UseLessonFormReturn {
   lessonDocId: string | null;
   processingStatus: string | null;
   updateFormData: (data: Partial<LessonFormData>) => void;
-  handleSave: (selectedFile: SelectedFile | null) => Promise<string | null>;
+  handleSave: (selectedFile: { uri: string; name: string } | null) => Promise<string | null>;
   isFormValid: () => boolean;
 }
 
@@ -28,140 +23,158 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
   // フォームの状態
   const [formData, setFormData] = useState<LessonFormData>({
     teacherName: initialData?.teacherName || '',
-    date: initialData?.date || new Date().toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }).replace(/\s/g, ''),
+    date: initialData?.date || new Date().toISOString().split('T')[0],
     pieces: initialData?.pieces || [],
     notes: initialData?.notes || '',
     tags: initialData?.tags || [],
   });
   
   // 処理状態
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [processingStep, setProcessingStep] = useState<string>('');
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  
-  // レッスン保存
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState(''); 
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [lessonDocId, setLessonDocId] = useState<string | null>(null);
   const [processingStatus, setProcessingStatus] = useState<string | null>(null);
-  
-  const { addLesson } = useLessonStore();
+  // 保存中かどうかのフラグを追加
+  const [isSaving, setIsSaving] = useState(false);
 
-  // レッスンドキュメントの状態を監視
+  // グローバルストア
+  const addLesson = useLessonStore(state => state.addLesson);
+
+  // 進捗ハンドラー
+  const handleProgress = (progress: number) => {
+    setUploadProgress(progress);
+  };
+
+  // 状態変更ハンドラー
+  const handleStatusChange = (status: string, message: string) => {
+    setProcessingStep(status);
+    setProcessingStatus(message);
+  };
+
+  // ステータス監視
   useEffect(() => {
-    if (lessonDocId) {
-      const user = auth.currentUser;
-      if (!user) {
-        console.error("ユーザーがログインしていません");
-        return;
-      }
-      
-      const unsubscribe = onSnapshot(doc(db, `users/${user.uid}/lessons`, lessonDocId), (docSnapshot) => {
-        if (docSnapshot.exists()) {
-          const data = docSnapshot.data();
-          setProcessingStatus(data.status);
-          
-          // 処理状態に応じてメッセージを更新
-          switch (data.status) {
-            case 'processing':
-              setProcessingStep('音声ファイルを処理中...');
-              break;
-            case 'transcribed':
-              setProcessingStep('文字起こしが完了しました。要約を生成中...');
-              break;
-            case 'completed':
-              setProcessingStep('処理が完了しました！');
-              // 処理が完了したら1秒後に画面遷移
-              setTimeout(() => {
-                router.replace('/lessons' as any);
-              }, 1000);
-              break;
-            default:
-              setProcessingStep('処理中...');
+    if (!lessonDocId) return;
+
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+
+    const unsubscribe = onSnapshot(
+      doc(db, `users/${userId}/lessons`, lessonDocId),
+      (doc) => {
+        if (doc.exists()) {
+          const data = doc.data();
+          // ステータス更新処理
+          if (data.status === 'completed') {
+            setIsProcessing(false);
+            setProcessingStep('completed');
+            setProcessingStatus('処理完了しました');
+            
+            // グローバルストアに追加
+            addLesson({
+              ...data,
+              id: doc.id  // id プロパティをデータに追加
+            } as any);
+            
+            // 完了したらホームに戻る
+            setTimeout(() => {
+              router.replace('/(tabs)' as any);
+            }, 1000);
           }
         }
-      });
-      
-      return () => unsubscribe();
-    }
-  }, [lessonDocId]);
+      }
+    );
 
-  // フォームデータ更新ハンドラー
+    return () => unsubscribe();
+  }, [lessonDocId, addLesson]);
+
+  // フォームデータ更新
   const updateFormData = (data: Partial<LessonFormData>) => {
-    setFormData(prev => ({ ...prev, ...data }));
+    if (data.date && data.date.includes('年') && data.date.includes('月') && data.date.includes('日')) {
+      try {
+        const matches = data.date.match(/(\d+)年(\d+)月(\d+)日/);
+        if (matches && matches.length === 4) {
+          const [_, year, month, day] = matches;
+          const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          data = { ...data, date: isoDate };
+          console.log('日本語日付をISO形式に変換:', data.date, '->', isoDate);
+        }
+      } catch (err) {
+        console.error('日付変換エラー:', err);
+      }
+    }
+    
+    setFormData({ ...formData, ...data });
   };
 
   // フォームバリデーション
   const isFormValid = () => {
-    return formData.teacherName.trim() !== '' && formData.date.trim() !== '';
+    return !!formData.teacherName && !!formData.date;
   };
 
-  // 保存ハンドラー
-  const handleSave = async (selectedFile: SelectedFile | null): Promise<string | null> => {
+  // 保存処理
+  const handleSave = async (selectedFile: { uri: string; name: string } | null = null): Promise<string | null> => {
     if (!isFormValid()) {
-      setIsProcessing(false);
-      setProcessingStep('');
+      Alert.alert('入力エラー', '講師名とレッスン日は必須項目です');
       return null;
     }
 
-    setIsProcessing(true);
-    setProcessingStep(selectedFile ? '音声ファイルをアップロード中...' : 'レッスンを保存中...');
+    // 既に保存処理中なら重複保存を防止
+    if (isSaving) {
+      console.log('既に保存処理中です。重複保存を防止します。');
+      return null;
+    }
 
     try {
-      const docId = await saveLesson(
+      setIsSaving(true); // 保存開始
+      setIsProcessing(true);
+      setProcessingStep('saving');
+      setProcessingStatus('レッスンデータを保存中...');
+
+      if (selectedFile) {
+        console.log('音声ファイルが選択されています:', selectedFile.name);
+        setProcessingStep('上傳');
+        setProcessingStatus('音声ファイルをアップロード中...');
+      } else {
+        console.log('音声ファイルなしでレッスンを保存します');
+      }
+
+      // Firestoreにレッスンデータを保存
+      const lessonId = await saveLesson(
         formData,
-        selectedFile,
-        (progress) => {
-          setUploadProgress(progress);
-        },
-        (status) => {
-          setProcessingStatus(status);
-          if (status === 'audio_uploaded') {
-            setProcessingStep('アップロードが完了しました！');
-            // アップロードが完了したら1秒後に画面遷移
-            setTimeout(() => {
-              router.push('/lessons' as any);
-            }, 1000);
-          } else if (status === 'completed' && !selectedFile) {
-            setProcessingStep('レッスンを保存しました！');
-            // 音声ファイルがない場合も同様に遷移
-            setTimeout(() => {
-              router.push('/lessons' as any);
-            }, 1000);
-          } else if (status === 'processing') {
-            setProcessingStep('音声ファイルを処理中...');
-          } else if (status === 'transcribing') {
-            setProcessingStep('文字起こし中...');
-          } else if (status === 'summarizing') {
-            setProcessingStep('文字起こしが完了しました。要約を生成中...');
-          } else if (status === 'error') {
-            setProcessingStep('エラーが発生しました。もう一度お試しください。');
-            setIsProcessing(false);
-          }
-        }
+        selectedFile, // 選択されたファイルを渡す
+        handleProgress,
+        handleStatusChange
       );
 
-      setLessonDocId(docId);
-      return docId;
+      setLessonDocId(lessonId);
+
+      // 音声ファイルがない場合は即時リダイレクト
+      if (!selectedFile) {
+        console.log('音声処理なし: ホーム画面にリダイレクトします');
+        router.replace('/(tabs)' as any);
+      }
+
+      return lessonId;
     } catch (error) {
-      console.error('Error saving lesson:', error);
-      setProcessingStep('エラーが発生しました。もう一度お試しください。');
+      console.error('レッスン保存エラー:', error);
       setIsProcessing(false);
+      Alert.alert('エラー', '保存中にエラーが発生しました');
       return null;
+    } finally {
+      setIsSaving(false); // 保存完了または失敗
     }
   };
 
   return {
     formData,
     isProcessing,
-    processingStep,
+    processingStep, 
     uploadProgress,
     lessonDocId,
     processingStatus,
     updateFormData,
     handleSave,
-    isFormValid,
+    isFormValid
   };
 }; 

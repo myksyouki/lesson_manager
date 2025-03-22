@@ -13,8 +13,8 @@ export const processAudioWithFirebaseFunctions = async (lessonId: string, audioP
     // ステータスを処理中に更新
     await updateLessonStatus(lessonId, 'processing');
     
-    // Firebase Functionsを呼び出す
-    const processAudio = httpsCallable(functions, 'processAudio');
+    // Firebase Functionsを呼び出す（v2 API版）
+    const processAudio = httpsCallable(functions, 'processAudioV3FuncV2');
     const result = await processAudio({
       lessonId,
       filePath: audioPath,

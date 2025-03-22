@@ -114,31 +114,6 @@ export default function LessonsScreen() {
     }
   };
 
-  // 検索とフィルタリングの関数
-  const filteredLessons = lessons.filter(lesson => {
-    // 検索テキストでフィルタリング
-    const searchMatch = searchText === '' || 
-      lesson.teacher.toLowerCase().includes(searchText.toLowerCase()) ||
-      (lesson.pieces && lesson.pieces.some(piece => piece.toLowerCase().includes(searchText.toLowerCase())));
-    
-    // タグでフィルタリング
-    const tagMatch = selectedTags.length === 0 || 
-      (lesson.tags && selectedTags.every(tag => lesson.tags.includes(tag)));
-    
-    return searchMatch && tagMatch;
-  });
-
-  // デバッグ用のログ
-  useEffect(() => {
-    console.log('レッスン一覧状態:', {
-      isLoading,
-      lessonsCount: lessons.length,
-      filteredLessonsCount: filteredLessons.length,
-      searchText,
-      selectedTags
-    });
-  }, [isLoading, lessons.length, filteredLessons.length, searchText, selectedTags]);
-
   // Firestoreからのレッスンデータ取得
   useEffect(() => {
     const loadLessons = async () => {
@@ -155,8 +130,23 @@ export default function LessonsScreen() {
         // useLessonStoreのfetchLessons関数を使用してデータを取得
         await fetchLessons(auth.currentUser.uid);
         
-        console.log(`レッスン一覧: ${lessons.length}件のレッスンを取得しました`);
-        console.log('レッスンデータ:', JSON.stringify(lessons.map(l => ({ id: l.id, teacher: l.teacher, user_id: l.user_id })), null, 2));
+        // データ取得後の検証
+        if (lessons.length === 0) {
+          console.log('レッスン一覧: レッスンデータが見つかりませんでした');
+        } else {
+          console.log(`レッスン一覧: ${lessons.length}件のレッスンを取得しました`);
+          // 最初の数件のみサンプルとして表示
+          lessons.slice(0, 2).forEach((lesson, index) => {
+            console.log(`レッスン ${index + 1}:`, {
+              id: lesson.id,
+              teacher: lesson.teacher,
+              date: lesson.date,
+              pieces: lesson.pieces?.length || 0,
+              tags: lesson.tags?.length || 0
+            });
+          });
+        }
+        
         setIsLoading(false);
       } catch (error) {
         console.error('レッスン一覧: データ取得エラー', error);
@@ -166,6 +156,37 @@ export default function LessonsScreen() {
 
     loadLessons();
   }, [auth.currentUser?.uid, fetchLessons]);
+
+  // 検索とフィルタリングの関数
+  const filteredLessons = useMemo(() => {
+    return lessons.filter(lesson => {
+      // 検索テキストでフィルタリング
+      const searchMatch = searchText === '' || 
+        (lesson.teacher && lesson.teacher.toLowerCase().includes(searchText.toLowerCase())) ||
+        (lesson.pieces && Array.isArray(lesson.pieces) && lesson.pieces.some(piece => 
+          piece && piece.toLowerCase().includes(searchText.toLowerCase())
+        ));
+      
+      // タグでフィルタリング
+      const tagMatch = selectedTags.length === 0 || 
+        (lesson.tags && Array.isArray(lesson.tags) && selectedTags.every(tag => 
+          lesson.tags.includes(tag)
+        ));
+      
+      return searchMatch && tagMatch;
+    });
+  }, [lessons, searchText, selectedTags]);
+
+  // デバッグ用のログ
+  useEffect(() => {
+    console.log('レッスン一覧状態:', {
+      isLoading,
+      lessonsCount: lessons.length,
+      filteredLessonsCount: filteredLessons.length,
+      searchText: searchText ? `"${searchText}"` : '空',
+      selectedTags: selectedTags.length > 0 ? selectedTags.join(', ') : 'なし'
+    });
+  }, [isLoading, lessons.length, filteredLessons.length, searchText, selectedTags]);
 
   // タブがフォーカスされたときにレッスンデータを再取得
   useFocusEffect(

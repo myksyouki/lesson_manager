@@ -52,7 +52,7 @@ const AudioUploader: React.FC<AudioUploaderProps> = ({
       )}
       
       <Text style={styles.helperText}>
-        サポートされている形式: MP3, WAV, M4A (最大100MB)
+        サポートされている形式: MP3, WAV, M4A (最大100MB、最大90分)
       </Text>
     </View>
   );
