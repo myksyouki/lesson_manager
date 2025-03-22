@@ -19,6 +19,7 @@ interface ProcessAudioResult {
   tags?: string[];
   error?: any;
   errorDetails?: any; // エラー詳細情報用のプロパティを追加
+  message?: string; // クライアントへのメッセージ用フィールドを追加
 }
 
 // Process audio file: upload, transcribe, summarize, and save to Firestore
@@ -326,6 +327,40 @@ export const processAudioFile = async (
         ? { name: functionsError.name, message: functionsError.message, stack: functionsError.stack }
         : functionsError;
       
+      // deadline-exceededエラーの場合は処理が継続しているため、エラーとして扱わない
+      const isDeadlineExceeded = 
+        (functionsError instanceof Error && functionsError.message.includes('deadline-exceeded')) ||
+        (typeof functionsError === 'object' && 
+         functionsError !== null && 
+         'message' in functionsError && 
+         typeof functionsError.message === 'string' && 
+         functionsError.message.includes('deadline-exceeded'));
+      
+      if (isDeadlineExceeded) {
+        console.log('タイムアウトが発生しましたが、バックグラウンドで処理は継続しています');
+        
+        // レッスンドキュメントにステータス情報を更新
+        const existingLessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
+        const existingLessonSnap = await getDoc(existingLessonRef);
+        
+        if (existingLessonSnap.exists()) {
+          await updateDoc(existingLessonRef, {
+            status: 'processing', // 処理中のままにする
+            clientMessage: '処理時間が長いため、バックグラウンドで継続処理しています',
+            updated_at: serverTimestamp()
+          });
+        }
+        
+        // 成功として返す
+        processingLessons.delete(lessonId);
+        return { 
+          success: true, 
+          lessonId: lessonId,
+          message: '処理はバックグラウンドで継続されます'
+        };
+      }
+      
+      // その他のエラーの場合は通常のエラー処理を行う
       // 既存のドキュメントを再確認して更新する
       const existingLessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
       const existingLessonSnap = await getDoc(existingLessonRef);

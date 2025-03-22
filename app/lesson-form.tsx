@@ -114,7 +114,7 @@ export default function LessonForm() {
         />
       )}
       
-      {isProcessing && (
+      {isProcessing && processingStatus !== null && (
         <LoadingOverlay 
           message={processingStep}
           progress={uploadProgress}

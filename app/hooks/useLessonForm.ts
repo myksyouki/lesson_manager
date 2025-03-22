@@ -149,11 +149,14 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
 
       setLessonDocId(lessonId);
 
-      // 音声ファイルがない場合は即時リダイレクト
-      if (!selectedFile) {
-        console.log('音声処理なし: ホーム画面にリダイレクトします');
-        router.replace('/(tabs)' as any);
-      }
+      // リダイレクト前に処理中状態をクリアする
+      setIsProcessing(false);
+      setProcessingStep('');
+      setProcessingStatus(null);
+
+      // 音声ファイルの有無に関わらず、即時リダイレクト
+      console.log('レッスンデータを保存しました。レッスンタブにリダイレクトします');
+      router.replace('/(tabs)' as any);
 
       return lessonId;
     } catch (error) {
