@@ -6,8 +6,15 @@
 
 import axios from 'axios';
 import * as functions from 'firebase-functions/v1';
-import { difyApiUrl, difySummaryApiKey, difySummaryAppId } from './index';
+import { defineString, defineSecret } from 'firebase-functions/params';
 import { generateTags } from './gemini'; // Gemini API用の関数をインポート
+
+// Dify API関連の設定
+const difyApiUrl = defineString('DIFY_API_URL', {
+  default: 'https://api.dify.ai/v1'
+});
+const difySummaryApiKey = defineSecret('DIFY_SUMMARY_API_KEY');
+const difySummaryAppId = defineString('DIFY_SUMMARY_APP_ID');
 
 // 最大トランスクリプション長（文字数）
 const MAX_TRANSCRIPTION_LENGTH = 30000;
@@ -63,9 +70,11 @@ function splitTranscription(transcription: string, maxLength: number): string[] 
 export async function generateSummaryWithDify(
   transcription: string, 
   instrumentName: string,
-  lessonId: string
+  lessonId: string,
+  pieces?: string[], // レッスン曲情報を追加
+  aiInstructions?: string // AI指示を追加
 ): Promise<{summary: string, tags: string[], lessonId: string}> {
-  console.log(`Difyを使用して要約生成開始: ${instrumentName} (${transcription.length}文字), レッスンID: ${lessonId}`);
+  console.log(`Difyを使用して要約生成開始: ${instrumentName} (${transcription.length}文字), レッスンID: ${lessonId}, 曲: ${pieces?.join(', ') || 'なし'}, AI指示: ${aiInstructions || 'なし'}`);
 
   try {
     // 設定値を取得
@@ -97,15 +106,21 @@ export async function generateSummaryWithDify(
       const part = transcriptionParts[i];
       console.log(`[DEBUG-DIFY] パート${i+1}/${transcriptionParts.length}を処理中 (${part.length}文字)`);
       
+      // クエリの準備 - AI指示があればそれを使用、なければデフォルトのクエリ
+      const queryText = aiInstructions && aiInstructions.trim() !== '' 
+        ? aiInstructions.substring(0, 100) // 100文字までに制限
+        : transcription.substring(0, 30) + "...";
+      
       // リクエストデータを作成
       const requestData = {
-        query: transcription.substring(0, 30) + "...", // 文字数を100から30に短縮
+        query: queryText,
         app_id: appId,
         inputs: {
           transcription: part,
           instrument: instrumentName,
           lesson_id: lessonId,
-          part_info: transcriptionParts.length > 1 ? `パート ${i+1}/${transcriptionParts.length}` : undefined
+          part_info: transcriptionParts.length > 1 ? `パート ${i+1}/${transcriptionParts.length}` : undefined,
+          pieces: pieces && pieces.length > 0 ? pieces : undefined // 曲情報を追加
         },
         response_mode: 'blocking',
         response_format: 'json_schema', // JSONレスポンス形式を明示的に指定
@@ -138,6 +153,7 @@ export async function generateSummaryWithDify(
           key === 'transcription' ? `${value.length}文字の文字起こし` : 
           key === 'query' ? `${value.length}文字のクエリ` : value
         )}
+        曲情報: ${pieces ? pieces.join(', ') : 'なし'}
       `);
       
       // Dify APIにリクエスト送信

@@ -19,6 +19,15 @@ export const storage = admin.storage();
 export const openaiApiKey = defineSecret('OPENAI_API_KEY');
 export const geminiApiKey = defineSecret('GEMINI_API_KEY');
 
+// Dify API関連の設定
+// 注意: これらの定義はdify-client.tsに移動しました
+// 循環参照問題を解決するためにコメントアウト
+// export const difyApiUrl = defineString('DIFY_API_URL', {
+//   default: 'https://api.dify.ai/v1'
+// });
+// export const difySummaryApiKey = defineSecret('DIFY_SUMMARY_API_KEY');
+// export const difySummaryAppId = defineString('DIFY_SUMMARY_APP_ID');
+
 // 音声処理とAPI連携処理のインポート
 import { processAudio } from './audio-processors';
 
@@ -54,16 +63,38 @@ export const processAudioFuncV2 = onCall({
 });
 
 /**
- * v2 APIのエイリアス - 互換性のために提供
+ * v3 API - 単独で定義して循環参照を回避
  * クライアント側の実装変更なしでv2機能を使用できるようにします
  */
-export const processAudioV3FuncV2 = processAudioFuncV2;
+export const processAudioV3FuncV2 = onCall({
+  region: 'asia-northeast1',
+  timeoutSeconds: 3600,
+  memory: '8GiB',
+  cpu: 4,
+  minInstances: 0,
+  maxInstances: 10
+}, async (request) => {
+  const { data } = request;
+  return processAudio(data, request);
+});
 
-// Admin API関数のエクスポート
-export const adminFunctions = {
-  listInstrumentKnowledge,
-  getInstrumentKnowledge,
-  deleteInstrumentKnowledge,
-  getSupportedInstruments,
-  getKnowledgeTemplate
-};
+// 管理機能のエクスポート（直接関数をエクスポート）
+export const adminListInstrumentKnowledge = functions
+  .region('asia-northeast1')
+  .https.onCall(listInstrumentKnowledge);
+
+export const adminGetInstrumentKnowledge = functions
+  .region('asia-northeast1')
+  .https.onCall(getInstrumentKnowledge);
+
+export const adminDeleteInstrumentKnowledge = functions
+  .region('asia-northeast1')
+  .https.onCall(deleteInstrumentKnowledge);
+
+export const adminGetSupportedInstruments = functions
+  .region('asia-northeast1')
+  .https.onCall(getSupportedInstruments);
+
+export const adminGetKnowledgeTemplate = functions
+  .region('asia-northeast1')
+  .https.onCall(getKnowledgeTemplate);

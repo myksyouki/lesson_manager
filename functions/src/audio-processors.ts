@@ -20,6 +20,7 @@ import axios from 'axios';
 
 import { transcribeAudioWithWhisper, transcribeAudioChunks } from './whisper';
 import { generateSummaryWithKnowledgeBase } from './genkit';
+import { generateSummaryWithDify } from './dify-client';
 
 // Promiseベースの関数
 const fsPromises = fs.promises;
@@ -126,10 +127,24 @@ export async function processAudio(data: any, contextOrRequest?: functions.https
       });
       
       try {
+        // レッスンデータからレッスン曲情報を取得
+        const lessonDoc = await lessonRef.get();
+        const lessonData = lessonDoc.data();
+        const pieces = lessonData?.pieces || [];
+        const aiInstructions = lessonData?.aiInstructions;
+        
+        console.log(`レッスン曲情報を取得: ${pieces.length}曲`, pieces);
+        if (aiInstructions) {
+          console.log(`AI指示を取得: ${aiInstructions}`);
+        }
+        
         // OpenAI/Geminiによる要約とタグの生成
-        const { summary, tags } = await generateSummaryWithKnowledgeBase(
+        const { summary, tags } = await generateSummaryWithDify(
           transcription,
-          instrumentName || 'general'
+          instrumentName || 'general',
+          lessonId,
+          pieces,
+          aiInstructions
         );
         
         console.log(`要約生成成功: summary=${summary.length}文字, tags=${JSON.stringify(tags)}`);
