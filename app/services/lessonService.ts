@@ -148,6 +148,18 @@ export const saveLesson = async (
         if (result.success) {
           onStatusChange?.('processing', '音声ファイルを処理中...');
           console.log(`音声処理が開始されました: ${lessonId}`);
+          
+          // 後で非同期処理が完了したときにエラーを表示しないよう、明示的にステータスを更新
+          await updateDoc(doc(db, `users/${userId}/lessons`, lessonId), {
+            status: 'processing',
+            clientMessage: 'レッスン処理を開始しました。完了までお待ちください。',
+            updated_at: new Date()
+          });
+          
+          // shouldRedirectフラグが設定されていれば即時リダイレクト
+          if (result.shouldRedirect) {
+            console.log('リダイレクトフラグが設定されています。すぐにリダイレクトします。');
+          }
         } else {
           // エラーの詳細を取得して表示
           const errorMessage = (result.error instanceof Error) ? 

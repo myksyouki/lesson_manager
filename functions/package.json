@@ -16,7 +16,9 @@
   "main": "lib/index.js",
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@google-cloud/secret-manager": "^6.0.1",
     "@google-cloud/speech": "^7.0.1",
+    "@google-cloud/vertexai": "^1.9.3",
     "@google/generative-ai": "^0.24.0",
     "@types/express": "^5.0.0",
     "axios": "^1.6.7",

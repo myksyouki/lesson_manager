@@ -20,6 +20,7 @@ interface ProcessAudioResult {
   error?: any;
   errorDetails?: any; // エラー詳細情報用のプロパティを追加
   message?: string; // クライアントへのメッセージ用フィールドを追加
+  shouldRedirect: boolean;
 }
 
 // Process audio file: upload, transcribe, summarize, and save to Firestore
@@ -40,6 +41,7 @@ export const processAudioFile = async (
         return {
           success: true,
           lessonId: lessonId,
+          shouldRedirect: false
         };
       }
     }
@@ -111,7 +113,7 @@ export const processAudioFile = async (
           });
           
           // Firebase Functions APIを直接呼び出し
-          const processAudio = httpsCallable(functions, 'processAudioV3FuncV2');
+          const processAudio = httpsCallable(functions, 'processAudio');
           console.log('Firebase Functions 呼び出しパラメータ:', {
             audioUrl,
             lessonId,
@@ -128,7 +130,7 @@ export const processAudioFile = async (
             : '';
           
           // 呼び出しパラメータをロギングして確認
-          console.log('processAudioV3FuncV2関数を呼び出し中...', JSON.stringify({
+          console.log('processAudio関数を呼び出し中...', JSON.stringify({
             audioUrl, lessonId, userId: user.uid, instrumentName: lessonData.instrument || 'standard', 
             pieces: piecesData, 
             aiInstructions: aiInstructions
@@ -168,7 +170,8 @@ export const processAudioFile = async (
                 success: false,
                 lessonId: lessonId,
                 error: updatedLessonData.error || '処理エラー',
-                errorDetails: updatedLessonData.errorDetails || '詳細不明'
+                errorDetails: updatedLessonData.errorDetails || '詳細不明',
+                shouldRedirect: false
               };
             }
             
@@ -186,7 +189,8 @@ export const processAudioFile = async (
           return { 
             success: true, 
             lessonId: lessonId,
-            lessonUniqId: lessonUniqId
+            lessonUniqId: lessonUniqId,
+            shouldRedirect: false
           };
         }
       }
@@ -287,7 +291,7 @@ export const processAudioFile = async (
     
     try {
       // Firebase Functions APIを直接呼び出し
-      const processAudio = httpsCallable(functions, 'processAudioV3FuncV2');
+      const processAudio = httpsCallable(functions, 'processAudio');
       console.log('Firebase Functions 呼び出しパラメータ:', {
         audioUrl,
         lessonId,
@@ -303,7 +307,7 @@ export const processAudioFile = async (
         ? lessonSnapshot.data().aiInstructions
         : '';
       // 呼び出しパラメータをロギングして確認
-      console.log('processAudioV3FuncV2関数を呼び出し中...', JSON.stringify({
+      console.log('processAudio関数を呼び出し中...', JSON.stringify({
         audioUrl, lessonId, userId: user.uid, instrumentName, 
         pieces: piecesData, 
         aiInstructions: aiInstructions
@@ -343,7 +347,8 @@ export const processAudioFile = async (
             success: false,
             lessonId: lessonId,
             error: updatedLessonData.error || '処理エラー',
-            errorDetails: updatedLessonData.errorDetails || '詳細不明'
+            errorDetails: updatedLessonData.errorDetails || '詳細不明',
+            shouldRedirect: false
           };
         }
         
@@ -388,10 +393,13 @@ export const processAudioFile = async (
         
         // 成功として返す
         processingLessons.delete(lessonId);
+        
+        // レッスンタブへのリダイレクトフラグを設定
         return { 
           success: true, 
           lessonId: lessonId,
-          message: '処理はバックグラウンドで継続されます'
+          message: '処理はバックグラウンドで継続されます',
+          shouldRedirect: true
         };
       }
       
@@ -424,7 +432,8 @@ export const processAudioFile = async (
       return { 
         success: true, // ユーザーエクスペリエンス向上のため、成功として扱う
         lessonId: lessonId,
-        message: 'リクエストは送信されましたが、処理に時間がかかっています。後でレッスン一覧を確認してください。'
+        message: 'リクエストは送信されましたが、処理に時間がかかっています。後でレッスン一覧を確認してください。',
+        shouldRedirect: false
       };
     }
     
@@ -434,6 +443,7 @@ export const processAudioFile = async (
     return { 
       success: true, 
       lessonId: lessonId,
+      shouldRedirect: false
     };
   } catch (error) {
     console.error('音声処理エラー:', error);
@@ -467,7 +477,8 @@ export const processAudioFile = async (
       success: false, 
       lessonId,
       error,
-      errorDetails
+      errorDetails,
+      shouldRedirect: false
     };
   }
 };

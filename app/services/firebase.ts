@@ -4,11 +4,10 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { collection, addDoc, updateDoc, doc, serverTimestamp, getDoc } from "firebase/firestore";
 import { Platform } from "react-native";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import firebaseApp from "../config/firebase";
 
-// Firebase Functionsの初期化
-const functions = getFunctions();
-// アジアリージョンを指定
-functions.region = "asia-northeast1";
+// Firebase Functionsの初期化 - 既に初期化されたアプリを使用
+const functions = getFunctions(firebaseApp, "asia-northeast1");
 
 // レッスンデータを取得するための関数
 const getLessonDataFunction = httpsCallable(functions, "getLessonData");
@@ -30,14 +29,22 @@ export const checkFirebaseConnection = async () => {
 export const uploadAudioFile = async (uri: string, fileName: string) => {
   try {
     // For web, the uri is already a blob
-    let blob;
+    let blob: Blob;
     
     if (Platform.OS !== "web") {
       // For native platforms, convert uri to blob
       const response = await fetch(uri);
       blob = await response.blob();
     } else {
-      blob = uri;
+      // For web, uri should already be a Blob
+      if (typeof uri === 'string') {
+        // 文字列の場合は、Blobに変換する必要がある
+        const response = await fetch(uri);
+        blob = await response.blob();
+      } else {
+        // すでにBlobの場合は直接使用
+        blob = uri as unknown as Blob;
+      }
     }
 
     // Create a storage reference

@@ -36,20 +36,21 @@ export async function generateTags(
     
     // タグ生成のためのプロンプト
     const prompt = `
-以下は楽器レッスンの文字起こしです。この内容を表すタグを5～10個生成してください。
+以下は楽器レッスンの要約です。この内容から重要なキーワードを3つ抽出してください。
+各キーワードは単語単位（1〜2単語まで）で、レッスン内容で最も重要な要素を表すものにしてください。
+
 楽器の種類: ${instrumentName}
 
-文字起こし:
+要約テキスト:
 ${text.length > 3000 ? text.substring(0, 3000) + '...(省略)' : text}
 
-タグとしては、レッスンで扱われた楽曲名、テクニック、音楽用語、レベル、感情表現などが適切です。
 回答は以下のようなJSONフォーマットで返してください:
 
 {
-  "tags": ["タグ1", "タグ2", "タグ3", ...]
+  "tags": ["タグ1", "タグ2", "タグ3"]
 }
 
-タグは単語または短いフレーズにし、それぞれ日本語で20文字以内にしてください。
+必ず3つのタグを生成してください。各タグは単語または短いフレーズで、日本語で表してください。
 `;
     
     // Gemini APIを呼び出し
@@ -62,10 +63,11 @@ ${text.length > 3000 ? text.substring(0, 3000) + '...(省略)' : text}
     if (jsonMatch) {
       try {
         const jsonData = JSON.parse(jsonMatch[0]);
-        if (Array.isArray(jsonData.tags)) {
+        if (Array.isArray(jsonData.tags) && jsonData.tags.length > 0) {
+          // 最大3つのタグを返す
           return {
             success: true,
-            tags: jsonData.tags.slice(0, 15) // 最大15個までに制限
+            tags: jsonData.tags.slice(0, 3)
           };
         }
       } catch (parseError) {
@@ -81,9 +83,22 @@ ${text.length > 3000 ? text.substring(0, 3000) + '...(省略)' : text}
         .filter(tag => tag.length > 0 && tag.length <= 20);
       
       if (extractedTags.length > 0) {
+        // タグが3つ未満の場合は楽器名などで補う
+        const tags = [...extractedTags];
+        while (tags.length < 3) {
+          if (!tags.includes(instrumentName)) {
+            tags.push(instrumentName);
+          } else if (!tags.includes('レッスン')) {
+            tags.push('レッスン');
+          } else {
+            tags.push('練習');
+            break;
+          }
+        }
+        
         return {
           success: true,
-          tags: extractedTags.slice(0, 15) // 最大15個までに制限
+          tags: tags.slice(0, 3) // 最大3つまでに制限
         };
       }
     }
@@ -92,7 +107,7 @@ ${text.length > 3000 ? text.substring(0, 3000) + '...(省略)' : text}
     console.warn('[Gemini] タグを抽出できませんでした:', textResponse);
     return {
       success: false,
-      tags: [],
+      tags: [instrumentName, 'レッスン', '音楽'],
       error: 'タグを生成できませんでした'
     };
     
@@ -100,7 +115,7 @@ ${text.length > 3000 ? text.substring(0, 3000) + '...(省略)' : text}
     console.error('[Gemini] タグ生成エラー:', error);
     return {
       success: false,
-      tags: [],
+      tags: [instrumentName, 'レッスン', '音楽'],
       error: error instanceof Error ? error.message : '不明なエラー'
     };
   }

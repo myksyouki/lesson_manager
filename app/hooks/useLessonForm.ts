@@ -185,7 +185,7 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
 
       // 音声ファイルの有無に関わらず、即時リダイレクト
       console.log('レッスンデータを保存しました。レッスンタブにリダイレクトします');
-      router.replace('/(tabs)' as any);
+      router.push('/(tabs)/lessons' as any);
 
       return lessonId;
     } catch (error) {

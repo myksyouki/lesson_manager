@@ -113,8 +113,7 @@ export async function generateSummaryWithDify(
           instrument: instrumentName,
           lesson_id: lessonId,
           part_info: transcriptionParts.length > 1 ? `パート ${i+1}/${transcriptionParts.length}` : undefined,
-          pieces: pieces && pieces.length > 0 ? JSON.stringify(pieces) : undefined, // 曲情報を文字列化して追加
-          aiInstructions: aiInstructions && aiInstructions.trim() !== '' ? aiInstructions : undefined // AI指示を追加
+          pieces: pieces && pieces.length > 0 ? JSON.stringify(pieces) : undefined // 曲情報を文字列化して追加
         },
         response_mode: 'blocking',
         response_format: 'json_schema', // JSONレスポンス形式を明示的に指定
@@ -207,10 +206,17 @@ export async function generateSummaryWithDify(
         partSummary = difyResponse.answer;
       }
       
-      // 要約が空の場合はエラー
-      if (!partSummary) {
-        partSummary = difyResponse.answer || '要約なし';
-        console.warn(`[DEBUG-DIFY] 要約が空のため、全回答を使用: ${partSummary.length}文字`);
+      // 要約が空または極端に短い場合はエラー
+      if (!partSummary || partSummary.length < 30) {
+        console.error(`[DEBUG-DIFY] エラー: 要約が極端に短いまたは空です (${partSummary.length}文字): "${partSummary}"`);
+        
+        // 再試行のためのエラー
+        if (i < transcriptionParts.length - 1) {
+          console.log('[DEBUG-DIFY] 処理を続行して次のパートを試みます');
+          continue;
+        }
+        
+        throw new Error(`要約生成が極端に短くなりました(${partSummary.length}文字)。再試行してください。`);
       }
       
       combinedSummary += (combinedSummary ? '\n\n' : '') + partSummary;

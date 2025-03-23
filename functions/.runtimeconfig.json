@@ -1,0 +1,17 @@
+{
+  "dify": {
+    "api_url": "https://api.dify.ai/v1",
+    "summary_app_id": "b5b22025-63e0-484c-9f3c-2b7e7117d083",
+    "summary_api_key": "app-4Nv36yDVODLohmEyzr7wCMqt",
+    "standard_api_key": "your-standard-api-key-here",
+    "standard_app_id": "your-standard-app-id-here",
+    "saxophone_artist_api_key": "your-saxophone-artist-api-key-here",
+    "saxophone_artist_app_id": "your-saxophone-artist-app-id-here"
+  },
+  "gemini": {
+    "api_key": "AIzaSyCaqljPm7Z5oiGBdEZA4z0y7qda1kECwUk"
+  },
+  "openai": {
+    "api_key": "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"
+  }
+}

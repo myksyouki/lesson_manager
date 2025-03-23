@@ -20,6 +20,8 @@ export interface LessonSummaryResponse {
   summary?: string;
   tags?: string[];
   error?: string;
+  message?: string;
+  timestamp?: string;
 }
 
 // 楽器ごとのサマリー作成用のプロンプト設定
@@ -70,17 +72,18 @@ export const testFunctionsConnection = async (): Promise<any> => {
   try {
     console.log('Firebase Functionsの疎通確認を開始します');
     
-    const functions = getFunctions();
-    const healthCheckFunction = httpsCallable(functions, 'healthCheck');
+    const functions = getFunctions(undefined, 'asia-northeast1');
+    const helloWorldFunction = httpsCallable(functions, 'helloWorld');
     
-    console.log('healthCheck関数を呼び出します');
-    const result = await healthCheckFunction({ test: true });
+    console.log('helloWorld関数を呼び出します');
+    const result = await helloWorldFunction({ test: true });
     
-    console.log('healthCheck関数からの応答:', result.data);
+    console.log('helloWorld関数からの応答:', result.data);
     return result.data;
   } catch (error: any) {
     console.error('Firebase Functions疎通確認エラー:', error);
     console.error('エラー詳細:', {
+      name: error.name,
       code: error.code,
       message: error.message,
       details: error.details
@@ -91,9 +94,9 @@ export const testFunctionsConnection = async (): Promise<any> => {
 };
 
 /**
- * レッスン音声を送信してサマリーを作成する関数
+ * シンプルなレッスンサマリー作成関数（テスト用）
  * @param audioFile 音声ファイル（Blobまたはファイル）
- * @param modelType モデルタイプ（例：woodwind-clarinet-standard）
+ * @param modelType モデルタイプ
  * @param lessonId レッスンID
  * @returns レッスンサマリーレスポンス
  */
@@ -119,7 +122,7 @@ export const createLessonSummary = async (
     // Firestoreにレコードを作成/更新
     const lessonRef = doc(db, `users/${userId}/lessons/${lessonId}`);
     
-    // まずドキュメントが存在することを確認（ないと update が失敗する）
+    // ドキュメントを作成/更新
     await setDoc(lessonRef, {
       modelType,
       status: 'uploading',
@@ -136,11 +139,7 @@ export const createLessonSummary = async (
     console.log('音声ファイルをアップロード中...', { audioPath });
     await uploadBytes(audioRef, audioFile);
     const audioUrl = await getDownloadURL(audioRef);
-    console.log('音声ファイルのアップロード完了', { audioUrl: audioUrl.substring(0, 20) + '...' });
-    
-    // Firebase Functionsを呼び出す
-    const functions = getFunctions();
-    const createLessonSummaryFunction = httpsCallable(functions, 'createLessonSummary');
+    console.log('音声ファイルのアップロード完了:', { audioUrl: audioUrl.substring(0, 20) + '...' });
     
     // レッスンのステータスを更新
     await updateDoc(lessonRef, { 
@@ -148,23 +147,42 @@ export const createLessonSummary = async (
       audioUrl
     });
     
-    console.log('createLessonSummary関数を呼び出します', { lessonId, audioUrl: audioUrl.substring(0, 20) + '...' });
+    // 新しいprocessAudio関数を呼び出す
+    const functions = getFunctions(undefined, 'asia-northeast1');
+    const processAudioFunction = httpsCallable<any, any>(functions, 'processAudio');
     
-    // Firebase関数を呼び出す
-    const result = await createLessonSummaryFunction({
+    // modelTypeから楽器名を抽出 (例: woodwind-clarinet-standard → clarinet)
+    let instrumentName = 'standard';
+    if (modelType) {
+      const parts = modelType.split('-');
+      if (parts.length > 1) {
+        instrumentName = parts[1];
+      }
+    }
+    
+    console.log('processAudio関数を呼び出します', { lessonId, instrumentName, modelType });
+    const result = await processAudioFunction({
       lessonId,
       audioUrl,
-      modelType
+      userId,
+      modelType,
+      instrumentName
     });
     
-    console.log('createLessonSummary関数からの応答:', result.data);
+    console.log('processAudio関数からの応答:', result.data);
     
-    // @ts-ignore
-    return result.data as LessonSummaryResponse;
+    // 結果を返す
+    return {
+      success: true,
+      summary: (result.data as any).summaryLength ? '要約が生成されました' : '処理中...',
+      message: (result.data as any).message || '音声処理が開始されました',
+      timestamp: new Date().toISOString()
+    };
     
   } catch (error: any) {
     console.error('レッスンサマリー作成エラー:', error);
     console.error('エラー詳細:', {
+      name: error.name,
       code: error.code,
       message: error.message,
       details: error.details

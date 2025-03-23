@@ -34,7 +34,7 @@ const auth = getAuth(firebaseApp);
 export const db = getFirestore(firebaseApp);
 export const storage = getStorage(firebaseApp);
 // Firebase Functionsの設定を更新：明示的にリージョンを指定
-export const functions = getFunctions(firebaseApp);
+export const functions = getFunctions(firebaseApp, 'asia-northeast1');
 // 新しいインスタンスを再作成して完全にリセット
 export { auth };
 
