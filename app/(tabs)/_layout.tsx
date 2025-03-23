@@ -204,7 +204,7 @@ export default function TabLayout() {
           } else if (route.name === 'ai-lesson') {
             iconName = 'smart-toy';
           } else if (route.name === 'schedule') {
-            iconName = 'calendar-today';
+            iconName = 'insights';
           } else if (route.name === 'settings') {
             iconName = 'settings';
           }
@@ -259,7 +259,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="schedule"
         options={{
-          title: 'スケジュール',
+          title: '分析',
         }}
       />
       <Tabs.Screen
