@@ -54,8 +54,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      const tasksRef = collection(db, 'tasks');
-      const q = query(tasksRef, where('userId', '==', userId), orderBy('updatedAt', 'desc'));
+      // ユーザーベースの構造を使用
+      const tasksRef = collection(db, `users/${userId}/tasks`);
+      const q = query(tasksRef, orderBy('updatedAt', 'desc'));
       const querySnapshot = await getDocs(q);
 
       const tasks = querySnapshot.docs.map(doc => {
@@ -99,23 +100,26 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         userId: user.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        attachments: taskData.attachments || [],
-        isPinned: false
+        isCompleted: false,
       };
 
-      const docRef = await addDoc(collection(db, 'tasks'), task);
+      // ユーザーベースの構造を使用
+      const docRef = await addDoc(collection(db, `users/${user.uid}/tasks`), task);
       
       // 新しいタスクをstateに追加
-      const newTask: Task = { 
-        id: docRef.id, 
+      const newTask: Task = {
+        id: docRef.id,
         ...taskData,
+        userId: user.uid,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        isPinned: false
+        isCompleted: false,
+        completed: false,
+        isPinned: false,
       };
 
-      set((state) => ({
-        tasks: [newTask, ...state.tasks],
+      set(state => ({
+        tasks: [...state.tasks, newTask],
         isLoading: false
       }));
 
@@ -127,19 +131,25 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  updateTask: async (id, taskData) => {
+  updateTask: async (id, updates) => {
     try {
       set({ isLoading: true, error: null });
-
-      const taskRef = doc(db, 'tasks', id);
+      
+      const user = auth.currentUser;
+      if (!user) throw new Error('ユーザーが認証されていません');
+      
+      // ユーザーベースの構造を使用
+      const taskRef = doc(db, `users/${user.uid}/tasks`, id);
+      
       await updateDoc(taskRef, {
-        ...taskData,
+        ...updates,
         updatedAt: serverTimestamp()
       });
 
-      set((state) => ({
-        tasks: state.tasks.map((task) =>
-          task.id === id ? { ...task, ...taskData, updatedAt: new Date().toISOString() } : task
+      // stateを更新
+      set(state => ({
+        tasks: state.tasks.map(task => 
+          task.id === id ? { ...task, ...updates, updatedAt: new Date().toISOString() } : task
         ),
         isLoading: false
       }));
@@ -152,11 +162,17 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   deleteTask: async (id) => {
     try {
       set({ isLoading: true, error: null });
+      
+      const user = auth.currentUser;
+      if (!user) throw new Error('ユーザーが認証されていません');
+      
+      // ユーザーベースの構造を使用
+      const taskRef = doc(db, `users/${user.uid}/tasks`, id);
+      await deleteDoc(taskRef);
 
-      await deleteDoc(doc(db, 'tasks', id));
-
-      set((state) => ({
-        tasks: state.tasks.filter((task) => task.id !== id),
+      // stateから削除
+      set(state => ({
+        tasks: state.tasks.filter(task => task.id !== id),
         isLoading: false
       }));
     } catch (error: any) {
@@ -165,7 +181,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  generateTasksFromLessons: async (userId, monthsBack = 3) => {
+  generateTasksFromLessons: async (userId, monthsBack) => {
     try {
       set({ isLoading: true, error: null });
       
@@ -174,11 +190,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const startDate = new Date();
       startDate.setMonth(currentDate.getMonth() - monthsBack);
       
-      // レッスンデータを取得
-      const lessonsRef = collection(db, 'lessons');
+      // レッスンデータを取得（ユーザーベースの構造）
+      const lessonsRef = collection(db, `users/${userId}/lessons`);
       const q = query(
         lessonsRef, 
-        where('user_id', '==', userId),
         orderBy('created_at', 'desc')
       );
       
@@ -302,8 +317,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         throw new Error('タスクが見つかりません');
       }
       
-      // Firestoreのタスクを更新
-      const taskRef = doc(db, 'tasks', id);
+      const user = auth.currentUser;
+      if (!user) throw new Error('ユーザーが認証されていません');
+      
+      // ユーザーベースの構造を使用
+      const taskRef = doc(db, `users/${user.uid}/tasks`, id);
       await updateDoc(taskRef, {
         isCompleted: true,
         completedAt: serverTimestamp(),
@@ -323,9 +341,25 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         isLoading: false
       }));
       
-      // 完了したタスクの情報を返す
-      const category = task.tags && task.tags.length > 0 ? task.tags[0] : '';
+      // 完了履歴に追加
+      const now = new Date().toISOString();
+      const completionHistory: TaskCompletionHistory = {
+        taskId: id,
+        taskTitle: task.title,
+        completedAt: now,
+        category: task.tags?.[0] || 'その他'
+      };
+      
+      set((state) => ({
+        taskCompletionHistory: [
+          ...state.taskCompletionHistory,
+          completionHistory
+        ]
+      }));
+      
+      // 統計情報を返す
       const completionCount = get().getTaskCompletionCount(task.title) + 1;
+      const category = task.tags?.[0] || 'その他';
       
       return {
         taskTitle: task.title,
@@ -339,219 +373,162 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  // タスクの完了状態を切り替える
   toggleTaskCompletion: (taskId: string) => {
-    set((state) => {
-      const updatedTasks = state.tasks.map((task) => {
-        if (task.id === taskId) {
-          // タスクが完了状態になる場合、完了日時を記録
-          const now = new Date();
-          const completedAt = task.completed ? undefined : now.toISOString();
-          
-          // タスク完了履歴に追加
-          if (!task.completed) {
-            const taskCompletionHistory = [...state.taskCompletionHistory];
-            taskCompletionHistory.push({
-              taskId,
-              taskTitle: task.title,
-              completedAt: now.toISOString(),
-              category: task.tags && task.tags.length > 0 ? task.tags[0] : undefined
-            });
-            state.taskCompletionHistory = taskCompletionHistory;
-          }
-          
-          return {
-            ...task,
-            completed: !task.completed,
-            completedAt
-          };
-        }
-        return task;
-      });
-      
-      return { ...state, tasks: updatedTasks };
-    });
+    const task = get().tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    if (task.isCompleted) {
+      // タスクが完了状態の場合、未完了に戻す
+      get().updateTask(taskId, { isCompleted: false });
+    } else {
+      // タスクが未完了状態の場合、完了にする
+      get().completeTask(taskId);
+    }
   },
 
-  // 連続達成日数を取得
   getTaskStreakCount: () => {
-    const state = get();
-    if (state.taskCompletionHistory.length === 0) {
-      return 0;
-    }
+    const { taskCompletionHistory } = get();
+    if (taskCompletionHistory.length === 0) return 0;
     
-    // 日付ごとにグループ化
-    const completionsByDate: Record<string, boolean> = {};
-    state.taskCompletionHistory.forEach(history => {
-      const date = new Date(history.completedAt).toISOString().split('T')[0];
-      completionsByDate[date] = true;
+    // 完了日ごとにタスクをグループ化
+    const completionsByDate: Record<string, number> = {};
+    
+    taskCompletionHistory.forEach(history => {
+      const date = new Date(history.completedAt).toLocaleDateString('ja-JP');
+      if (!completionsByDate[date]) {
+        completionsByDate[date] = 0;
+      }
+      completionsByDate[date]++;
     });
     
-    // 日付の配列を作成して降順にソート
-    const dates = Object.keys(completionsByDate).sort((a, b) => 
-      new Date(b).getTime() - new Date(a).getTime()
-    );
+    // 日付順に並べ替え
+    const dates = Object.keys(completionsByDate).sort((a, b) => {
+      return new Date(a).getTime() - new Date(b).getTime();
+    });
     
-    if (dates.length === 0) return 0;
+    // 連続日数の計算
+    let streakCount = 1; // 最低1日
     
-    // 最新の日付
-    const latestDate = new Date(dates[0]);
-    let streakCount = 1;
-    
-    // 連続日数をカウント
-    for (let i = 1; i < 100; i++) { // 最大100日までチェック
-      const prevDate = new Date(latestDate);
-      prevDate.setDate(prevDate.getDate() - i);
-      const dateString = prevDate.toISOString().split('T')[0];
+    for (let i = 1; i < dates.length; i++) {
+      const prevDate = new Date(dates[i - 1]);
+      const currDate = new Date(dates[i]);
       
-      if (completionsByDate[dateString]) {
+      // 日付の差を計算（ミリ秒）
+      const diffTime = Math.abs(currDate.getTime() - prevDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) {
+        // 連続している場合
         streakCount++;
       } else {
-        break;
+        // 連続が途切れた場合
+        streakCount = 1;
       }
     }
     
     return streakCount;
   },
 
-  // 今月の練習日数を取得
   getMonthlyPracticeCount: () => {
-    const state = get();
-    if (state.taskCompletionHistory.length === 0) {
-      return 0;
-    }
+    const { taskCompletionHistory } = get();
+    if (taskCompletionHistory.length === 0) return 0;
     
-    // 現在の月の最初と最後の日を取得
-    const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    // 現在の月のみのタスク完了数を取得
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
     
-    // 日付ごとにグループ化
-    const completionsByDate: Record<string, boolean> = {};
-    state.taskCompletionHistory.forEach(history => {
+    const monthlyCompletions = taskCompletionHistory.filter(history => {
       const completionDate = new Date(history.completedAt);
-      
-      // 今月のデータのみをフィルタリング
-      if (completionDate >= firstDayOfMonth && completionDate <= lastDayOfMonth) {
-        const dateString = completionDate.toISOString().split('T')[0];
-        completionsByDate[dateString] = true;
-      }
+      return (
+        completionDate.getMonth() === currentMonth &&
+        completionDate.getFullYear() === currentYear
+      );
     });
     
-    // ユニークな日付の数をカウント（= 今月の練習日数）
-    return Object.keys(completionsByDate).length;
+    return monthlyCompletions.length;
   },
 
-  // 課題のピン留め状態を切り替える
   togglePin: async (taskId: string) => {
     try {
-      const { tasks } = get();
+      const tasks = get().tasks;
       const task = tasks.find(t => t.id === taskId);
       
       if (!task) {
-        console.error('タスクが見つかりません:', taskId);
+        throw new Error('タスクが見つかりません');
+      }
+      
+      const user = auth.currentUser;
+      if (!user) throw new Error('ユーザーが認証されていません');
+      
+      // 現在の状態を反転
+      const newPinnedState = !task.isPinned;
+      
+      // ピン留めの上限チェック
+      if (newPinnedState && !get().canPinMoreTasks()) {
         return false;
       }
       
-      // すでにピン留めされている場合は解除する
-      if (task.isPinned) {
-        // Firestoreのタスクを更新
-        const taskRef = doc(db, 'tasks', taskId);
-        await updateDoc(taskRef, {
-          isPinned: false,
-          updatedAt: serverTimestamp()
-        });
-        
-        // ローカルのタスクを更新
-        set((state) => ({
-          tasks: state.tasks.map((t) =>
-            t.id === taskId ? { 
-              ...t, 
-              isPinned: false,
-              updatedAt: new Date().toISOString() 
-            } : t
-          )
-        }));
-        return true;
-      }
-      
-      // ピン留めされたタスクの数をチェック
-      const pinnedTasks = get().getPinnedTasks();
-      if (pinnedTasks.length >= 3) {
-        // 上限に達している場合はエラーを返す
-        return false;
-      }
-      
-      // Firestoreのタスクを更新
-      const taskRef = doc(db, 'tasks', taskId);
+      // ユーザーベースの構造を使用
+      const taskRef = doc(db, `users/${user.uid}/tasks`, taskId);
       await updateDoc(taskRef, {
-        isPinned: true,
+        isPinned: newPinnedState,
         updatedAt: serverTimestamp()
       });
       
-      // ローカルのタスクを更新
-      set((state) => ({
-        tasks: state.tasks.map((t) =>
-          t.id === taskId ? { 
-            ...t, 
-            isPinned: true,
-            updatedAt: new Date().toISOString() 
-          } : t
+      // ローカルステートを更新
+      set(state => ({
+        tasks: state.tasks.map(t => 
+          t.id === taskId ? { ...t, isPinned: newPinnedState } : t
         )
       }));
+      
       return true;
-    } catch (error: any) {
-      console.error('ピン留め状態の切り替えエラー:', error);
-      set({ error: error.message });
+    } catch (error) {
+      console.error('ピン留め変更エラー:', error);
       return false;
     }
   },
-  
-  // ピン留めされたタスクを取得
+
   getPinnedTasks: () => {
-    const { tasks } = get();
-    return tasks.filter(task => task.isPinned)
-                .sort((a, b) => {
-                  // 更新日時でソート（新しい順）
-                  const getTimestamp = (date: any) => {
-                    if (!date) return 0;
-                    if (date instanceof Date) return date.getTime();
-                    if (typeof date === 'string') return new Date(date).getTime();
-                    if (date && typeof date === 'object' && 'seconds' in date) {
-                      return date.seconds * 1000;
-                    }
-                    return 0;
-                  };
-                  
-                  const dateA = getTimestamp(a.updatedAt);
-                  const dateB = getTimestamp(b.updatedAt);
-                  return dateB - dateA;
-                });
+    return get().tasks.filter(task => task.isPinned);
   },
-  
-  // さらにピン留めできるかチェック
+
   canPinMoreTasks: () => {
-    const pinnedTasks = get().getPinnedTasks();
-    return pinnedTasks.length < 3;
-  },
+    const MAX_PINNED_TASKS = 3;
+    const pinnedCount = get().tasks.filter(task => task.isPinned).length;
+    return pinnedCount < MAX_PINNED_TASKS;
+  }
 }));
 
-// レッスンのサマリーから練習ポイントを抽出する関数
 function extractPracticePointsFromSummary(summary: string): string {
-  // サマリーから練習ポイントや改善点を抽出するロジック
-  const practiceKeywords = [
-    '練習', '改善', '課題', 'ポイント', '注意', '練習すべき', 
-    '取り組む', '向上', '強化', '集中', '意識'
+  if (!summary) return '';
+  
+  // 練習ポイントが含まれていそうな部分を抽出
+  const practiceSections = [
+    { regex: /練習ポイント：([\s\S]*?)(?=\n\n|$)/i, priority: 1 },
+    { regex: /練習すべきポイント[:：]([\s\S]*?)(?=\n\n|$)/i, priority: 2 },
+    { regex: /ポイント[:：]([\s\S]*?)(?=\n\n|$)/i, priority: 3 },
+    { regex: /重要な点[:：]([\s\S]*?)(?=\n\n|$)/i, priority: 4 },
+    { regex: /今後の課題[:：]([\s\S]*?)(?=\n\n|$)/i, priority: 5 },
+    { regex: /課題[:：]([\s\S]*?)(?=\n\n|$)/i, priority: 6 },
   ];
   
-  const lines = summary.split(/[.。\n]/);
-  const practicePoints = lines.filter(line => 
-    practiceKeywords.some(keyword => line.includes(keyword))
-  );
+  let bestMatch = null;
+  let highestPriority = Infinity;
   
-  if (practicePoints.length > 0) {
-    return practicePoints.join('\n');
+  for (const section of practiceSections) {
+    const match = summary.match(section.regex);
+    if (match && match[1] && section.priority < highestPriority) {
+      bestMatch = match[1].trim();
+      highestPriority = section.priority;
+    }
   }
   
-  return summary;
+  // 見つからない場合は最初の100文字ほどを抽出
+  if (!bestMatch) {
+    return summary.substring(0, 100) + '...';
+  }
+  
+  return bestMatch;
 }

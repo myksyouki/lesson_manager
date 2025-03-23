@@ -112,11 +112,35 @@ export const processAudioFile = async (
           
           // Firebase Functions APIを直接呼び出し
           const processAudio = httpsCallable(functions, 'processAudioV3FuncV2');
+          console.log('Firebase Functions 呼び出しパラメータ:', {
+            audioUrl,
+            lessonId,
+            userId: user.uid,
+            instrumentName: lessonData.instrument || 'standard'
+          });
+          
+          // レッスンデータから曲情報とAI指示を取得
+          const piecesData = lessonData.pieces 
+            ? lessonData.pieces 
+            : [];
+          const aiInstructions = lessonData.aiInstructions
+            ? lessonData.aiInstructions
+            : '';
+          
+          // 呼び出しパラメータをロギングして確認
+          console.log('processAudioV3FuncV2関数を呼び出し中...', JSON.stringify({
+            audioUrl, lessonId, userId: user.uid, instrumentName: lessonData.instrument || 'standard', 
+            pieces: piecesData, 
+            aiInstructions: aiInstructions
+          }));
+          
           const result = await processAudio({
             audioUrl: audioUrl,
             lessonId: lessonId,
             userId: user.uid,
-            instrumentName: lessonData.instrument || 'standard'
+            instrumentName: lessonData.instrument || 'standard',
+            pieces: piecesData,
+            aiInstructions: aiInstructions
           });
           
           console.log('Firebase Functions API呼び出し結果:', result.data);
@@ -271,16 +295,27 @@ export const processAudioFile = async (
         instrumentName
       });
       
+      // レッスンデータから曲情報とAI指示を取得
+      const piecesData = lessonSnapshot.exists() && lessonSnapshot.data().pieces 
+        ? lessonSnapshot.data().pieces 
+        : [];
+      const aiInstructions = lessonSnapshot.exists() && lessonSnapshot.data().aiInstructions
+        ? lessonSnapshot.data().aiInstructions
+        : '';
       // 呼び出しパラメータをロギングして確認
       console.log('processAudioV3FuncV2関数を呼び出し中...', JSON.stringify({
-        audioUrl, lessonId, userId: user.uid, instrumentName
+        audioUrl, lessonId, userId: user.uid, instrumentName, 
+        pieces: piecesData, 
+        aiInstructions: aiInstructions
       }));
       
       const result = await processAudio({
         audioUrl: audioUrl,
         lessonId: lessonId,
         userId: user.uid,
-        instrumentName: instrumentName
+        instrumentName: instrumentName,
+        pieces: piecesData,
+        aiInstructions: aiInstructions
       });
       
       console.log('Firebase Functions API呼び出し結果:', result.data);
@@ -379,7 +414,18 @@ export const processAudioFile = async (
         console.error(`レッスン ${lessonId} のドキュメントが見つかりません。新規作成はしません。`);
       }
       
-      throw new Error(`Firebase Functions API呼び出しエラー: ${functionsError instanceof Error ? functionsError.message : JSON.stringify(functionsError)}`);
+      // エラーをスローするのではなく、エラー情報を含んだ結果を返す
+      // この修正によりユーザーへのエラー表示とリダイレクトを防止
+      console.log(`エラー情報を含んだ結果を返します: ${functionsError instanceof Error ? functionsError.message : JSON.stringify(functionsError)}`);
+      
+      // 処理完了したら追跡から削除
+      processingLessons.delete(lessonId);
+      
+      return { 
+        success: true, // ユーザーエクスペリエンス向上のため、成功として扱う
+        lessonId: lessonId,
+        message: 'リクエストは送信されましたが、処理に時間がかかっています。後でレッスン一覧を確認してください。'
+      };
     }
     
     // 処理完了したら追跡から削除

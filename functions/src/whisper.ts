@@ -7,8 +7,12 @@
 import * as fs from 'fs';
 import axios from 'axios';
 import FormData from 'form-data';
-import { openaiApiKey } from './index';
-import { defineSecret } from 'firebase-functions/params';
+import { v4 as uuidv4 } from 'uuid';
+import * as path from 'path';
+import * as os from 'os';
+import ffmpeg from 'fluent-ffmpeg';
+import * as functions from 'firebase-functions/v1';
+import { openaiApiKey } from './config';
 
 // タイムアウト設定
 const API_TIMEOUT_MS = 180000; // 3分

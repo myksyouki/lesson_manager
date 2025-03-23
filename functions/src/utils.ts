@@ -67,7 +67,7 @@ export function extractLessonId(fileName: string): string | null {
  */
 export async function downloadToTempFile(bucket: any, filePath: string): Promise<string> {
   // 一時ファイル名を生成
-  const tempDir = SYSTEM_CONFIG.TEMP_DIR;
+  const tempDir = SYSTEM_CONFIG.STORAGE.TEMP_DIR;
   const fileName = path.basename(filePath);
   const timestamp = Date.now();
   const tempFilePath = `${tempDir}/temp_${timestamp}_${fileName}`;
@@ -108,7 +108,7 @@ export async function uploadToPublicDirectory(
   userId: string,
   originalPath: string
 ): Promise<string> {
-  const publicDir = SYSTEM_CONFIG.PUBLIC_STORAGE_PATH;
+  const publicDir = SYSTEM_CONFIG.STORAGE.PUBLIC_PATH;
   const fileName = path.basename(originalPath);
   const timestamp = Date.now();
   const publicFileName = `${timestamp}_${fileName}`;
@@ -134,7 +134,7 @@ export async function uploadToPublicDirectory(
           firebaseStorageDownloadTokens: timestamp.toString(), // ダウンロードトークンを設定
           temporaryPublic: 'true',
           originalPath: originalPath,
-          expiresAt: new Date(Date.now() + SYSTEM_CONFIG.STORAGE_EXPIRY_MS).toISOString()
+          expiresAt: new Date(Date.now() + SYSTEM_CONFIG.STORAGE.EXPIRY_MS).toISOString()
         }
       },
       public: true, // 公開アクセスを有効化

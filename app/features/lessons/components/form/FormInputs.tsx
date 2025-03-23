@@ -235,6 +235,36 @@ const FormInputs: React.FC<FormInputsProps> = ({
         </View>
       </View>
 
+      {/* AI指示入力フィールド */}
+      <View style={styles.formGroup}>
+        <Text style={[styles.label, { color: theme.colors.text }]}>AI指示（100文字まで）</Text>
+        <Text style={[styles.labelDescription, { color: theme.colors.textSecondary }]}>
+          要約の生成方法についてAIに指示できます
+        </Text>
+        <TextField
+          value={formData.aiInstructions || ''}
+          onChangeText={(text) => {
+            // 100文字制限を適用
+            if (text.length <= 100) {
+              onUpdateFormData({ aiInstructions: text });
+            }
+          }}
+          placeholder="例: 技術的なアドバイスを中心に要約してください"
+          multiline={true}
+          numberOfLines={2}
+          maxLength={100}
+          rightIcon={
+            <Text style={[styles.charCount, { 
+              color: (formData.aiInstructions?.length || 0) > 90 
+                ? theme.colors.warning 
+                : theme.colors.textTertiary 
+            }]}>
+              {(formData.aiInstructions?.length || 0)}/100
+            </Text>
+          }
+        />
+      </View>
+
       <View style={styles.formGroup}>
         <Text style={[styles.label, { color: theme.colors.text }]}>タグ</Text>
         <ScrollView
@@ -520,6 +550,14 @@ const styles = StyleSheet.create({
   uploadHint: {
     fontSize: 14,
     color: '#666',
+  },
+  labelDescription: {
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  charCount: {
+    fontSize: 12,
+    paddingRight: 8,
   },
 });
 

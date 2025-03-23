@@ -9,6 +9,7 @@ export interface LessonFormData {
   pieces: string[];
   notes: string;
   tags: string[];
+  aiInstructions?: string; // AI用の指示（要約生成時のヒント）
 }
 
 // UUIDを生成する関数

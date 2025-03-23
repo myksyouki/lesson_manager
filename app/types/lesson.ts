@@ -22,6 +22,7 @@ export interface Lesson {
   processingId?: string;   // レッスン処理の一意識別子
   duplicateOf?: string;    // 重複の場合、オリジナルレッスンのID
   instrument?: string;     // 楽器の種類 (saxophone, flute など)
+  aiInstructions?: string; // AI用の指示（要約生成時のヒント）
   created_at: Date | any;  // Firestoreのタイムスタンプ型に対応
   updated_at: Date | any;  // Firestoreのタイムスタンプ型に対応
 }
@@ -46,6 +47,7 @@ export interface LessonFormData {
   pieces?: string[];
   notes?: string;
   tags?: string[];
+  aiInstructions?: string; // AI用の指示（要約生成時のヒント）
   audioFile?: Blob;
 }
 

@@ -80,7 +80,25 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
             // 完了したらホームに戻る
             setTimeout(() => {
               router.replace('/(tabs)' as any);
-            }, 1000);
+            }, 500); // タイミングを500msに短縮
+          } 
+          // エラー状態でもリダイレクトするが、エラー状態のレッスンはストアに追加する
+          else if (data.status && (data.status.includes('error') || data.error)) {
+            console.log(`レッスン処理でエラーが発生: ${data.error || data.status}`);
+            setIsProcessing(false);
+            setProcessingStep('error');
+            setProcessingStatus(data.errorMessage || 'エラーが発生しました');
+            
+            // エラー状態のレッスンもストアに追加して表示する
+            addLesson({
+              ...data,
+              id: doc.id
+            } as any);
+            
+            // エラーでもホームに戻る
+            setTimeout(() => {
+              router.replace('/(tabs)' as any);
+            }, 500); // タイミングを500msに短縮
           }
         }
       }
