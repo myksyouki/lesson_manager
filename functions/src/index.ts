@@ -20,7 +20,7 @@ export const openaiApiKey = defineSecret('OPENAI_API_KEY');
 export const geminiApiKey = defineSecret('GEMINI_API_KEY');
 
 // Dify API関連の設定
-// 注意: これらの定義はdify-client.tsに移動しました
+// 注意: これらの定義はプロセス環境変数として直接使用します
 // 循環参照問題を解決するためにコメントアウト
 // export const difyApiUrl = defineString('DIFY_API_URL', {
 //   default: 'https://api.dify.ai/v1'
@@ -63,9 +63,10 @@ export const processAudioFuncV2 = onCall({
 });
 
 /**
- * v3 API - 単独で定義して循環参照を回避
+ * v2 APIのエイリアス - 互換性のために提供
  * クライアント側の実装変更なしでv2機能を使用できるようにします
  */
+// processAudioV3FuncV2を完全なコピーとして作成（エイリアスではなく）
 export const processAudioV3FuncV2 = onCall({
   region: 'asia-northeast1',
   timeoutSeconds: 3600,
