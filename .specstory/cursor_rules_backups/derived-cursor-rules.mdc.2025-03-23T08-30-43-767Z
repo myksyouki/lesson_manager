@@ -1,7 +1,3 @@
----
-description: Cursor rules derived by SpecStory from the project AI interaction history
-globs: *
----
 
 ## PROJECT OVERVIEW
 
@@ -19,70 +15,6 @@ Lesson pieces are optional. A new "AI Instructions" field (max 100 characters) h
 - The "Schedule" tab has been renamed to "Progress" and includes a calendar and graph view showing monthly task completion, practice days, and lesson count. Interactive elements such as tap for details and swipe for period navigation have been implemented.  The `pieces` parameter should be a JSON string.
 - The "Schedule" tab has been renamed to "Progress".
 - The "Progress" tab now includes a calendar and graph view.  The graph view will show monthly task completion, practice days, and lesson count. Interactive elements such as tap for details and swipe for period navigation will be implemented.  The `pieces` parameter should be a JSON string.
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count. Interactive elements such as tap for details and swipe for period navigation have been implemented.  The `pieces` parameter should be a JSON string.
-- The `pieces` parameter should be a JSON string.
-- User-based collections are enforced for tasks and lessons in Firestore.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a monthly graph showing task completion, practice days, and lesson count.  Interactive elements such as tap for details and swipe for period navigation have been implemented. The `pieces` parameter must be a JSON string.
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements. The `pieces` parameter must be a JSON string.
-- Lesson pieces are optional.
-- A new "AI Instructions" field (max 100 characters) has been added to the lesson form.
-- The `pieces` parameter in API requests must be a JSON string.
-- User-based collections for tasks and lessons in Firestore are now enforced.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements.  The `pieces` parameter must be a JSON string.
-- User-based collections are enforced for tasks and lessons in Firestore.  The `pieces` parameter must be a JSON string.  The "Schedule" tab has been renamed to "Progress".  The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation. The `pieces` parameter must be a JSON string.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements. The `pieces` parameter must be a JSON string.
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation. The `pieces` parameter must be a JSON string.
-- In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato.  This content will vary by instrument. This is the pattern for saxophone.
-- Lesson pieces are optional.
-- A new "AI Instructions" field (max 100 characters) has been added to the lesson form.
-- The `pieces` parameter in API requests must be a JSON string.
-- User-based collections for tasks and lessons in Firestore are now enforced.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation.  The `pieces` parameter must be a JSON string.
-- The pieces parameter must be a JSON string.
-- User-based collections are enforced for tasks and lessons in Firestore.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a monthly graph showing task completion, practice days, and lesson count.  Interactive elements such as tap for details and swipe for period navigation have been implemented. The `pieces` parameter must be a JSON string.
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements. The `pieces` parameter must be a JSON string.
-- Lesson pieces are optional.
-- A new "AI Instructions" field (max 100 characters) has been added to the lesson form.
-- The `pieces` parameter in API requests must be a JSON string.
-- User-based collections for tasks and lessons in Firestore are now enforced.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements.  The `pieces` parameter must be a JSON string.
-- User-based collections are enforced for tasks and lessons in Firestore.  The `pieces` parameter must be a JSON string.  The "Schedule" tab has been renamed to "Progress".  The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation. The `pieces` parameter must be a JSON string.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements. The `pieces` parameter must be a JSON string.
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation. The `pieces` parameter must be a JSON string.
-- In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato.  This content will vary by instrument. This is the pattern for saxophone.
-- The `pieces` parameter must be a JSON string.
-- User-based collections are enforced for tasks and lessons in Firestore.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation. The `pieces` parameter must be a JSON string.
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements. The `pieces` parameter must be a JSON string.
-- The "pieces" parameter must be a JSON string.
-- User-based collections are enforced for tasks and lessons in Firestore.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation.  The `pieces` parameter must be a JSON string.
-- The home screen should be scrollable. The "Task Completion" section in the home screen should be replaced with "Monthly Task Completion Count". Instead of a simple count, display a scrollable badge section showing "Monthly Task Completion Count: X".
-- In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato (this will vary by instrument; this is the pattern for saxophone). The home screen should be scrollable. The "Task Completion" section in the home screen should be replaced with "Monthly Task Completion Count". Instead of a simple count, display a scrollable badge section showing "Monthly Task Completion Count: X".
-- The "Schedule" tab has been renamed to "Progress". The home screen should be scrollable.  The "Task Completion" section should be replaced with a scrollable badge section showing "Monthly Task Completion Count: X". In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato.  This content will vary by instrument. This is the pattern for saxophone.  The home screen should be scrollable. The "Task Completion" section in the home screen should be replaced with "Monthly Task Completion Count". Instead of a simple count, display a scrollable badge section showing "Monthly Task Completion Count: X".
-
-
-The "Schedule" tab has been renamed to "Progress".  The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation. The `pieces` parameter must be a JSON string.  In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato.  This content will vary by instrument. This is the pattern for saxophone.  The home screen should be scrollable. The "Task Completion" section in the home screen should be replaced with "Monthly Task Completion Count". Instead of a simple count, display a scrollable badge section showing "Monthly Task Completion Count: X".  The `pieces` parameter must be a JSON string.  User-based collections are enforced for tasks and lessons in Firestore. The "Schedule" tab has been renamed to "Progress".  The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation.  The `pieces` parameter must be a JSON string.  The home screen should be scrollable. The "Task Completion" section in the home screen should be replaced with "Monthly Task Completion Count". Instead of a simple count, display a scrollable badge section showing "Monthly Task Completion Count: X".  The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation. The `pieces` parameter must be a JSON string.  In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato.  This content will vary by instrument. This is the pattern for saxophone. The home screen should be scrollable. The "Task Completion" section in the home screen should be replaced with "Monthly Task Completion Count". Instead of a simple count, display a scrollable badge section showing "Monthly Task Completion Count: X".
-
-- Lesson pieces are optional.
-- A new "AI Instructions" field (max 100 characters) has been added to the lesson form.
-- The `pieces` parameter in API requests must be a JSON string.
-- User-based collections for tasks and lessons in Firestore are now enforced.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation.
-- The home screen should be scrollable.
-- The "Task Completion" section should be replaced with a scrollable badge section showing "Monthly Task Completion Count: X".
-- In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato. This content will vary by instrument. This is the pattern for saxophone.
 
 
 ## CODE STYLE
@@ -91,7 +23,7 @@ The "Schedule" tab has been renamed to "Progress".  The "Progress" tab now displ
 
 ## FOLDER ORGANIZATION
 
-[Add any new folder organization guidelines here]  A new folder `app/features/analysis/components` has been added.
+[Add any new folder organization guidelines here]
 
 ## TECH STACK
 
@@ -122,39 +54,6 @@ The "Schedule" tab has been renamed to "Progress".  The "Progress" tab now displ
 - The `pieces` parameter in API requests must be a JSON string.
 - Monthly graph added to Progress tab displaying task completion count, practice days, and lesson count. Interactive elements such as tap for details and swipe for period navigation implemented.  The `pieces` parameter should be a JSON string.
 - User-based collections are enforced for tasks and lessons in Firestore.
-- The "Schedule" tab has been renamed to "Progress".
-- The Progress tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements. The `pieces` parameter must be a JSON string.
-- The pieces parameter must be a JSON string.
-- User-based collections are enforced for tasks and lessons in Firestore.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation. The `pieces` parameter must be a JSON string.
--  The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation. The `pieces` parameter must be a JSON string.
-- In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato.  This content will vary by instrument. This is the pattern for saxophone.
-- The `pieces` parameter must be a JSON string.
-- User-based collections are enforced for tasks and lessons in Firestore.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation. The `pieces` parameter must be a JSON string.
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements. The `pieces` parameter must be a JSON string.
-- The "pieces" parameter must be a JSON string.
-- User-based collections are enforced for tasks and lessons in Firestore.
-- The "Schedule" tab has been renamed to "Progress".
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements such as tap for details and swipe for period navigation.  The `pieces` parameter must be a JSON string.
-- The home screen should be scrollable. The "Task Completion" section in the home screen should be replaced with "Monthly Task Completion Count". Instead of a simple count, display a scrollable badge section showing "Monthly Task Completion Count: X".
-- In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato (this content will vary by instrument; this is the pattern for saxophone).
-- The "Schedule" tab has been renamed to "Progress".
-- The home screen should be scrollable.
-- The "Task Completion" section should be replaced with a scrollable badge section showing "Monthly Task Completion Count: X".
-- In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato. This content will vary by instrument. This is the pattern for saxophone.
-- The home screen should be scrollable.
-- The "Task Completion" section in the home screen should be replaced with "Monthly Task Completion Count". Instead of a simple count, display a scrollable badge section showing "Monthly Task Completion Count: X".
-- The "Progress" tab should display a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements.
-- The `pieces` parameter must be a JSON string.
-- User-based collections are enforced for tasks and lessons in Firestore.
-- The "Schedule" tab has been renamed to "Progress".
-- The home screen is now scrollable.
-- The "Task Completion" section has been replaced with a scrollable badge section showing "Monthly Task Completion Count: X".
-- In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato. This content will vary by instrument. This is the pattern for saxophone.
-- The "AI Lesson" tab practice section chat rooms are now: Tone, High Notes, Low Notes, Tonguing, Vibrato (this varies by instrument; this is the saxophone pattern).  The home screen is now scrollable. The "Task Completion" section has been replaced with a scrollable badge section showing "Monthly Task Completion Count: X".
 
 
 ## WORKFLOW & RELEASE RULES
@@ -167,14 +66,6 @@ The "Schedule" tab has been renamed to "Progress".  The "Progress" tab now displ
 - The "Schedule" tab has been renamed to "Progress".
 - The "Progress" tab now includes a calendar view and a graph view showing monthly task completion, practice days, and lesson count.
 - The `pieces` parameter should be a JSON string.
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements. The `pieces` parameter must be a JSON string.
-- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count with interactive elements. The `pieces` parameter must be a JSON string.
-- The `pieces` parameter must be a JSON string.
-- User-based collections are enforced for tasks and lessons in Firestore.
-- The "Schedule" tab has been renamed to "Progress".
-- The home screen should be scrollable.
-- The "Task Completion" section should be replaced with a scrollable badge section showing "Monthly Task Completion Count: X".
-- In the AI Lesson tab, the practice section chat rooms should be changed to: Tone, High Notes, Low Notes, Tonguing, Vibrato. This content will vary by instrument. This is the pattern for saxophone.
 
 
 ## REFERENCE EXAMPLES
@@ -192,9 +83,6 @@ The "Schedule" tab has been renamed to "Progress".  The "Progress" tab now displ
 - To handle deadline-exceeded errors, return success status and message, redirecting user to home screen.
 - Check for issues related to the `pieces` parameter format in Dify API requests. Ensure it's a JSON string.
 - The `pieces` parameter must be a JSON string.
-- Ensure the `pieces` parameter is a JSON string.
-- Ensure the `pieces` parameter is a JSON string.
-- Ensure the `pieces` parameter is a JSON string.
 
 
 ## FINAL DOs AND DON'Ts
@@ -214,4 +102,10 @@ The "Schedule" tab has been renamed to "Progress".  The "Progress" tab now displ
 - DO use the `gemini-1.5-flash` model for tag generation.
 - DO use user-based collections for tasks and lessons in Firestore.
 - DO ensure the `pieces` parameter is a JSON string.
-- DO use the `react-
+- DO use the `react-native-chart-kit` library for the monthly progress graph.
+- DO ensure the "Progress" tab is scrollable.
+- DO update the "Task Completion" section in the home screen to display "Monthly Task Completion Count".
+- DO use user-based collections for tasks and lessons in Firestore.
+- The `pieces` parameter must be a JSON string.
+- The "Schedule" tab has been renamed to "Progress".
+- The "Progress" tab now displays a calendar view and a graph view showing monthly task completion, practice days, and lesson count.  Interactive elements such as tap for details and swipe for period navigation have been implemented.  The `pieces` parameter should be a JSON string.

@@ -7,19 +7,37 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
+  selectedCategory: string;
   selectedInstrument: string;
+  selectedModel: string;
   isPremium: boolean;
   isOnboardingCompleted: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
+// モデル情報の型定義
+export interface InstrumentModel {
+  id: string;
+  name: string;
+  isArtist: boolean;
+  description?: string;
+}
+
 // 楽器情報の型定義
 export interface Instrument {
   id: string;
   name: string;
+  models: InstrumentModel[];
   difyAppId?: string;
   difyApiKey?: string;
+}
+
+// 楽器カテゴリの型定義
+export interface InstrumentCategory {
+  id: string;
+  name: string;
+  instruments: Instrument[];
 }
 
 // データベース構造フラグ
@@ -34,30 +52,242 @@ export const setUseNewStructure = (value: boolean): void => {
   console.log(`userProfileService: データベース構造フラグを${value ? '新' : '旧'}に設定しました`);
 };
 
-// 楽器カテゴリと楽器のマッピング
-export const instrumentCategories: Instrument[] = [
+// 楽器カテゴリの定義
+export const instrumentCategories: InstrumentCategory[] = [
+  // ボーカルカテゴリ
+  {
+    id: 'vocal',
+    name: 'ボーカル',
+    instruments: [
+      {
+        id: 'vocal',
+        name: 'ボーカル',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      }
+    ]
+  },
+  // ピアノカテゴリ
   {
     id: 'piano',
     name: 'ピアノ',
-    difyAppId: process.env.EXPO_PUBLIC_DIFY_PIANO_APP_ID || '',
-    difyApiKey: process.env.EXPO_PUBLIC_DIFY_PIANO_API_KEY || '',
+    instruments: [
+      {
+        id: 'piano',
+        name: 'ピアノ',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ],
+        difyAppId: process.env.EXPO_PUBLIC_DIFY_PIANO_APP_ID || '',
+        difyApiKey: process.env.EXPO_PUBLIC_DIFY_PIANO_API_KEY || ''
+      }
+    ]
   },
+  // 弦楽器カテゴリ
   {
-    id: 'saxophone',
-    name: 'サックス',
-    difyAppId: process.env.EXPO_PUBLIC_DIFY_SAXOPHONE_APP_ID || '',
-    difyApiKey: process.env.EXPO_PUBLIC_DIFY_SAXOPHONE_API_KEY || '',
+    id: 'strings',
+    name: '弦楽器',
+    instruments: [
+      {
+        id: 'violin',
+        name: 'ヴァイオリン',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ],
+        difyAppId: process.env.EXPO_PUBLIC_DIFY_VIOLIN_APP_ID || '',
+        difyApiKey: process.env.EXPO_PUBLIC_DIFY_VIOLIN_API_KEY || ''
+      },
+      {
+        id: 'viola',
+        name: 'ヴィオラ',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'cello',
+        name: 'チェロ',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'contrabass',
+        name: 'コントラバス',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      }
+    ]
   },
+  // 管楽器カテゴリ
   {
-    id: 'violin',
-    name: 'バイオリン',
-    difyAppId: process.env.EXPO_PUBLIC_DIFY_VIOLIN_APP_ID || '',
-    difyApiKey: process.env.EXPO_PUBLIC_DIFY_VIOLIN_API_KEY || '',
+    id: 'woodwind',
+    name: '管楽器',
+    instruments: [
+      {
+        id: 'flute',
+        name: 'フルート',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'clarinet',
+        name: 'クラリネット',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'oboe',
+        name: 'オーボエ',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'fagotto',
+        name: 'ファゴット',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'saxophone',
+        name: 'サックス',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          },
+          {
+            id: 'ueno',
+            name: '上野耕平モデル(BETA)',
+            isArtist: true,
+            description: '上野耕平氏監修の特別モデルです。クラシックサックスの専門家によるアドバイスが得られます。'
+          },
+          {
+            id: 'tsuzuki',
+            name: '都築惇モデル(BETA)',
+            isArtist: true,
+            description: '都築惇氏監修の特別モデルです。ジャズサックスの専門家によるアドバイスが得られます。'
+          },
+          {
+            id: 'tanaka',
+            name: '田中奏一朗モデル(BETA)',
+            isArtist: true,
+            description: '田中奏一朗氏監修の特別モデルです。ポップスサックスの専門家によるアドバイスが得られます。'
+          }
+        ],
+        difyAppId: process.env.EXPO_PUBLIC_DIFY_SAXOPHONE_APP_ID || '',
+        difyApiKey: process.env.EXPO_PUBLIC_DIFY_SAXOPHONE_API_KEY || ''
+      },
+      {
+        id: 'horn',
+        name: 'ホルン',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'trumpet',
+        name: 'トランペット',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'trombone',
+        name: 'トロンボーン',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'euphonium',
+        name: 'ユーフォニアム',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'tuba',
+        name: 'チューバ',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      }
+    ]
   }
 ];
 
 // デフォルト値
+const DEFAULT_CATEGORY = 'piano';
 const DEFAULT_INSTRUMENT = 'piano';
+const DEFAULT_MODEL = 'standard';
 
 // ユーザープロファイルの作成
 export const createUserProfile = async (user: User) => {
@@ -66,7 +296,9 @@ export const createUserProfile = async (user: User) => {
     id: user.uid,
     name: user.displayName || '',
     email: user.email || '',
+    selectedCategory: DEFAULT_CATEGORY,
     selectedInstrument: DEFAULT_INSTRUMENT,
+    selectedModel: DEFAULT_MODEL,
     isPremium: false,
     isOnboardingCompleted: false,
     createdAt: new Date(),
@@ -103,7 +335,9 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
       id: user.uid,
       name: data.name || user.displayName || '',
       email: data.email || user.email || '',
+      selectedCategory: data.selectedCategory || DEFAULT_CATEGORY,
       selectedInstrument: data.selectedInstrument || DEFAULT_INSTRUMENT,
+      selectedModel: data.selectedModel || DEFAULT_MODEL,
       isPremium: !!data.isPremium,
       isOnboardingCompleted: !!data.isOnboardingCompleted,
       createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000) : new Date(),
@@ -122,9 +356,9 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
 export const getUserProfile = getCurrentUserProfile;
 
 /**
- * 選択した楽器を保存
+ * 選択したカテゴリーを保存
  */
-export const saveSelectedInstrument = async (instrumentId: string): Promise<boolean> => {
+export const saveSelectedCategory = async (categoryId: string): Promise<boolean> => {
   try {
     const user = auth.currentUser;
     if (!user) {
@@ -134,6 +368,31 @@ export const saveSelectedInstrument = async (instrumentId: string): Promise<bool
 
     // プロファイルを更新
     await updateDoc(doc(db, `users/${user.uid}/profile`, 'main'), {
+      selectedCategory: categoryId,
+      updatedAt: new Date()
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('カテゴリ選択の保存エラー:', error);
+    return false;
+  }
+};
+
+/**
+ * 選択した楽器を保存
+ */
+export const saveSelectedInstrument = async (categoryId: string, instrumentId: string): Promise<boolean> => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('ユーザーがログインしていません');
+      return false;
+    }
+
+    // プロファイルを更新
+    await updateDoc(doc(db, `users/${user.uid}/profile`, 'main'), {
+      selectedCategory: categoryId,
       selectedInstrument: instrumentId,
       updatedAt: new Date()
     });
@@ -141,6 +400,32 @@ export const saveSelectedInstrument = async (instrumentId: string): Promise<bool
     return true;
   } catch (error) {
     console.error('楽器選択の保存エラー:', error);
+    return false;
+  }
+};
+
+/**
+ * 選択したモデルを保存
+ */
+export const saveSelectedModel = async (categoryId: string, instrumentId: string, modelId: string): Promise<boolean> => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('ユーザーがログインしていません');
+      return false;
+    }
+
+    // プロファイルを更新
+    await updateDoc(doc(db, `users/${user.uid}/profile`, 'main'), {
+      selectedCategory: categoryId,
+      selectedInstrument: instrumentId,
+      selectedModel: modelId,
+      updatedAt: new Date()
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('モデル選択の保存エラー:', error);
     return false;
   }
 };
@@ -190,7 +475,12 @@ export const getDifyApiInfo = async (): Promise<{appId: string; apiKey: string}>
     }
     
     // 楽器の検索
-    const instrument = instrumentCategories.find(i => i.id === profile.selectedInstrument);
+    const category = instrumentCategories.find(c => c.id === profile.selectedCategory);
+    if (!category) {
+      return { appId: '', apiKey: '' };
+    }
+    
+    const instrument = category.instruments.find(i => i.id === profile.selectedInstrument);
     if (!instrument) {
       return { appId: '', apiKey: '' };
     }

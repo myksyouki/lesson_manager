@@ -20,20 +20,37 @@ import { Lesson } from './store/lessons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
 import { createChatRoom } from './services/chatRoomService';
-import { getUserProfile } from './services/userProfileService';
+import { getUserProfile, instrumentCategories } from './services/userProfileService';
 
-// トピックの選択肢
-const TOPICS = [
-  'タンギング',
-  'ロングトーン',
-  '音色',
-  'リズム',
-  'アーティキュレーション',
-  'ビブラート',
-  'テクニック',
-  '表現力',
-  'その他',
-];
+// 楽器カテゴリごとのトピックマッピング
+const INSTRUMENT_TOPICS: Record<string, string[]> = {
+  // 管楽器
+  'saxophone': ['音色', '高音', '低音', 'タンギング', 'ヴィブラート'],
+  'flute': ['音色', '高音', '低音', 'タンギング', 'ヴィブラート'],
+  'clarinet': ['音色', '高音', '低音', 'タンギング', 'ヴィブラート'],
+  'oboe': ['音色', '高音', '低音', 'タンギング', 'ヴィブラート'],
+  'fagotto': ['音色', '高音', '低音', 'タンギング', 'ヴィブラート'],
+  'horn': ['音色', '高音', '低音', 'タンギング', 'ヴィブラート'],
+  'trumpet': ['音色', '高音', '低音', 'タンギング', 'ヴィブラート'],
+  'trombone': ['音色', '高音', '低音', 'タンギング', 'ヴィブラート'],
+  'euphonium': ['音色', '高音', '低音', 'タンギング', 'ヴィブラート'],
+  'tuba': ['音色', '高音', '低音', 'タンギング', 'ヴィブラート'],
+  
+  // 弦楽器
+  'violin': ['ボーイング', 'ビブラート', '音程', '姿勢', '表現技法'],
+  'viola': ['ボーイング', 'ビブラート', '音程', '姿勢', '表現技法'],
+  'cello': ['ボーイング', 'ビブラート', '音程', '姿勢', '表現技法'],
+  'contrabass': ['ボーイング', 'ビブラート', '音程', '姿勢', '表現技法'],
+  
+  // ピアノ
+  'piano': ['タッチ', '表現力', 'ペダル', 'リズム', 'アーティキュレーション'],
+  
+  // ボーカル
+  'vocal': ['発声', '音程', '表現力', '呼吸法', '共鳴'],
+  
+  // デフォルト
+  'default': ['テクニック', '表現力', 'リズム', 'アーティキュレーション', 'その他']
+};
 
 export default function ConsultAIScreen() {
   const { lessonIds } = useLocalSearchParams();
@@ -44,6 +61,7 @@ export default function ConsultAIScreen() {
   const [selectedTopic, setSelectedTopic] = useState('');
   const [initialMessage, setInitialMessage] = useState('');
   const [userModelType, setUserModelType] = useState<string>('');
+  const [topics, setTopics] = useState<string[]>(INSTRUMENT_TOPICS['default']);
   const theme = useTheme();
   const { lessons } = useLessonStore();
   const { user } = useAuthStore();
@@ -56,8 +74,22 @@ export default function ConsultAIScreen() {
       try {
         const profile = await getUserProfile();
         if (profile) {
-          const modelType = `${profile.selectedCategory}-${profile.selectedInstrument}-${profile.selectedModel}`;
-          setUserModelType(modelType);
+          // 楽器ID・モデルIDを取得
+          const category = profile.selectedCategory || 'piano';
+          const instrument = profile.selectedInstrument || 'piano';
+          const model = profile.selectedModel || 'standard';
+          
+          // 楽器ID・モデルIDを設定（AIリクエスト用）
+          const modelTypeStr = `${category}-${instrument}-${model}`;
+          setUserModelType(modelTypeStr);
+          
+          // 楽器に応じたトピックリストをセット
+          setTopics(INSTRUMENT_TOPICS[instrument] || INSTRUMENT_TOPICS['default']);
+          
+          // 楽器情報をコンソールに出力（デバッグ用）
+          const categoryObj = instrumentCategories.find(c => c.id === category);
+          const instrumentObj = categoryObj?.instruments.find(i => i.id === instrument);
+          console.log(`選択された楽器: ${categoryObj?.name} > ${instrumentObj?.name || '不明'} (${instrument}) > ${model}`);
         }
       } catch (error) {
         console.error('ユーザープロファイル取得エラー:', error);
@@ -188,11 +220,10 @@ ${initialMessage}
 
       // チャットルームを作成
       const chatRoom = await createChatRoom(
-        user.uid,
         title.trim(),
         selectedTopic,
         formattedMessage.trim(),
-        userModelType
+        userModelType || 'standard'
       );
       
       // 作成したチャットルームに遷移
@@ -341,29 +372,33 @@ ${initialMessage}
             />
 
             <Text style={[styles.label, { color: theme.colors.text }]}>トピック</Text>
-            <View style={styles.topicsContainer}>
-              {TOPICS.map((topic) => (
+            <ScrollView
+              contentContainerStyle={styles.topicsContainer}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+            >
+              {topics.map((topic) => (
                 <TouchableOpacity
                   key={topic}
                   style={[
-                    styles.topicButton,
-                    { backgroundColor: theme.colors.backgroundTertiary },
-                    selectedTopic === topic && { backgroundColor: theme.colors.primaryLight },
+                    styles.topicItem,
+                    selectedTopic === topic && {
+                      backgroundColor: theme.colors.primary,
+                    },
                   ]}
                   onPress={() => setSelectedTopic(topic)}
                 >
                   <Text
                     style={[
                       styles.topicText,
-                      { color: theme.colors.textSecondary },
-                      selectedTopic === topic && { color: theme.colors.primary, fontWeight: '600' },
+                      selectedTopic === topic && { color: 'white' },
                     ]}
                   >
                     {topic}
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
 
             <Text style={[styles.label, { color: theme.colors.text }]}>AIへのメッセージ</Text>
             <TextInput
@@ -536,17 +571,21 @@ const styles = StyleSheet.create({
   topicsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 20,
+    marginBottom: 16,
+    paddingVertical: 8,
   },
-  topicButton: {
+  topicItem: {
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginRight: 8,
     marginBottom: 8,
+    backgroundColor: '#F2F2F7',
   },
   topicText: {
     fontSize: 14,
+    fontWeight: '500',
+    color: '#4A4A4A',
   },
   messageInput: {
     borderRadius: 12,

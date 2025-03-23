@@ -8,6 +8,7 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -187,7 +188,7 @@ export default function HomeScreen() {
           </FadeIn>
         </View>
 
-        <View style={styles.contentContainer}>
+        <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
           <FadeIn duration={600}>
             <TaskCategorySummary 
               categories={[]}
@@ -265,7 +266,7 @@ export default function HomeScreen() {
               </View>
             </FadeIn>
           )}
-        </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -287,7 +288,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     paddingVertical: 16,
-    flex: 1,
+    paddingBottom: 80,
   },
   sectionTitleContainer: {
     width: '100%',

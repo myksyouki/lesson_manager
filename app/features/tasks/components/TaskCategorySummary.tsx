@@ -178,7 +178,7 @@ const TaskCategorySummary: React.FC<TaskCategorySummaryProps> = ({
         <TaskAchievementBadge 
           type="completion" 
           count={totalCompleted} 
-          label={`${totalCompleted}個のタスク完了`}
+          label={`月間タスク完了数: ${totalCompleted}`}
         />
         
         {categories.length > 0 && (

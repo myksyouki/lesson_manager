@@ -114,7 +114,7 @@ export default function GenerateTasksScreen() {
       const mockResponse = await mockDifyRequest(lessonsData);
       
       // 生成された練習メニューをタスクとして保存
-      const taskId = await addTask({
+      const { id: taskId } = await addTask({
         title: `${selectedLessons[0].pieces?.[0] || '曲'} の練習メニュー`,
         description: formatTaskDescription(mockResponse, selectedLessons),
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 1週間後
@@ -125,26 +125,11 @@ export default function GenerateTasksScreen() {
       setGeneratedTaskId(taskId);
       setIsGenerating(false);
       
-      Alert.alert(
-        '成功',
-        '練習メニューを生成しました',
-        [
-          { 
-            text: '確認する', 
-            onPress: () => {
-              router.push({
-                pathname: '/task-detail',
-                params: { id: taskId }
-              });
-            }
-          },
-          { 
-            text: '閉じる', 
-            onPress: () => router.back(),
-            style: 'cancel'
-          }
-        ]
-      );
+      // タスク生成後、タスク詳細ページに自動リダイレクト
+      router.push({
+        pathname: '/task-detail' as any,
+        params: { id: taskId }
+      });
     } catch (error) {
       console.error('タスク生成エラー:', error);
       setIsGenerating(false);
