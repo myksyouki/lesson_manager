@@ -4,7 +4,6 @@ import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { auth, db, functions } from '../config/firebase';
 import { collection, addDoc, updateDoc, doc, serverTimestamp, getDoc, query, where, getDocs } from "firebase/firestore";
-import { httpsCallable } from 'firebase/functions';
 
 // アップロード中のレッスンIDを追跡して重複処理を防止
 const processingLessons = new Map<string, number>();
@@ -21,6 +20,28 @@ interface ProcessAudioResult {
   errorDetails?: any; // エラー詳細情報用のプロパティを追加
   message?: string; // クライアントへのメッセージ用フィールドを追加
   shouldRedirect: boolean;
+}
+
+// Firebase httpsCallableヘルパー関数
+async function callCloudFunction(functionName: string, data: any) {
+  try {
+    let httpsCallableFunction: any;
+    
+    // Try-catchでdynamic importを試みる
+    try {
+      const { httpsCallable } = await import('firebase/functions');
+      httpsCallableFunction = httpsCallable(functions, functionName);
+    } catch (e) {
+      console.error('Firebase Functions import error:', e);
+      return { data: { error: 'Firebase Functions not available' } };
+    }
+    
+    // 関数を呼び出す
+    return await httpsCallableFunction(data);
+  } catch (error) {
+    console.error(`Error calling cloud function ${functionName}:`, error);
+    return { data: { error: `Failed to call ${functionName}` } };
+  }
 }
 
 // Process audio file: upload, transcribe, summarize, and save to Firestore
@@ -113,39 +134,14 @@ export const processAudioFile = async (
           });
           
           // Firebase Functions APIを直接呼び出し
-          const processAudio = httpsCallable(functions, 'processAudio');
-          console.log('Firebase Functions 呼び出しパラメータ:', {
+          const processAudio = await callCloudFunction('processAudio', {
             audioUrl,
             lessonId,
             userId: user.uid,
             instrumentName: lessonData.instrument || 'standard'
           });
           
-          // レッスンデータから曲情報とAI指示を取得
-          const piecesData = lessonData.pieces 
-            ? lessonData.pieces 
-            : [];
-          const aiInstructions = lessonData.aiInstructions
-            ? lessonData.aiInstructions
-            : '';
-          
-          // 呼び出しパラメータをロギングして確認
-          console.log('processAudio関数を呼び出し中...', JSON.stringify({
-            audioUrl, lessonId, userId: user.uid, instrumentName: lessonData.instrument || 'standard', 
-            pieces: piecesData, 
-            aiInstructions: aiInstructions
-          }));
-          
-          const result = await processAudio({
-            audioUrl: audioUrl,
-            lessonId: lessonId,
-            userId: user.uid,
-            instrumentName: lessonData.instrument || 'standard',
-            pieces: piecesData,
-            aiInstructions: aiInstructions
-          });
-          
-          console.log('Firebase Functions API呼び出し結果:', result.data);
+          console.log('Firebase Functions API呼び出し結果:', processAudio.data);
           
           // 処理結果が返ってきたらステータスを確認
           const updatedLessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);
@@ -291,38 +287,14 @@ export const processAudioFile = async (
     
     try {
       // Firebase Functions APIを直接呼び出し
-      const processAudio = httpsCallable(functions, 'processAudio');
-      console.log('Firebase Functions 呼び出しパラメータ:', {
+      const processAudio = await callCloudFunction('processAudio', {
         audioUrl,
         lessonId,
         userId: user.uid,
         instrumentName
       });
       
-      // レッスンデータから曲情報とAI指示を取得
-      const piecesData = lessonSnapshot.exists() && lessonSnapshot.data().pieces 
-        ? lessonSnapshot.data().pieces 
-        : [];
-      const aiInstructions = lessonSnapshot.exists() && lessonSnapshot.data().aiInstructions
-        ? lessonSnapshot.data().aiInstructions
-        : '';
-      // 呼び出しパラメータをロギングして確認
-      console.log('processAudio関数を呼び出し中...', JSON.stringify({
-        audioUrl, lessonId, userId: user.uid, instrumentName, 
-        pieces: piecesData, 
-        aiInstructions: aiInstructions
-      }));
-      
-      const result = await processAudio({
-        audioUrl: audioUrl,
-        lessonId: lessonId,
-        userId: user.uid,
-        instrumentName: instrumentName,
-        pieces: piecesData,
-        aiInstructions: aiInstructions
-      });
-      
-      console.log('Firebase Functions API呼び出し結果:', result.data);
+      console.log('Firebase Functions API呼び出し結果:', processAudio.data);
       
       // 処理結果が返ってきたらステータスを確認
       const updatedLessonRef = doc(db, `users/${user.uid}/lessons`, lessonId);

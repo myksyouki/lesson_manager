@@ -3,7 +3,6 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getFunctions } from "firebase/functions";
 import Constants from 'expo-constants';
 
 // 環境変数を取得する関数
@@ -33,15 +32,25 @@ const auth = getAuth(firebaseApp);
 // Firebase の各サービスをエクスポート
 export const db = getFirestore(firebaseApp);
 export const storage = getStorage(firebaseApp);
-// Firebase Functionsの設定を更新：明示的にリージョンを指定
-export const functions = getFunctions(firebaseApp, 'asia-northeast1');
-// 新しいインスタンスを再作成して完全にリセット
-export { auth };
+
+// Firebase Functions - 条件付きで初期化
+let functions: any = null;
+try {
+  // クライアントサイドでのみimportを試みる
+  const { getFunctions } = require('firebase/functions');
+  functions = getFunctions(firebaseApp, 'asia-northeast1');
+} catch (error) {
+  console.log('Firebase Functions is not available in this environment');
+  // モバイルアプリのビルド時には空のオブジェクトを提供
+  functions = { region: 'asia-northeast1' };
+}
+
+export { functions, auth };
 
 // 初期化完了のログ
 console.log('Firebase初期化完了', {
   projectId: firebaseApp.options.projectId,
-  region: 'default'
+  region: 'asia-northeast1'
 });
 
 export default firebaseApp;

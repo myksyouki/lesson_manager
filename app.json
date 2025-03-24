@@ -85,6 +85,20 @@
       "eas": {
         "projectId": "c06d6977-ea10-44b9-8086-f41aea2ba31d"
       }
+    },
+    "metro": {
+      "resolver": {
+        "sourceExts": ["js", "jsx", "ts", "tsx", "json"],
+        "blockList": [
+          "dify_standard/.*",
+          "functions/.*",
+          "firebase-functions/.*"
+        ],
+        "extraNodeModules": {
+          "firebase-functions": "./empty-module.js",
+          "firebase-admin": "./empty-module.js"
+        }
+      }
     }
   }
 }

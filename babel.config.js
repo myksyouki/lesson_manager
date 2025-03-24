@@ -5,6 +5,17 @@ module.exports = function (api) {
     plugins: [
       'expo-router/babel',
       'react-native-reanimated/plugin',
+      ['module-resolver', {
+        root: ['./'],
+        extensions: ['.js', '.jsx', '.ts', '.tsx'],
+        alias: {
+          // サーバーサイドモジュールをモバイルビルドから除外
+          'firebase-functions': './firebase-functions.js',
+          'firebase-admin': './empty-module.js',
+          // アプリのパスエイリアス
+          '@app': './app',
+        },
+      }],
     ],
   };
 };

@@ -43,8 +43,8 @@
     "expo-symbols": "^0.2.2",
     "expo-system-ui": "^4.0.7",
     "expo-web-browser": "~14.0.2",
-    "firebase": "^11.4.0",
-    "firebase-admin": "^13.2.0",
+    "firebase": "^11.5.0",
+    "firebase-functions": "^4.8.0",
     "lottie-react-native": "^7.2.2",
     "mobx-react-lite": "^4.1.0",
     "openai": "^4.28.0",
@@ -70,6 +70,7 @@
     "@babel/core": "^7.25.2",
     "@types/react": "~18.3.12",
     "@types/uuid": "^10.0.0",
+    "babel-plugin-module-resolver": "^5.0.2",
     "eslint": "^8.57.0",
     "eslint-config-expo": "~8.0.1",
     "typescript": "^5.3.3"

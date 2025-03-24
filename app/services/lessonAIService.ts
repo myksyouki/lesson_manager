@@ -5,6 +5,7 @@ import { collection, doc, setDoc, addDoc, updateDoc } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
 import axios from 'axios';
 import Constants from 'expo-constants';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // レッスンAIのレスポンス型
 export interface LessonAIResponse {
@@ -13,7 +14,14 @@ export interface LessonAIResponse {
   success: boolean;
 }
 
-// DifyのAPI設定
+// Firebase Functionsの設定
+const functions = getFunctions();
+// asia-northeast1リージョンを使用
+functions.region = 'asia-northeast1';
+// Dify API呼び出し用の関数参照
+const sendChatMessageFunc = httpsCallable(functions, 'sendChatMessage');
+
+// DifyのAPI設定 (Functionsを使用するため、直接使用しなくなる)
 const DIFY_API_BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_DIFY_API_BASE_URL || 'https://api.dify.ai/v1';
 const DIFY_STANDARD_API_KEY = Constants.expoConfig?.extra?.EXPO_PUBLIC_DIFY_STANDARD_API_KEY || 'app-lqUus21WWzbWnovfHyGXQWiH';
 const DIFY_STANDARD_APP_ID = Constants.expoConfig?.extra?.EXPO_PUBLIC_DIFY_STANDARD_APP_ID || 'aded5d31-163c-47f8-b07e-e381e73cfc64';
@@ -159,7 +167,7 @@ export const sendMessageToLessonAI = async (
       // エラーが発生しても処理を続行
     }
 
-    console.log('Dify APIにリクエストを送信します');
+    console.log('Firebase Functions経由でDify APIリクエストを送信します');
 
     // チャットルームにユーザーメッセージを追加
     const chatRoomRef = doc(db, `users/${userId}/chatRooms/${roomId}`);
@@ -177,83 +185,66 @@ export const sendMessageToLessonAI = async (
     });
 
     try {
-      // Dify APIリクエストを準備
-      const apiUrl = `${DIFY_API_BASE_URL}/chat-messages`;
-      console.log(`Dify APIリクエストURL: ${apiUrl}`);
-
-      // 入力パラメータを設定
-      const inputs = {
-        instrument: instrumentName // 楽器情報をinputsに追加
-      };
+      // Firebase Functions経由でDify APIを呼び出す
+      console.log('Firebase Functions sendChatMessage を呼び出します');
       
-      console.log('Dify APIリクエストパラメータ:', {
-        inputs,
-        query: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
-        user: userId,
-        conversation_id: conversationId || 'undefined'
-      });
-
-      // Difyにリクエストを送信
-      const response = await axios.post(
-        apiUrl,
-        {
-          inputs: inputs,
-          query: message,
-          user: userId,
-          conversation_id: conversationId || undefined,
-          response_mode: "blocking"  // ブロッキングモードで応答を取得
-        },
-        {
-          headers: {
-            "Authorization": `Bearer ${DIFY_STANDARD_API_KEY}`,
-            "Content-Type": "application/json"
-          }
+      const functionResponse = await sendChatMessageFunc({
+        message,
+        modelType: modelType || 'standard',
+        conversationId,
+        roomId,
+        inputs: {
+          instrument: instrumentName
         }
-      );
-
-      console.log('Dify API応答:', {
-        status: response.status,
-        hasAnswer: !!response.data.answer,
-        answerLength: response.data.answer ? response.data.answer.length : 0,
-        conversationId: response.data.conversation_id || "なし"
+      });
+      
+      // レスポンスデータを取得
+      const responseData = functionResponse.data as any;
+      
+      console.log('Firebase Functions応答:', {
+        success: responseData.success,
+        hasAnswer: !!responseData.answer,
+        answerLength: responseData.answer ? responseData.answer.length : 0,
+        conversationId: responseData.conversationId || "なし"
       });
 
       // AIの応答をFirestoreに保存
       const aiMessageRef = await addDoc(messagesRef, {
-        content: response.data.answer,
+        content: responseData.answer,
         sender: 'ai',
         createdAt: Timestamp.now(),
         metadata: {
-          conversation_id: response.data.conversation_id,
-          created_at: response.data.created_at,
+          conversation_id: responseData.conversationId,
+          model_type: modelType,
+          function_metadata: responseData.metadata
         }
       });
       
       console.log('AIレスポンスを保存しました', {
         messageId: aiMessageRef.id,
-        contentPreview: response.data.answer.substring(0, 50) + (response.data.answer.length > 50 ? '...' : '')
+        contentPreview: responseData.answer.substring(0, 50) + (responseData.answer.length > 50 ? '...' : '')
       });
 
       // 最初の会話の場合、チャットルームに会話IDを保存
-      if (!conversationId && response.data.conversation_id) {
+      if (!conversationId && responseData.conversationId) {
         await updateDoc(chatRoomRef, {
-          conversationId: response.data.conversation_id
+          conversationId: responseData.conversationId
         });
         console.log('チャットルームの会話IDを更新しました', {
-          conversationId: response.data.conversation_id
+          conversationId: responseData.conversationId
         });
       }
 
       return {
-        answer: response.data.answer,
-        conversationId: response.data.conversation_id,
+        answer: responseData.answer,
+        conversationId: responseData.conversationId,
         success: true
       };
     } catch (error: any) {
-      console.error('Dify API呼び出しエラー:', {
+      console.error('Firebase Functions呼び出しエラー:', {
         message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
+        code: error.code,
+        details: error.details,
         stack: error.stack
       });
 
@@ -268,7 +259,7 @@ export const sendMessageToLessonAI = async (
         metadata: {
           is_error: true,
           error_message: error.message,
-          error_code: error.response?.status || 'unknown'
+          error_code: error.code || 'unknown'
         }
       });
       

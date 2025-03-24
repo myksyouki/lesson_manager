@@ -17,6 +17,9 @@ import {
   generateTagsWithGemini
 } from './ai-services';
 
+// Dify APIクライアントをインポート
+import { sendMessageToDify } from './dify-chat-client';
+
 // Firebase初期化（admin.apps.lengthのチェックを追加）
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -306,6 +309,76 @@ export const processAudio = onCall({
         lessonId: error.lessonId,
         originalError: error.message
       }
+    );
+  }
+});
+
+/**
+ * チャットメッセージを送信するCloud Function
+ * クライアントからのメッセージをDify APIに送信し、応答を返す
+ */
+export const sendChatMessage = onCall({
+  region: 'asia-northeast1',
+  timeoutSeconds: 300, // 5分
+  memory: '1GiB',
+  minInstances: 0,
+  maxInstances: 100, // 同時処理能力を向上
+  invoker: 'public',
+}, async (request) => {
+  try {
+    // リクエストデータを検証
+    const { data } = request;
+    const { message, modelType, conversationId, roomId, inputs } = data;
+    
+    // ユーザー認証を確認
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '認証されていません');
+    }
+    
+    const userId = request.auth.uid;
+    
+    // メッセージの存在を確認
+    if (!message || typeof message !== 'string') {
+      throw new HttpsError('invalid-argument', 'メッセージは必須で文字列である必要があります');
+    }
+    
+    console.log('チャットメッセージ処理開始:', {
+      userId,
+      messageLength: message.length,
+      modelType: modelType || 'standard',
+      conversationId: conversationId || 'なし',
+      roomId: roomId || 'なし'
+    });
+    
+    // DifyにAPIリクエストを送信
+    const response = await sendMessageToDify(
+      message,
+      userId,
+      modelType || 'standard',
+      conversationId,
+      inputs || {}
+    );
+    
+    console.log('チャットメッセージ処理完了', {
+      success: response.success,
+      answerLength: response.answer.length,
+      conversationId: response.conversationId || 'なし'
+    });
+    
+    // 応答をクライアントに返す
+    return {
+      success: true,
+      answer: response.answer,
+      conversationId: response.conversationId,
+      metadata: response.metadata
+    };
+  } catch (error: any) {
+    console.error('チャットメッセージ処理エラー:', error);
+    
+    throw new HttpsError(
+      'internal',
+      `チャットメッセージの処理中にエラーが発生しました: ${error.message}`,
+      { originalError: error.message }
     );
   }
 });
