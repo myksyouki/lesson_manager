@@ -1,0 +1,104 @@
+{
+  "expo": {
+    "owner": "myksyouki",
+    "name": "Lesson Manager",
+    "slug": "lesson-manager",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "lessonmanager",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.lessonmanager",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleAllowMixedLocalizations": true,
+        "NSMicrophoneUsageDescription": "音声録音のためにマイクへのアクセスが必要です",
+        "UIBackgroundModes": ["audio"],
+        "LSSupportsOpeningDocumentsInPlace": true,
+        "UIFileSharingEnabled": true,
+        "UISupportsDocumentBrowser": true,
+        "NSPhotoLibraryUsageDescription": "音声ファイルをライブラリから選択するために必要です",
+        "NSDocumentsFolderUsageDescription": "音声ファイルを保存・読み込みするために必要です"
+      }
+    },
+    "android": {
+      "package": "com.yourcompany.lessonmanager",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "intentFilters": [
+        {
+          "action": "android.intent.action.VIEW",
+          "category": [
+            "android.intent.category.DEFAULT",
+            "android.intent.category.BROWSABLE"
+          ],
+          "data": {
+            "scheme": "lessonmanager"
+          }
+        },
+        {
+          "action": "android.intent.action.SEND",
+          "category": [
+            "android.intent.category.DEFAULT"
+          ],
+          "data": {
+            "mimeType": "audio/*"
+          }
+        }
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "expoPublicGoogleWebClientId": "21424871541-1ujlpfdrapifrvbn0hup1hah1q84avuo.apps.googleusercontent.com",
+      "expoPublicGoogleIosClientId": "21424871541-j9mudt7r229fk77j6rie1oasvs70e377.apps.googleusercontent.com",
+      "expoPublicGoogleAndroidClientId": "21424871541-1553of634jsc7gj8qe8ljpkpv8u4cq77.apps.googleusercontent.com",
+      "expoPublicGoogleRedirectUri": "https://auth.expo.io/@myksyouki/lesson-manager",
+      "expoPublicFirebaseApiKey": "AIzaSyA6GCKN48UZNnWQmU0LDIu7tn0jLRrJ4Ik",
+      "expoPublicFirebaseAuthDomain": "lesson-manager-99ab9.firebaseapp.com",
+      "expoPublicFirebaseProjectId": "lesson-manager-99ab9",
+      "expoPublicFirebaseStorageBucket": "lesson-manager-99ab9.firebasestorage.app",
+      "expoPublicFirebaseMessagingSenderId": "21424871541",
+      "expoPublicFirebaseAppId": "1:21424871541:web:eab99b9421a3d0cfbac03c",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "c06d6977-ea10-44b9-8086-f41aea2ba31d"
+      }
+    },
+    "metro": {
+      "resolver": {
+        "sourceExts": ["js", "jsx", "ts", "tsx", "json"],
+        "blockList": [
+          "dify_standard/.*",
+          "functions/.*",
+          "firebase-functions/.*"
+        ],
+        "extraNodeModules": {
+          "firebase-functions": "./empty-module.js",
+          "firebase-admin": "./empty-module.js"
+        }
+      }
+    }
+  }
+}

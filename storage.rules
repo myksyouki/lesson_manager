@@ -1,0 +1,77 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // ユーザーが認証済みかどうかチェック
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // テストユーザーかどうかチェック
+    function isTestUser() {
+      return request.auth.token.email == "test@example.com";
+    }
+
+    // ユーザー自身のフォルダへのアクセスチェック
+    function isUserFolder(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Firebase Functionsかどうかチェック (service account)
+    function isFunctionRequest() {
+      return request.auth.token.email.matches('.*@appspot.gserviceaccount.com') || 
+             request.auth.token.email.matches('.*@cloudfunctions.gserviceaccount.com');
+    }
+    
+    // ファイルが一時的に公開とマークされているかチェック
+    function isTemporarilyPublic() {
+      return resource.metadata.temporaryPublic == "true";
+    }
+
+    // ユーザーファイルへのアクセス
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.token.admin == true;
+    }
+    
+    // 公開ディレクトリへのアクセス
+    match /public/{allPaths=**} {
+      allow read: if true; // 誰でも読み取り可能
+      allow write: if request.auth != null; // 認証済みユーザーのみ書き込み可能
+    }
+    
+    // audio ディレクトリへのアクセス (代替パスとして)
+    match /audio/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.token.admin == true;
+      allow read, write: if isFunctionRequest(); // Functionsからのアクセスを常に許可
+    }
+    
+    // デフォルトは拒否
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // オーディオファイル: audio/{userId}/{fileName}
+    match /audio/{userId}/{fileName} {
+      // ユーザー自身とテストユーザー、一時的に公開とマークされたファイルへのアクセスを許可
+      allow read: if isAuthenticated() && (isUserFolder(userId) || isTestUser()) || isTemporarilyPublic();
+      allow write: if isAuthenticated() && (isUserFolder(userId) || isTestUser());
+      allow read, write: if isFunctionRequest(); // Functionsからのアクセスを常に許可
+    }
+
+    // オーディオファイル: audio/{userId}/{lessonId}/{fileName}
+    match /audio/{userId}/{lessonId}/{fileName} {
+      // ユーザー自身とテストユーザー、一時的に公開とマークされたファイルへのアクセスを許可
+      allow read: if isAuthenticated() && (isUserFolder(userId) || isTestUser()) || isTemporarilyPublic();
+      allow write: if isAuthenticated() && (isUserFolder(userId) || isTestUser());
+      allow read, write: if isFunctionRequest(); // Functionsからのアクセスを常に許可
+    }
+
+    // プロフィール画像: profileImages/{userId}.*
+    match /profileImages/{userId}/{fileName} {
+      allow read: if isAuthenticated() || isTemporarilyPublic();
+      allow write: if isAuthenticated() && (isUserFolder(userId) || isTestUser());
+      allow read, write: if isFunctionRequest(); // Functionsからのアクセスを常に許可
+    }
+  }
+} 
