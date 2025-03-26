@@ -69,6 +69,10 @@
       "typedRoutes": true
     },
     "extra": {
+      "expoPublicGoogleWebClientId": "21424871541-1ujlpfdrapifrvbn0hup1hah1q84avuo.apps.googleusercontent.com",
+      "expoPublicGoogleIosClientId": "21424871541-j9mudt7r229fk77j6rie1oasvs70e377.apps.googleusercontent.com",
+      "expoPublicGoogleAndroidClientId": "21424871541-1553of634jsc7gj8qe8ljpkpv8u4cq77.apps.googleusercontent.com",
+      "expoPublicGoogleRedirectUri": "https://auth.expo.io/@myksyouki/lesson-manager",
       "router": {
         "origin": false
       },
