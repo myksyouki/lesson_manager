@@ -69,16 +69,6 @@
       "typedRoutes": true
     },
     "extra": {
-      "expoPublicGoogleWebClientId": "21424871541-1ujlpfdrapifrvbn0hup1hah1q84avuo.apps.googleusercontent.com",
-      "expoPublicGoogleIosClientId": "21424871541-j9mudt7r229fk77j6rie1oasvs70e377.apps.googleusercontent.com",
-      "expoPublicGoogleAndroidClientId": "21424871541-1553of634jsc7gj8qe8ljpkpv8u4cq77.apps.googleusercontent.com",
-      "expoPublicGoogleRedirectUri": "https://auth.expo.io/@myksyouki/lesson-manager",
-      "expoPublicFirebaseApiKey": "AIzaSyA6GCKN48UZNnWQmU0LDIu7tn0jLRrJ4Ik",
-      "expoPublicFirebaseAuthDomain": "lesson-manager-99ab9.firebaseapp.com",
-      "expoPublicFirebaseProjectId": "lesson-manager-99ab9",
-      "expoPublicFirebaseStorageBucket": "lesson-manager-99ab9.firebasestorage.app",
-      "expoPublicFirebaseMessagingSenderId": "21424871541",
-      "expoPublicFirebaseAppId": "1:21424871541:web:eab99b9421a3d0cfbac03c",
       "router": {
         "origin": false
       },
