@@ -1,14 +1,15 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 interface ChatsHeaderProps {
   title: string;
   onBackPress?: () => void;
+  onEditPress?: () => void;
 }
 
-const ChatsHeader: React.FC<ChatsHeaderProps> = ({ title, onBackPress }) => {
+const ChatsHeader: React.FC<ChatsHeaderProps> = ({ title, onBackPress, onEditPress }) => {
   const router = useRouter();
 
   const handleBackPress = () => {
@@ -27,6 +28,11 @@ const ChatsHeader: React.FC<ChatsHeaderProps> = ({ title, onBackPress }) => {
       <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
         {title}
       </Text>
+      {onEditPress && (
+        <TouchableOpacity onPress={onEditPress} style={styles.editButton}>
+          <MaterialIcons name="edit" size={24} color="#007AFF" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -50,6 +56,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000000',
     marginLeft: 8,
+  },
+  editButton: {
+    padding: 8,
   },
 });
 

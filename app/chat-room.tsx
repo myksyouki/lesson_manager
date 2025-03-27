@@ -11,10 +11,12 @@ import {
   SafeAreaView,
   TouchableOpacity,
   FlatList,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { getChatRoomById, updateChatRoomMessages } from './services/chatRoomService';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { getChatRoomById, updateChatRoomMessages, updateChatRoom } from './services/chatRoomService';
 import { sendMessageToLessonAI } from './services/lessonAIService';
 import { ChatRoom, ChatMessage } from './types/chatRoom';
 import { useAuthStore } from './store/auth';
@@ -34,6 +36,12 @@ export default function ChatRoomScreen() {
   const [sending, setSending] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+  
+  // 編集用の状態
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newTopic, setNewTopic] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   // チャットルームデータの読み込み
   useEffect(() => {
@@ -54,6 +62,9 @@ export default function ChatRoomScreen() {
         }
         
         setChatRoom(roomData);
+        // 編集用の初期値をセット
+        setNewTitle(roomData.title);
+        setNewTopic(roomData.topic);
       } catch (error) {
         console.error('チャットルーム読み込みエラー:', error);
         Alert.alert('エラー', 'チャットルームの読み込みに失敗しました');
@@ -64,6 +75,53 @@ export default function ChatRoomScreen() {
     
     loadChatRoom();
   }, [id, user, router]);
+
+  // 編集モーダルを開く
+  const handleOpenEditModal = () => {
+    if (chatRoom) {
+      setNewTitle(chatRoom.title);
+      setNewTopic(chatRoom.topic);
+      setIsEditModalVisible(true);
+    }
+  };
+
+  // チャットルーム情報を更新
+  const handleUpdateRoom = async () => {
+    if (!chatRoom || !newTitle.trim() || !newTopic.trim()) {
+      return;
+    }
+
+    try {
+      setUpdating(true);
+      
+      // updatedAtはserverTimestamp()によって自動的に設定される
+      await updateChatRoom(chatRoom.id, {
+        title: newTitle.trim(),
+        topic: newTopic.trim()
+      });
+      
+      // 成功したらローカルの状態も更新
+      // ローカルのタイムスタンプはクライアント側で作成
+      const currentTimestamp = Timestamp.now();
+      setChatRoom({
+        ...chatRoom,
+        title: newTitle.trim(),
+        topic: newTopic.trim(),
+        updatedAt: currentTimestamp
+      });
+      
+      // モーダルを閉じる
+      setIsEditModalVisible(false);
+      
+      // 成功メッセージ
+      Alert.alert('成功', 'チャットルーム情報を更新しました');
+    } catch (error) {
+      console.error('チャットルーム更新エラー:', error);
+      Alert.alert('エラー', 'チャットルームの更新に失敗しました。後でもう一度お試しください。');
+    } finally {
+      setUpdating(false);
+    }
+  };
   
   // メッセージが更新されたらスクロール
   useEffect(() => {
@@ -212,7 +270,11 @@ export default function ChatRoomScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       
-      <ChatsHeader title={chatRoom?.title || 'チャット'} onBackPress={() => router.back()} />
+      <ChatsHeader 
+        title={chatRoom?.title || 'チャット'} 
+        onBackPress={() => router.back()} 
+        onEditPress={handleOpenEditModal}
+      />
       
       <KeyboardAvoidingView
         style={styles.container}
@@ -240,8 +302,61 @@ export default function ChatRoomScreen() {
           onChangeMessage={setMessage}
           onSend={handleSend}
           sending={sending}
+          roomId={chatRoom?.id || ''}
+          instrument={''}
         />
       </KeyboardAvoidingView>
+      
+      {/* 編集モーダル */}
+      <Modal
+        visible={isEditModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsEditModalVisible(false)}
+      >
+        <View style={styles.modalBackground}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>チャットルーム情報の編集</Text>
+            
+            <Text style={styles.inputLabel}>タイトル</Text>
+            <TextInput
+              style={styles.input}
+              value={newTitle}
+              onChangeText={setNewTitle}
+              placeholder="チャットルームのタイトル"
+              placeholderTextColor="#9AA0A6"
+              maxLength={50}
+            />
+            
+            <Text style={styles.inputLabel}>トピック</Text>
+            <TextInput
+              style={styles.input}
+              value={newTopic}
+              onChangeText={setNewTopic}
+              placeholder="チャットのトピック"
+              placeholderTextColor="#9AA0A6"
+              maxLength={30}
+            />
+            
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelModalButton]}
+                onPress={() => setIsEditModalVisible(false)}
+              >
+                <Text style={styles.cancelModalButtonText}>キャンセル</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmModalButton]}
+                onPress={handleUpdateRoom}
+                disabled={updating || !newTitle.trim() || !newTopic.trim()}
+              >
+                <Text style={styles.confirmModalButtonText}>更新</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -314,5 +429,80 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 16,
     textAlign: 'center',
+  },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '85%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#202124',
+    marginBottom: 24,
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#5F6368',
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  input: {
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#DADCE0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#202124',
+    marginBottom: 16,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 16,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  cancelModalButton: {
+    backgroundColor: '#F1F3F4',
+  },
+  confirmModalButton: {
+    backgroundColor: '#4285F4',
+  },
+  cancelModalButtonText: {
+    color: '#5F6368',
+    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  confirmModalButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 });

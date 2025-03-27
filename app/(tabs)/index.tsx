@@ -22,7 +22,8 @@ import EmptyOrLoading from '../features/home/components/EmptyOrLoading';
 import { FadeIn } from '../components/AnimatedComponents';
 import { MaterialCommunityIcons, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { getUserChatRooms, ChatRoom } from '../services/chatRoomService';
 
 export default function HomeScreen() {
   // 画面サイズを取得
@@ -48,14 +49,8 @@ export default function HomeScreen() {
   // スクロール参照
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // ダミーのチャットルームデータ
-  const recentChatRooms: Array<{
-    id: string;
-    title: string;
-    lastMessage: string;
-    timestamp: string;
-    type: string;
-  }> = [];
+  // ダミーのチャットルームデータを実際のデータに変更
+  const [recentChatRooms, setRecentChatRooms] = useState<ChatRoom[]>([]);
 
   // 本来はAPI等から取得する
   const [isLoadingChats, setIsLoadingChats] = useState(false);
@@ -89,6 +84,8 @@ export default function HomeScreen() {
   useEffect(() => {
     if (user) {
       loadData();
+      // チャットルームデータも読み込む
+      loadChatRooms();
     }
   }, [user]);
 
@@ -141,6 +138,34 @@ export default function HomeScreen() {
       setIsLoading(false);
     }
   };
+
+  // チャットルームデータを読み込む関数
+  const loadChatRooms = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoadingChats(true);
+      const chatRooms = await getUserChatRooms(user.uid);
+      // 最新の3件だけを表示
+      setRecentChatRooms(chatRooms.slice(0, 3));
+      setIsLoadingChats(false);
+    } catch (error) {
+      console.error('チャットルーム読み込みエラー:', error);
+      setIsLoadingChats(false);
+    }
+  };
+
+  // 画面がフォーカスされた時にチャットルームを再読み込み
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user) {
+        loadChatRooms();
+      }
+      return () => {
+        // クリーンアップ処理（必要に応じて）
+      };
+    }, [user])
+  );
 
   // 課題を自動生成する関数
   const handleGenerateTasks = async () => {
@@ -395,13 +420,35 @@ export default function HomeScreen() {
   };
 
   // チャットルームカードコンポーネント
-  const ChatRoomCard = ({ chatRoom }: { chatRoom: any }) => {
+  const ChatRoomCard = ({ chatRoom }: { chatRoom: ChatRoom }) => {
     const handleCardPress = () => {
       navigateToChatRoom(chatRoom.id);
     };
 
-    const chatIcon = getChatRoomIcon(chatRoom.type);
-    const formattedDate = formatDate(chatRoom.timestamp);
+    // チャットのタイプを取得する関数（トピックから推定）
+    const getChatType = () => {
+      const topic = chatRoom.topic.toLowerCase();
+      if (topic.includes('tone') || topic.includes('音色')) return 'tone';
+      if (topic.includes('vibrato') || topic.includes('ビブラート')) return 'vibrato';
+      if (topic.includes('tongue') || topic.includes('タンギング')) return 'tonguing';
+      return 'default';
+    };
+
+    const chatIcon = getChatRoomIcon(getChatType());
+    
+    // タイムスタンプを文字列に変換
+    const timestamp = chatRoom.updatedAt ? 
+      (typeof chatRoom.updatedAt === 'object' && 'seconds' in chatRoom.updatedAt) ? 
+        new Date(chatRoom.updatedAt.seconds * 1000).toISOString() : 
+        new Date().toISOString() : 
+      new Date().toISOString();
+      
+    const formattedDate = formatDate(timestamp);
+
+    // 最後のメッセージを取得
+    const lastMessage = chatRoom.messages && chatRoom.messages.length > 0 ? 
+      chatRoom.messages[chatRoom.messages.length - 1].content : 
+      '新しい会話を始めましょう';
 
     return (
       <TouchableOpacity
@@ -452,7 +499,7 @@ export default function HomeScreen() {
             ]}
             numberOfLines={1}
           >
-            {chatRoom.lastMessage}
+            {lastMessage}
           </Text>
         </View>
         
@@ -531,7 +578,7 @@ export default function HomeScreen() {
           {/* ピックアップタスクセクション */}
           <View style={[styles.sectionContainer, { 
             marginTop: dynamicStyles.contentMargin,
-            marginBottom: dynamicStyles.contentMargin, 
+            marginBottom: 0,
             paddingHorizontal: dynamicStyles.contentMargin 
           }]}>
             <View style={[styles.sectionHeaderContainer, { marginBottom: dynamicStyles.itemSpacing * 1.5 }]}>
@@ -604,18 +651,18 @@ export default function HomeScreen() {
 
           {/* 最新のチャットルームセクション */}
           <View style={[styles.sectionContainer, { 
-            marginTop: dynamicStyles.contentMargin,
+            marginTop: dynamicStyles.itemSpacing,
             marginBottom: dynamicStyles.contentMargin, 
             paddingHorizontal: dynamicStyles.contentMargin 
           }]}>
             <View style={[styles.sectionHeaderContainer, { marginBottom: dynamicStyles.itemSpacing * 1.5 }]}>
               <Text style={[styles.sectionTitle, { fontSize: dynamicStyles.titleFontSize }]}>最新のチャットルーム</Text>
               <TouchableOpacity 
-                onPress={() => router.push('/chat-room' as any)} 
+                onPress={() => router.push('/chat-room-form' as any)} 
                 style={styles.viewAllButton}
               >
-                <Text style={[styles.viewAllText, { fontSize: dynamicStyles.subtitleFontSize, color: theme.colors.primary }]}>すべて表示</Text>
-                <MaterialIcons name="arrow-forward" size={dynamicStyles.iconSize - 4} color={theme.colors.primary} />
+                <Text style={[styles.viewAllText, { fontSize: dynamicStyles.subtitleFontSize, color: theme.colors.primary }]}>新規作成</Text>
+                <MaterialIcons name="add" size={dynamicStyles.iconSize - 4} color={theme.colors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -648,9 +695,9 @@ export default function HomeScreen() {
                       paddingHorizontal: dynamicStyles.contentMargin
                     }
                   ]}
-                  onPress={() => router.push('/chat-room' as any)}
+                  onPress={() => router.push('/chat-room-form' as any)}
                 >
-                  <Text style={[styles.goToTaskButtonText, { fontSize: dynamicStyles.subtitleFontSize }]}>チャットルーム一覧へ</Text>
+                  <Text style={[styles.goToTaskButtonText, { fontSize: dynamicStyles.subtitleFontSize }]}>チャットルームを作成</Text>
                 </TouchableOpacity>
               </View>
             ) : (

@@ -14,11 +14,13 @@ import {
   Alert,
   Image,
   Pressable,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuthStore } from '../store/auth';
-import { getUserChatRooms, ChatRoom, deleteChatRoom } from '../services/chatRoomService';
+import { getUserChatRooms, ChatRoom, deleteChatRoom, updateChatRoom } from '../services/chatRoomService';
 import { useTheme } from '../theme';
 import Animated, { FadeIn, SlideInRight, SlideInUp } from 'react-native-reanimated';
 import { RippleButton } from '../components/RippleButton';
@@ -153,6 +155,9 @@ export default function AILessonScreen() {
   const [activeTab, setActiveTab] = useState<string>(TABS.CONSULTATION);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
+  const [isRenameModalVisible, setIsRenameModalVisible] = useState(false);
+  const [roomToRename, setRoomToRename] = useState<ChatRoom | null>(null);
+  const [newRoomTitle, setNewRoomTitle] = useState('');
   const router = useRouter();
   const { user } = useAuthStore();
   const theme = useTheme();
@@ -174,7 +179,15 @@ export default function AILessonScreen() {
       console.log('Fetching chat rooms for user:', user.uid);
       const rooms = await getUserChatRooms(user.uid);
       console.log('Fetched chat rooms:', rooms.length);
-      setChatRooms(rooms);
+      
+      // updatedAtの降順でソート
+      const sortedRooms = [...rooms].sort((a, b) => {
+        const aTime = a.updatedAt?.seconds || 0;
+        const bTime = b.updatedAt?.seconds || 0;
+        return bTime - aTime; // 降順
+      });
+      
+      setChatRooms(sortedRooms);
     } catch (error) {
       console.error('チャットルーム一覧の取得に失敗しました:', error);
       setError('チャットルーム一覧の取得に失敗しました');
@@ -185,10 +198,25 @@ export default function AILessonScreen() {
     }
   }, [user]);
 
+  // 初回ロード
   useEffect(() => {
     console.log('useEffect triggered for loadChatRooms');
     loadChatRooms();
   }, [loadChatRooms]);
+  
+  // 画面がフォーカスされるたびにデータを再取得
+  useFocusEffect(
+    useCallback(() => {
+      console.log('useFocusEffect triggered - reloading chat rooms');
+      // 画面表示時に一度だけ実行し、ローディング中やリフレッシュ中のチェックを削除
+      // これにより無限ループを防止
+      loadChatRooms();
+      
+      return () => {
+        // クリーンアップ
+      };
+    }, [loadChatRooms]) // loading, refreshingを依存配列から削除
+  );
 
   const handleRefresh = useCallback(() => {
     console.log('handleRefresh called');
@@ -299,6 +327,45 @@ export default function AILessonScreen() {
     setIsSelectionMode(false);
     setSelectedRoomIds([]);
   }, []);
+
+  const handleOpenRenameModal = useCallback((room: ChatRoom) => {
+    setRoomToRename(room);
+    setNewRoomTitle(room.title);
+    setIsRenameModalVisible(true);
+  }, []);
+
+  const handleRenameRoom = useCallback(async () => {
+    if (!roomToRename || !newRoomTitle.trim()) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await updateChatRoom(roomToRename.id, { title: newRoomTitle.trim() });
+      
+      // 成功したらローカルの状態も更新
+      setChatRooms(prevRooms => 
+        prevRooms.map(room => 
+          room.id === roomToRename.id 
+            ? { ...room, title: newRoomTitle.trim() } 
+            : room
+        )
+      );
+      
+      // モーダルを閉じる
+      setIsRenameModalVisible(false);
+      setRoomToRename(null);
+      setNewRoomTitle('');
+      
+      // 成功メッセージ
+      Alert.alert('成功', 'チャットルーム名を変更しました');
+    } catch (error) {
+      console.error('チャットルーム名変更エラー:', error);
+      Alert.alert('エラー', 'チャットルーム名の変更に失敗しました。後でもう一度お試しください。');
+    } finally {
+      setLoading(false);
+    }
+  }, [roomToRename, newRoomTitle]);
 
   const renderTabBar = () => (
     <View style={styles.tabContainer}>
@@ -540,7 +607,11 @@ export default function AILessonScreen() {
   const renderPracticeTab = () => (
     <View style={styles.tabContentContainer}>
       <FlatList
-        data={PRACTICE_CHAT_ROOMS}
+        data={[...PRACTICE_CHAT_ROOMS].sort((a, b) => {
+          const aTime = a.updatedAt?.seconds || 0;
+          const bTime = b.updatedAt?.seconds || 0;
+          return bTime - aTime; // 降順
+        })}
         renderItem={renderPracticeChatRoomItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.chatRoomsList}
@@ -566,6 +637,47 @@ export default function AILessonScreen() {
           ? renderPracticeTab()
           : renderConsultationTab()
         }
+
+        {/* リネームモーダル */}
+        <Modal
+          visible={isRenameModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsRenameModalVisible(false)}
+        >
+          <View style={styles.modalBackground}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>チャットルーム名の変更</Text>
+              
+              <TextInput
+                style={styles.input}
+                value={newRoomTitle}
+                onChangeText={setNewRoomTitle}
+                placeholder="新しいルーム名を入力"
+                placeholderTextColor="#9AA0A6"
+                autoFocus={true}
+                maxLength={50}
+              />
+              
+              <View style={styles.modalButtonContainer}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelModalButton]}
+                  onPress={() => setIsRenameModalVisible(false)}
+                >
+                  <Text style={styles.cancelModalButtonText}>キャンセル</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.confirmModalButton]}
+                  onPress={handleRenameRoom}
+                  disabled={!newRoomTitle.trim()}
+                >
+                  <Text style={styles.confirmModalButtonText}>変更</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -722,23 +834,28 @@ const styles = StyleSheet.create({
   topicContainer: {
     flexDirection: 'row',
     marginBottom: 4,
+    alignItems: 'center',
   },
   chatRoomTopic: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     fontSize: 13,
+    lineHeight: 18,
     fontWeight: '600',
     overflow: 'hidden',
     marginRight: 8,
+    textAlignVertical: 'center',
   },
   modelType: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
     overflow: 'hidden',
+    textAlignVertical: 'center',
   },
   date: {
     fontSize: 12,
@@ -927,6 +1044,86 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F0F4FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#202124',
+    marginBottom: 16,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  input: {
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#DADCE0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#202124',
+    marginBottom: 24,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  cancelModalButton: {
+    backgroundColor: '#F1F3F4',
+  },
+  confirmModalButton: {
+    backgroundColor: AI_THEME_COLOR,
+  },
+  cancelModalButtonText: {
+    color: '#5F6368',
+    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  confirmModalButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 15,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 });

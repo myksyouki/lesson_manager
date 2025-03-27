@@ -12,7 +12,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from './store/auth';
 import { createChatRoom } from './services/chatRoomService';
 import { getUserProfile } from './services/userProfileService';
@@ -37,6 +37,7 @@ export default function ChatRoomFormScreen() {
   const [userModelType, setUserModelType] = useState<string>('');
   const router = useRouter();
   const { user } = useAuthStore();
+  const params = useLocalSearchParams();
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -104,10 +105,25 @@ export default function ChatRoomFormScreen() {
 
       console.log('チャットルーム作成成功:', chatRoom.id);
 
-      router.replace({
-        pathname: '/chat-room' as any,
-        params: { id: chatRoom.id }
-      });
+      Alert.alert(
+        'チャットルーム作成',
+        'チャットルームが作成されました',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              if (params?.redirectToChat === 'true') {
+                router.navigate({
+                  pathname: `/chat-room/${chatRoom.id}`,
+                } as any);
+              } else {
+                router.back();
+              }
+            }
+          }
+        ]
+      );
+
     } catch (error) {
       console.error('チャットルーム作成エラー:', error);
       Alert.alert('エラー', 'チャットルームの作成に失敗しました。後でもう一度お試しください。');
