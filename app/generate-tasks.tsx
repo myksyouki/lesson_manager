@@ -19,6 +19,7 @@ import { useAuthStore } from './store/auth';
 import { Lesson } from './store/lessons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 export default function GenerateTasksScreen() {
   const { lessonIds } = useLocalSearchParams();
@@ -30,6 +31,7 @@ export default function GenerateTasksScreen() {
   const { lessons } = useLessonStore();
   const { addTask } = useTaskStore();
   const { user } = useAuthStore();
+  const functions = getFunctions();
 
   // 選択されたレッスンを取得
   useEffect(() => {
@@ -51,7 +53,13 @@ export default function GenerateTasksScreen() {
           const missingIds = ids.filter(id => !lessonsData.some(lesson => lesson.id === id));
           
           for (const id of missingIds) {
-            const lessonDoc = await getDoc(doc(db, 'lessons', id));
+            // ユーザーIDを使って正しいパスでドキュメントを取得
+            const userId = user?.uid;
+            if (!userId) {
+              throw new Error("ユーザーが認証されていません");
+            }
+            
+            const lessonDoc = await getDoc(doc(db, `users/${userId}/lessons`, id));
             if (lessonDoc.exists()) {
               const data = lessonDoc.data();
               lessonsData.push({
@@ -81,7 +89,7 @@ export default function GenerateTasksScreen() {
     };
 
     fetchSelectedLessons();
-  }, [lessonIds, lessons]);
+  }, [lessonIds, lessons, user]);
 
   // 練習メニューを生成する関数
   const generateTasks = async () => {
@@ -100,6 +108,7 @@ export default function GenerateTasksScreen() {
     try {
       // レッスンデータを整形
       const lessonsData = selectedLessons.map(lesson => ({
+        id: lesson.id,
         teacher: lesson.teacher,
         date: lesson.date,
         pieces: lesson.pieces,
@@ -108,18 +117,48 @@ export default function GenerateTasksScreen() {
         tags: lesson.tags,
       }));
 
-      // Difyを使って練習メニューを生成
-      // 実際のDify APIリクエストはここに実装
-      // 今回はモックデータを使用
-      const mockResponse = await mockDifyRequest(lessonsData);
+      console.log('Cloud Functionsでタスク生成開始:', lessonsData);
+      
+      // Firebase Functions経由でタスク生成
+      const generateTasksFromLessonsFunction = httpsCallable(functions, 'generateTasksFromLessons');
+      
+      // ユーザーの楽器情報を取得（将来的に実装）
+      const instrument = "ピアノ"; // 現状は固定値、将来的にはユーザープロファイルから取得
+      
+      // Cloud Functionsを呼び出し
+      const result = await generateTasksFromLessonsFunction({
+        lessons: lessonsData,
+        instrument: instrument
+      });
+      
+      console.log('タスク生成結果:', result.data);
+      
+      // 生成されたデータ
+      const taskData = result.data as {
+        practice_points: string[];
+        technical_exercises: string[];
+        piece_practice: string[];
+        interpretation_advice: string;
+      };
+      
+      // タスクの説明文を作成
+      const taskDescription = formatTaskDescription(taskData, selectedLessons);
+      
+      // タスクのタイトルを作成
+      const pieces = selectedLessons.flatMap(lesson => lesson.pieces || []).filter(Boolean);
+      const uniquePieces = [...new Set(pieces)];
+      const taskTitle = uniquePieces.length > 0 
+        ? `${uniquePieces[0]} の練習メニュー`
+        : '練習メニュー';
       
       // 生成された練習メニューをタスクとして保存
       const { id: taskId } = await addTask({
-        title: `${selectedLessons[0].pieces?.[0] || '曲'} の練習メニュー`,
-        description: formatTaskDescription(mockResponse, selectedLessons),
+        title: taskTitle,
+        description: taskDescription,
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 1週間後
         isCompleted: false,
         userId: user.uid,
+        tags: ["練習メニュー"] // タグを追加
       });
       
       setGeneratedTaskId(taskId);
@@ -137,46 +176,33 @@ export default function GenerateTasksScreen() {
     }
   };
 
-  // モックDifyリクエスト（実際のAPIが実装されるまでの仮実装）
-  const mockDifyRequest = async (lessonsData: any[]) => {
-    // 実際のAPIリクエストの代わりに、2秒待機して応答を返す
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          practice_points: [
-            "テンポの安定性を向上させる",
-            "フレージングの表現力を高める",
-            "ダイナミクスの対比をより明確に",
-            "左手の伴奏パターンをスムーズに",
-            "右手のメロディラインを歌うように",
-          ],
-          technical_exercises: [
-            "スケール練習: ハノン No.1-5を様々なテンポで",
-            "アルペジオ練習: 関連する調性で",
-            "和音の練習: 曲中の難しい和音進行を抽出して",
-          ],
-          interpretation_advice: "この曲の感情表現をより豊かにするために、各フレーズの頂点を意識し、自然な流れを作りましょう。特に中間部の転調箇所では、和声の変化を聴き手に伝わるように演奏することが重要です。"
-        });
-      }, 2000);
-    });
-  };
-
   // タスク説明文をフォーマットする関数
-  const formatTaskDescription = (response: any, lessons: Lesson[]) => {
+  const formatTaskDescription = (
+    taskData: {
+      practice_points: string[];
+      technical_exercises: string[];
+      piece_practice: string[];
+      interpretation_advice: string;
+    }, 
+    lessons: Lesson[]
+  ) => {
     const pieces = lessons.flatMap(lesson => lesson.pieces || []).filter(Boolean);
     const uniquePieces = [...new Set(pieces)];
     
     return `## 練習目標
-- ${response.practice_points.join('\n- ')}
+${taskData.practice_points.map(point => `- ${point}`).join('\n')}
 
 ## 練習曲
-- ${uniquePieces.join('\n- ')}
+${uniquePieces.map(piece => `- ${piece}`).join('\n')}
 
 ## テクニカル練習
-- ${response.technical_exercises.join('\n- ')}
+${taskData.technical_exercises.map(exercise => `- ${exercise}`).join('\n')}
+
+## 曲練習のポイント
+${taskData.piece_practice.map(point => `- ${point}`).join('\n')}
 
 ## 解釈とアドバイス
-${response.interpretation_advice}
+${taskData.interpretation_advice}
 
 ---
 *このメニューは ${lessons.length}件のレッスン記録から生成されました*`;
@@ -204,28 +230,30 @@ ${response.interpretation_advice}
         });
       }
       
-      // 日本語形式の日付文字列の場合（例: "2023年5月15日"）
-      if (typeof dateString === 'string' && dateString.includes('年')) {
-        return dateString;
-      }
-      
-      // ISO形式の日付文字列の場合
-      if (typeof dateString === 'string' && dateString) {
-        const date = new Date(dateString);
-        if (!isNaN(date.getTime())) {
-          return date.toLocaleDateString('ja-JP', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          });
+      // 文字列の場合
+      if (typeof dateString === 'string') {
+        // 日本語の日付形式の場合はそのまま返す
+        if (dateString.includes('年') || dateString.includes('月') || dateString.includes('日')) {
+          return dateString;
         }
+        
+        // その他の形式はDate型に変換して日本語形式にフォーマット
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+          return dateString; // 無効な日付の場合はそのまま返す
+        }
+        
+        return date.toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
       }
       
-      // どの形式にも当てはまらない場合
-      return '日付なし';
+      return '日付不明';
     } catch (error) {
-      console.error('日付フォーマットエラー:', error, dateString);
-      return '日付エラー';
+      console.error('日付フォーマットエラー:', error);
+      return '日付不明';
     }
   };
 

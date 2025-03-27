@@ -2,23 +2,22 @@
  * 練習メニュー生成用のCloud Functions
  */
 
-import * as functions from "firebase-functions";
+import * as functions from "firebase-functions/v1";
 import axios from "axios";
 import {
-  DIFY_API_ENDPOINT,
   FUNCTION_REGION,
   INSTRUMENT_DIFY_CONFIGS,
 } from "../config";
-import { getSecret } from "../common/secret";
-import { ErrorType, createError } from "../common/errors";
+import {getSecret} from "../common/secret";
+import {ErrorType, createError} from "../common/errors";
 
 // リクエストのバリデーション用インターフェース
 interface PracticeMenuRequest {
   instrument: string;
-  skill_level: string;
-  practice_duration: number;
-  practice_content?: string;
-  specific_goals?: string;
+  skillLevel: string;
+  practiceDuration: number;
+  practiceContent?: string;
+  specificGoals?: string;
 }
 
 /**
@@ -63,10 +62,10 @@ export const generatePracticeMenu = functions
       // リクエストの整形
       const request: PracticeMenuRequest = {
         instrument: data.instrument,
-        skill_level: data.skill_level,
-        practice_duration: data.practice_duration || 60, // デフォルト60分
-        practice_content: data.practice_content,
-        specific_goals: data.specific_goals || "",
+        skillLevel: data.skill_level,
+        practiceDuration: data.practice_duration || 60, // デフォルト60分
+        practiceContent: data.practice_content,
+        specificGoals: data.specific_goals || "",
       };
 
       // プロンプトの生成
@@ -97,10 +96,10 @@ export const generatePracticeMenu = functions
         {
           inputs: {
             instrument: request.instrument,
-            skill_level: request.skill_level,
-            practice_duration: request.practice_duration,
-            practice_content: request.practice_content,
-            specific_goals: request.specific_goals,
+            skill_level: request.skillLevel,
+            practice_duration: request.practiceDuration,
+            practice_content: request.practiceContent,
+            specific_goals: request.specificGoals,
           },
           query: prompt,
           response_mode: "blocking",
@@ -151,19 +150,19 @@ export const generatePracticeMenu = functions
  * ユーザーのリクエストからプロンプトを生成
  */
 function createPromptFromRequest(request: PracticeMenuRequest): string {
-  const { instrument, skill_level, practice_duration, practice_content, specific_goals } = request;
+  const {instrument, skillLevel, practiceDuration, practiceContent, specificGoals} = request;
   
-  let prompt = `${instrument}の${skill_level}向けの、${practice_duration}分間の練習メニューを作成してください。`;
+  let prompt = `${instrument}の${skillLevel}向けの、${practiceDuration}分間の練習メニューを作成してください。`;
   
-  if (practice_content && practice_content.trim()) {
-    prompt += ` 特に「${practice_content}」に重点を置いてください。`;
+  if (practiceContent && practiceContent.trim()) {
+    prompt += ` 特に「${practiceContent}」に重点を置いてください。`;
   }
   
-  if (specific_goals && specific_goals.trim()) {
-    prompt += ` 目標: ${specific_goals}`;
+  if (specificGoals && specificGoals.trim()) {
+    prompt += ` 目標: ${specificGoals}`;
   }
   
-  prompt += ` 各練習項目には、タイトル、詳細な説明、目安時間（分）、カテゴリ（ロングトーン、音階、曲練習などから選択）を含めてください。JSON形式で返してください。`;
+  prompt += " 各練習項目には、タイトル、詳細な説明、目安時間（分）、カテゴリ（ロングトーン、音階、曲練習などから選択）を含めてください。JSON形式で返してください。";
   
   return prompt;
 }
@@ -187,14 +186,14 @@ function parseDifyResponse(response: any): any {
       if (jsonMatch) {
         console.log("Markdown形式JSONを検出");
         practiceData = JSON.parse(jsonMatch[1]);
-      } else if (content.trim().startsWith('{') && content.trim().endsWith('}')) {
+      } else if (content.trim().startsWith("{") && content.trim().endsWith("}")) {
         // 直接JSONが返ってきたケース
         console.log("直接JSON形式を検出");
         practiceData = JSON.parse(content);
       } else {
         // JSONでない場合、テキスト構造を解析
         console.log("非JSON形式のレスポンス - テキスト解析を実行");
-        return parseTextResponse(content, response.id || "unknown");
+        return parseTextResponse(content);
       }
     } catch (e: any) {
       console.error("JSONパースエラー:", e);
@@ -215,7 +214,7 @@ function parseDifyResponse(response: any): any {
           title: item.title || "無題の練習",
           description: item.description || "",
           duration: parseInt(item.duration) || 10,
-          category: item.category || "一般練習"
+          category: item.category || "一般練習",
         });
       }
     } else if (practiceData.items && Array.isArray(practiceData.items)) {
@@ -225,7 +224,7 @@ function parseDifyResponse(response: any): any {
           title: item.title || item.name || "無題の練習",
           description: item.description || item.details || "",
           duration: parseInt(item.duration) || parseInt(item.time) || 10,
-          category: item.category || item.type || "一般練習"
+          category: item.category || item.type || "一般練習",
         });
       }
     } else {
@@ -238,7 +237,7 @@ function parseDifyResponse(response: any): any {
     console.log(`${practiceMenu.length}個の練習項目を検出`);
     return {
       practice_menu: practiceMenu,
-      summary: practiceData.summary || practiceData.overview || "練習メニュー"
+      summary: practiceData.summary || practiceData.overview || "練習メニュー",
     };
   } catch (error: any) {
     console.error("レスポンスのパースエラー:", error);
@@ -252,11 +251,11 @@ function parseDifyResponse(response: any): any {
 /**
  * テキスト形式のレスポンスを解析
  */
-function parseTextResponse(content: string, responseId: string): any {
+function parseTextResponse(content: string): any {
   console.log("テキスト形式の解析を開始");
   
   // 行ごとに分割
-  const lines = content.split("\n").filter(line => line.trim());
+  const lines = content.split("\n").filter((line) => line.trim());
   console.log(`${lines.length}行を検出`);
   
   if (lines.length < 3) {
@@ -292,7 +291,7 @@ function parseTextResponse(content: string, responseId: string): any {
         title: title,
         description: "",
         duration: 10, // デフォルト
-        category: "一般練習"
+        category: "一般練習",
       };
       
       // 時間情報を抽出（例: 「（10分）」）
@@ -302,9 +301,8 @@ function parseTextResponse(content: string, responseId: string): any {
         // タイトルから時間情報を削除
         currentItem.title = title.replace(/（\d+分）|\(\d+分\)/, "").trim();
       }
-    } 
-    // 既存の項目の説明として追加
-    else if (currentItem) {
+    } else if (currentItem) {
+      // 既存の項目の説明として追加
       // 時間情報を抽出（例: 「10分」）
       if (/(\d+)分/.test(line) && !currentItem.duration) {
         const durationMatch = line.match(/(\d+)分/);
@@ -324,7 +322,7 @@ function parseTextResponse(content: string, responseId: string): any {
         "曲練習": "曲練習",
         "レパートリー": "曲練習",
         "表現": "表現力",
-        "リズム": "リズム"
+        "リズム": "リズム",
       };
       
       for (const [keyword, category] of Object.entries(categoryKeywords)) {
@@ -356,47 +354,204 @@ function parseTextResponse(content: string, responseId: string): any {
   
   return {
     practice_menu: practiceMenu,
-    summary: summary
+    summary: summary,
   };
 }
 
 /**
- * サンプルのレスポンスを返す関数（開発用）
+ * レッスンデータからタスクを生成するためのCloud Function
+ * レッスンの要約情報を元に練習タスクを生成します
  */
-function getSampleResponse(instrument: string, skillLevel: string, practiceContent: string): any {
-  return {
-    practice_menu: [
-      {
-        title: `${instrument}のロングトーン練習`,
-        description: `${skillLevel}向けの基本的なロングトーン練習です。安定した音色を目指して、ゆっくりと息を吐きながら音を伸ばします。特に${practiceContent}に注意して練習しましょう。`,
-        duration: 10,
-        category: "ロングトーン"
-      },
-      {
-        title: "音階練習",
-        description: "メジャースケールとマイナースケールを練習します。テンポを少しずつ上げながら、正確さを意識しましょう。",
-        duration: 15,
-        category: "音階"
-      },
-      {
-        title: "アーティキュレーション練習",
-        description: "様々なアーティキュレーション（スタッカート、レガート等）を練習します。リズム感と表現力を向上させるために重要です。",
-        duration: 10,
-        category: "テクニック"
-      },
-      {
-        title: "曲の練習",
-        description: "選んだ曲の難しい部分を集中的に練習します。小さなセクションに分けて、ゆっくりと正確に練習しましょう。",
-        duration: 20,
-        category: "曲練習"
-      },
-      {
-        title: "自由演奏",
-        description: "好きな曲や即興演奏を楽しみましょう。これまでの練習で学んだことを活かして表現してください。",
-        duration: 5,
-        category: "表現力"
+export const generateTasksFromLessons = functions
+  .region(FUNCTION_REGION)
+  .https.onCall(async (data, context) => {
+    // 認証チェック
+    if (!context.auth) {
+      throw createError(
+        ErrorType.UNAUTHENTICATED,
+        "この機能を使用するにはログインが必要です"
+      );
+    }
+
+    // リクエストのバリデーション
+    if (!data || !data.lessons || !Array.isArray(data.lessons) || data.lessons.length === 0) {
+      throw createError(
+        ErrorType.INVALID_ARGUMENT,
+        "レッスンデータが必要です"
+      );
+    }
+
+    try {
+      // レッスンデータからプロンプトを生成
+      const lessons = data.lessons;
+      const instrument = data.instrument || "ピアノ"; // デフォルト楽器
+      const prompt = createTaskPromptFromLessons(lessons, instrument);
+
+      // 楽器に対応するAPIキー設定を取得
+      const config = INSTRUMENT_DIFY_CONFIGS[instrument as keyof typeof INSTRUMENT_DIFY_CONFIGS] || 
+                     INSTRUMENT_DIFY_CONFIGS.default;
+      
+      // Secret Managerからシークレットを取得
+      console.log(`楽器: ${instrument}の設定を使用します`);
+      
+      // APP IDを取得
+      const appId = await getSecret(config.appIdSecret);
+      console.log("アプリID取得成功");
+      
+      // APIキーを取得
+      const apiKey = await getSecret(config.apiKeySecret);
+      console.log("APIキー取得成功");
+
+      console.log("プロンプト:", prompt);
+
+      // Dify APIにリクエスト
+      console.log("Dify APIリクエスト送信:", `${config.apiEndpoint}/chat-messages`);
+      const response = await axios.post(
+        `${config.apiEndpoint}/chat-messages`,
+        {
+          inputs: {
+            instrument: instrument,
+            lessons: lessons,
+          },
+          query: prompt,
+          response_mode: "blocking",
+          user: context.auth.uid, // 認証済みユーザーIDを使用
+          app_id: appId, // アプリIDを追加
+        },
+        {
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Dify APIレスポンス成功");
+      
+      // APIレスポンスをパース
+      const taskData = parseTaskResponse(response.data);
+      return taskData;
+    } catch (error: any) {
+      console.error("タスク生成エラー:", error);
+      
+      // エラー詳細をクライアントに返す
+      if (error.response) {
+        // APIからのレスポンスエラー
+        console.error("APIエラーレスポンス:", error.response.data);
+        throw createError(
+          ErrorType.INTERNAL,
+          `Dify API エラー: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+        );
+      } else if (error.request) {
+        // リクエストは送信されたがレスポンスがない
+        throw createError(
+          ErrorType.UNAVAILABLE,
+          "Dify APIからの応答がありません。ネットワークまたはAPIの問題です。"
+        );
+      } else {
+        // リクエスト設定時のエラー
+        throw createError(
+          ErrorType.INTERNAL,
+          `リクエスト準備中のエラー: ${error.message}`
+        );
       }
-    ],
-    summary: `この練習メニューは${instrument}の${skillLevel}向けに、特に${practiceContent}に焦点を当てた内容です。基本的なロングトーンから始め、音階、テクニック練習を経て、実際の曲の練習へと進みます。最後に自由演奏の時間を設けることで、楽しみながら上達できるよう構成されています。`
-  };
+    }
+  });
+
+/**
+ * レッスンデータからタスク生成用プロンプトを作成
+ */
+function createTaskPromptFromLessons(lessons: any[], instrument: string): string {
+  // レッスンからサマリーテキストを抽出
+  const summaries = lessons.map((lesson) => {
+    return `レッスン日: ${lesson.date || "不明"}
+先生: ${lesson.teacher || lesson.teacherName || "不明"}
+曲目: ${Array.isArray(lesson.pieces) ? lesson.pieces.join(", ") : lesson.pieces || "不明"}
+要約: ${lesson.summary || ""}
+メモ: ${lesson.notes || ""}`;
+  }).join("\n\n----------\n\n");
+
+  // プロンプトを作成
+  let prompt = `以下のレッスン情報に基づいて、${instrument}の練習タスクを作成してください。\n\n`;
+  prompt += summaries;
+  prompt += `\n\n上記のレッスン内容から、効果的な練習タスクを作成してください。以下の情報を含めてください：
+1. 練習目標（5つ程度の具体的な目標）
+2. テクニカル練習（3〜5つの技術練習）
+3. 曲練習のポイント（レッスンで取り上げられた曲の練習方法）
+4. 解釈とアドバイス（音楽的表現に関するアドバイス）
+
+JSONフォーマットで返してください。以下の構造を使用してください：
+{
+  "practice_points": ["目標1", "目標2", ...],
+  "technical_exercises": ["練習1", "練習2", ...],
+  "piece_practice": ["ポイント1", "ポイント2", ...],
+  "interpretation_advice": "アドバイスのテキスト"
+}`;
+
+  return prompt;
+}
+
+/**
+ * タスク生成のレスポンスをパース
+ */
+function parseTaskResponse(response: any): any {
+  try {
+    console.log("レスポンスデータ:", JSON.stringify(response));
+    
+    // レスポンスから答えを取得
+    const content = response.answer || "";
+    console.log("レスポンス内容:", content);
+    
+    // JSONレスポンスを抽出
+    let taskData;
+    try {
+      // JSON形式が```json...```で囲まれているケース
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        console.log("Markdown形式JSONを検出");
+        taskData = JSON.parse(jsonMatch[1]);
+      } else if (content.trim().startsWith("{") && content.trim().endsWith("}")) {
+        // 直接JSONが返ってきたケース
+        console.log("直接JSON形式を検出");
+        taskData = JSON.parse(content);
+      } else {
+        // JSONでない場合は構造化して返す
+        console.log("非JSON形式のレスポンス - テキスト構造を作成");
+        return {
+          practice_points: ["レッスン内容を復習する"],
+          technical_exercises: ["基本的な技術練習"],
+          piece_practice: ["レッスンで扱った曲を練習する"],
+          interpretation_advice: content,
+        };
+      }
+    } catch (e: any) {
+      console.error("JSONパースエラー:", e);
+      // JSONパースに失敗した場合
+      throw createError(
+        ErrorType.INTERNAL,
+        `Dify APIからのレスポンスのJSONパースに失敗: ${e.message}`
+      );
+    }
+    
+    // データの整形と検証
+    const formattedResponse = {
+      practice_points: Array.isArray(taskData.practice_points) ? taskData.practice_points : [],
+      technical_exercises: Array.isArray(taskData.technical_exercises) ? taskData.technical_exercises : [],
+      piece_practice: Array.isArray(taskData.piece_practice) ? taskData.piece_practice : [],
+      interpretation_advice: taskData.interpretation_advice || "",
+    };
+    
+    // 少なくとも1つの練習ポイントがあることを確認
+    if (formattedResponse.practice_points.length === 0) {
+      formattedResponse.practice_points = ["レッスン内容を復習する"];
+    }
+    
+    return formattedResponse;
+  } catch (error: any) {
+    console.error("レスポンスのパースエラー:", error);
+    throw createError(
+      ErrorType.INTERNAL,
+      `レスポンスのパースエラー: ${error.message}`
+    );
+  }
 } 

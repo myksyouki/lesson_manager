@@ -33,6 +33,7 @@ export const VALID_AUDIO_EXTENSIONS = [
 
 // Secret Manager キー名
 export const OPENAI_API_KEY_SECRET = "openai-api-key";
+export const SPEECH_TO_TEXT_API_KEY_SECRET = "speech-to-text-api-key";
 export const DIFY_API_KEY_SECRET = "dify-summary-api-key";
 export const DIFY_APP_ID_SECRET = "dify-summary-app-id";
 export const GEMINI_API_KEY_SECRET = "gemini-api-key";

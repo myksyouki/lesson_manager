@@ -14,7 +14,8 @@ const getEnvVariable = (key: string) => {
          '';
 };
 
-const firebaseConfig = {
+// Firebase の設定を公開
+export const firebaseConfig = {
   apiKey: getEnvVariable('EXPO_PUBLIC_FIREBASE_API_KEY'),
   authDomain: getEnvVariable('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN'),
   projectId: getEnvVariable('EXPO_PUBLIC_FIREBASE_PROJECT_ID'),
