@@ -42,6 +42,7 @@ interface TaskStore {
   togglePin: (taskId: string) => Promise<boolean>;
   getPinnedTasks: () => Task[];
   canPinMoreTasks: () => boolean;
+  updateTaskOrder: (tasks: Task[], taskType: 'incomplete' | 'completed') => Promise<void>;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
@@ -498,6 +499,44 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const MAX_PINNED_TASKS = 3;
     const pinnedCount = get().tasks.filter(task => task.isPinned).length;
     return pinnedCount < MAX_PINNED_TASKS;
+  },
+
+  updateTaskOrder: async (tasks, taskType) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('ユーザーが認証されていません');
+      
+      // バッチ処理が理想的ですが、簡易実装として順次更新
+      for (const task of tasks) {
+        const taskRef = doc(db, `users/${user.uid}/tasks`, task.id);
+        await updateDoc(taskRef, {
+          displayOrder: task.displayOrder,
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      // ステートも更新
+      set(state => {
+        // 状態のタスクをコピー
+        const updatedTasks = [...state.tasks];
+        
+        // 更新されたタスクの順序情報を適用
+        tasks.forEach(updatedTask => {
+          const index = updatedTasks.findIndex(t => t.id === updatedTask.id);
+          if (index !== -1) {
+            updatedTasks[index] = {
+              ...updatedTasks[index],
+              displayOrder: updatedTask.displayOrder
+            };
+          }
+        });
+        
+        return { tasks: updatedTasks };
+      });
+    } catch (error: any) {
+      console.error('タスク順序更新エラー:', error);
+      set({ error: error.message });
+    }
   }
 }));
 

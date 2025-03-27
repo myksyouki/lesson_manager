@@ -18,4 +18,5 @@ export interface Task {
   chatRoomId?: string; // 関連するチャットルームID（存在する場合）
   practiceDate?: string | Date | { seconds: number; nanoseconds: number }; // 練習予定日
   isPinned?: boolean; // ホーム画面にピン留めされているかどうか
+  displayOrder?: number; // タスクの表示順序
 }
