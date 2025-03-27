@@ -20,7 +20,8 @@ import {
   instrumentCategories,
   InstrumentCategory,
   Instrument,
-  InstrumentModel
+  InstrumentModel,
+  clearInstrumentInfoCache
 } from './services/userProfileService';
 
 // 設定ステップを表す型
@@ -45,21 +46,50 @@ export default function InstrumentSettingsScreen() {
         const profile = await getUserProfile();
         
         if (profile) {
-          setSelectedCategory(profile.selectedCategory);
-          setSelectedInstrument(profile.selectedInstrument);
-          setSelectedModel(profile.selectedModel);
-          setIsPremium(profile.isPremium);
+          // 現在の開発段階では管楽器のみが選択可能
+          // 管楽器カテゴリを強制的に選択状態にする
+          const categoryId = 'woodwind';
+          setSelectedCategory(categoryId);
           
-          // カテゴリとインストゥルメント情報も設定
-          const category = instrumentCategories.find(c => c.id === profile.selectedCategory);
+          // 管楽器カテゴリ情報を取得
+          const category = instrumentCategories.find(c => c.id === categoryId);
           if (category) {
             setCurrentCategory(category);
             
-            const instrument = category.instruments.find(i => i.id === profile.selectedInstrument);
-            if (instrument) {
-              setCurrentInstrument(instrument);
+            // サクソフォンを探す
+            const saxophoneInstrument = category.instruments.find(i => i.id === 'saxophone');
+            
+            if (saxophoneInstrument) {
+              // サクソフォンを選択状態にする
+              setSelectedInstrument('saxophone');
+              setCurrentInstrument(saxophoneInstrument);
+              
+              // ユーザーがサクソフォンを選択していた場合は、そのモデルを使用
+              if (profile.selectedInstrument === 'saxophone') {
+                setSelectedModel(profile.selectedModel);
+                
+                // モデルが複数ある場合はモデル選択画面からスタート
+                if (saxophoneInstrument.models.length > 1) {
+                  setCurrentStep('model');
+                } else {
+                  setCurrentStep('instrument');
+                }
+              } else {
+                // ユーザーが他の楽器を選択していた場合は、スタンダードモデルを選択
+                const standardModel = saxophoneInstrument.models.find(m => !m.isArtist)?.id || 'standard';
+                setSelectedModel(standardModel);
+                setCurrentStep('instrument');
+              }
+            } else {
+              // サクソフォンが見つからない場合
+              setCurrentStep('category');
             }
+          } else {
+            // カテゴリが見つからない場合はカテゴリ選択画面からスタート
+            setCurrentStep('category');
           }
+          
+          setIsPremium(profile.isPremium);
         }
       } catch (error) {
         console.error('プロファイル取得エラー:', error);
@@ -75,10 +105,19 @@ export default function InstrumentSettingsScreen() {
   // カテゴリ選択の処理
   const handleCategorySelect = async (categoryId: string) => {
     try {
+      // 現在の開発段階では管楽器のみが選択可能
+      if (categoryId !== 'woodwind') {
+        Alert.alert('お知らせ', 'このカテゴリは現在開発中です。管楽器をお選びください。');
+        return;
+      }
+      
       setIsLoading(true);
       const success = await saveSelectedCategory(categoryId);
       
       if (success) {
+        // キャッシュをクリア
+        clearInstrumentInfoCache();
+        
         // カテゴリ情報を更新
         setSelectedCategory(categoryId);
         
@@ -87,18 +126,44 @@ export default function InstrumentSettingsScreen() {
         if (category) {
           setCurrentCategory(category);
           
-          // カテゴリの最初の楽器を自動選択
-          const firstInstrument = category.instruments[0];
-          setSelectedInstrument(firstInstrument.id);
-          setCurrentInstrument(firstInstrument);
+          // 現在の開発段階ではサクソフォンのみが選択可能
+          const saxophoneInstrument = category.instruments.find(i => i.id === 'saxophone');
           
-          // スタンダードモデルを自動選択
-          const standardModel = firstInstrument.models.find(m => !m.isArtist)?.id || 'standard';
-          setSelectedModel(standardModel);
+          if (saxophoneInstrument) {
+            // サクソフォンを自動選択
+            const selectedInstrumentId = saxophoneInstrument.id;
+            setSelectedInstrument(selectedInstrumentId);
+            setCurrentInstrument(saxophoneInstrument);
+            
+            // ユーザープロファイルを取得して既存のモデル選択を確認
+            const profile = await getUserProfile();
+            
+            // 既存のモデル選択があれば使用、なければスタンダードモデルを選択
+            if (profile && profile.selectedInstrument === 'saxophone' && profile.selectedModel) {
+              setSelectedModel(profile.selectedModel);
+            } else {
+              // スタンダードモデルを自動選択
+              const standardModel = saxophoneInstrument.models.find(m => !m.isArtist)?.id || 'standard';
+              setSelectedModel(standardModel);
+            }
+            
+            // 楽器選択に進む（ユーザーに選択させる）
+            setCurrentStep('instrument');
+          } else {
+            // サクソフォンが見つからない場合の処理
+            const firstInstrument = category.instruments[0];
+            const selectedInstrumentId = firstInstrument.id;
+            setSelectedInstrument(selectedInstrumentId);
+            setCurrentInstrument(firstInstrument);
+            
+            // スタンダードモデルを自動選択
+            const standardModel = firstInstrument.models.find(m => !m.isArtist)?.id || 'standard';
+            setSelectedModel(standardModel);
+            
+            // 楽器選択に進む
+            setCurrentStep('instrument');
+          }
         }
-        
-        // 次のステップに進む
-        setCurrentStep('instrument');
       } else {
         Alert.alert('エラー', 'カテゴリの選択の保存に失敗しました');
       }
@@ -112,6 +177,12 @@ export default function InstrumentSettingsScreen() {
   // 楽器選択の処理
   const handleInstrumentSelect = async (instrumentId: string) => {
     try {
+      // 現在の開発段階ではサクソフォンのみが選択可能
+      if (instrumentId !== 'saxophone') {
+        Alert.alert('お知らせ', 'この楽器は現在開発中です。サクソフォンをお選びください。');
+        return;
+      }
+      
       setIsLoading(true);
       
       if (!selectedCategory) {
@@ -121,6 +192,9 @@ export default function InstrumentSettingsScreen() {
       const success = await saveSelectedInstrument(selectedCategory, instrumentId);
       
       if (success) {
+        // キャッシュをクリア
+        clearInstrumentInfoCache();
+        
         // 楽器情報を更新
         setSelectedInstrument(instrumentId);
         
@@ -130,12 +204,29 @@ export default function InstrumentSettingsScreen() {
           if (instrument) {
             setCurrentInstrument(instrument);
             
-            // スタンダードモデルを自動選択
-            const standardModel = instrument.models.find(m => !m.isArtist)?.id || 'standard';
-            setSelectedModel(standardModel);
+            // ユーザープロファイルを取得して既存のモデル選択を確認
+            const profile = await getUserProfile();
             
-            // サックスの場合はモデル選択画面へ、それ以外は完了
-            if (instrumentId === 'saxophone') {
+            // 同じ楽器のモデル選択があるか確認
+            if (profile && profile.selectedInstrument === instrumentId && profile.selectedModel) {
+              // ユーザーが選択した楽器と同じで、既存のモデル選択がある場合
+              const existingModel = instrument.models.find(m => m.id === profile.selectedModel);
+              if (existingModel) {
+                // 既存のモデル選択を使用
+                setSelectedModel(existingModel.id);
+              } else {
+                // 既存のモデルがない場合はスタンダードモデルを選択
+                const standardModel = instrument.models.find(m => !m.isArtist)?.id || 'standard';
+                setSelectedModel(standardModel);
+              }
+            } else {
+              // プロファイルがない場合や楽器が変わった場合はスタンダードモデルを選択
+              const standardModel = instrument.models.find(m => !m.isArtist)?.id || 'standard';
+              setSelectedModel(standardModel);
+            }
+            
+            // 複数のモデルがある場合はモデル選択画面へ、それ以外は完了
+            if (instrument.models.length > 1) {
               setCurrentStep('model');
             } else {
               Alert.alert('成功', '楽器の選択を保存しました');
@@ -184,6 +275,9 @@ export default function InstrumentSettingsScreen() {
       const success = await saveSelectedModel(selectedCategory, selectedInstrument, modelId);
       
       if (success) {
+        // キャッシュをクリア
+        clearInstrumentInfoCache();
+        
         setSelectedModel(modelId);
         Alert.alert('成功', 'モデルの選択を保存しました');
       } else {
@@ -266,25 +360,39 @@ export default function InstrumentSettingsScreen() {
               これに基づいてAIがアドバイスを提供します。
             </Text>
             
-            {instrumentCategories.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={[
-                  styles.instrumentItem,
-                  selectedCategory === category.id && styles.selectedInstrumentItem
-                ]}
-                onPress={() => handleCategorySelect(category.id)}
-                disabled={isLoading}
-              >
-                <View style={styles.instrumentRow}>
-                  {getCategoryIcon(category.id)}
-                  <Text style={styles.instrumentLabel}>{category.name}</Text>
-                </View>
-                {selectedCategory === category.id && (
-                  <MaterialIcons name="check" size={24} color="#007AFF" />
-                )}
-              </TouchableOpacity>
-            ))}
+            {instrumentCategories.map((category) => {
+              // 管楽器(woodwind)以外はグレーアウト（無効化）
+              const isDisabled = category.id !== 'woodwind';
+              // グレーアウト時の色
+              const textColor = isDisabled ? '#CCCCCC' : '#1C1C1E';
+              const iconColor = isDisabled ? '#CCCCCC' : '#1C1C1E';
+              
+              return (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[
+                    styles.instrumentItem,
+                    selectedCategory === category.id && styles.selectedInstrumentItem,
+                    isDisabled && styles.disabledInstrumentItem
+                  ]}
+                  onPress={() => handleCategorySelect(category.id)}
+                  disabled={isLoading || isDisabled}
+                >
+                  <View style={styles.instrumentRow}>
+                    {React.cloneElement(getCategoryIcon(category.id), { color: iconColor })}
+                    <Text style={[styles.instrumentLabel, { color: textColor }]}>
+                      {category.name}
+                    </Text>
+                    {isDisabled && (
+                      <Text style={styles.comingSoonText}>開発中</Text>
+                    )}
+                  </View>
+                  {selectedCategory === category.id && (
+                    <MaterialIcons name="check" size={24} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
             
             {isLoading && (
               <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
@@ -300,25 +408,39 @@ export default function InstrumentSettingsScreen() {
               演奏する楽器を選択してください。
             </Text>
             
-            {currentCategory?.instruments.map((instrument) => (
-              <TouchableOpacity
-                key={instrument.id}
-                style={[
-                  styles.instrumentItem,
-                  selectedInstrument === instrument.id && styles.selectedInstrumentItem
-                ]}
-                onPress={() => handleInstrumentSelect(instrument.id)}
-                disabled={isLoading}
-              >
-                <View style={styles.instrumentRow}>
-                  {getInstrumentIcon(instrument.id)}
-                  <Text style={styles.instrumentLabel}>{instrument.name}</Text>
-                </View>
-                {selectedInstrument === instrument.id && (
-                  <MaterialIcons name="check" size={24} color="#007AFF" />
-                )}
-              </TouchableOpacity>
-            ))}
+            {currentCategory?.instruments.map((instrument) => {
+              // サクソフォン以外はグレーアウト（無効化）
+              const isDisabled = instrument.id !== 'saxophone';
+              // グレーアウト時の色
+              const textColor = isDisabled ? '#CCCCCC' : '#1C1C1E';
+              const iconColor = isDisabled ? '#CCCCCC' : '#1C1C1E';
+              
+              return (
+                <TouchableOpacity
+                  key={instrument.id}
+                  style={[
+                    styles.instrumentItem,
+                    selectedInstrument === instrument.id && styles.selectedInstrumentItem,
+                    isDisabled && styles.disabledInstrumentItem
+                  ]}
+                  onPress={() => handleInstrumentSelect(instrument.id)}
+                  disabled={isLoading || isDisabled}
+                >
+                  <View style={styles.instrumentRow}>
+                    {React.cloneElement(getInstrumentIcon(instrument.id), { color: iconColor })}
+                    <Text style={[styles.instrumentLabel, { color: textColor }]}>
+                      {instrument.name}
+                    </Text>
+                    {isDisabled && (
+                      <Text style={styles.comingSoonText}>開発中</Text>
+                    )}
+                  </View>
+                  {selectedInstrument === instrument.id && (
+                    <MaterialIcons name="check" size={24} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
             
             {isLoading && (
               <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
@@ -557,5 +679,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  disabledInstrumentItem: {
+    backgroundColor: '#F8F8F8',
+    borderColor: '#E5E5EA',
+    borderWidth: 1,
+    opacity: 0.8,
+  },
+  comingSoonText: {
+    fontSize: 12,
+    color: '#999999',
+    backgroundColor: '#EEEEEE',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+    overflow: 'hidden',
   },
 }); 

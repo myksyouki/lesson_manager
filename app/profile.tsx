@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView, ScrollView, View, Text, StyleSheet, Platform, TouchableOpacity, TextInput, Alert } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLessonStore } from './store/lessons';
 import LessonCard from './features/lessons/components/list/LessonCard';
 import { useAuthStore } from './store/auth';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { updateProfile } from 'firebase/auth';
 import { auth } from './config/firebase';
+import { getUserInstrumentInfo, InstrumentInfo } from './services/userProfileService';
 
 // デフォルト表示名
 const DEFAULT_DISPLAY_NAME = '名称未設定';
@@ -19,6 +20,23 @@ export default function ProfileScreen() {
   const [displayName, setDisplayName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [instrumentInfo, setInstrumentInfo] = useState<InstrumentInfo | null>(null);
+  const [isLoadingInstrument, setIsLoadingInstrument] = useState(true);
+
+  // 楽器情報を読み込む関数をコンポーネントレベルで定義
+  const loadUserInstrument = async () => {
+    try {
+      setIsLoadingInstrument(true);
+      // 常に最新情報を取得するためにforceRefreshをtrueに設定
+      const updatedInfo = await getUserInstrumentInfo(true);
+      console.log('=== 楽器情報デバッグ ===', updatedInfo);
+      setInstrumentInfo(updatedInfo);
+    } catch (error) {
+      console.error('楽器情報取得エラー:', error);
+    } finally {
+      setIsLoadingInstrument(false);
+    }
+  };
 
   useEffect(() => {
     // ユーザー名の初期設定
@@ -27,7 +45,20 @@ export default function ProfileScreen() {
     } else {
       setDisplayName(DEFAULT_DISPLAY_NAME);
     }
+
+    console.log('=== ユーザー情報デバッグ ===', user);
+    
+    // 初期ロード時に楽器情報を取得
+    loadUserInstrument();
   }, [user]);
+
+  // 画面がフォーカスされたときに楽器情報を再読み込み
+  useFocusEffect(
+    React.useCallback(() => {
+      // プロフィール画面が表示されたときに楽器情報を更新
+      loadUserInstrument();
+    }, [])
+  );
 
   const handleUpdateDisplayName = async () => {
     if (!displayName.trim()) {
@@ -148,6 +179,55 @@ export default function ProfileScreen() {
               )}
               <Text style={styles.userEmail}>{user?.email || ''}</Text>
             </View>
+          </View>
+          
+          {/* 楽器情報 */}
+          <View style={styles.instrumentContainer}>
+            <View style={styles.instrumentHeader}>
+              <MaterialCommunityIcons name="saxophone" size={24} color="#007AFF" />
+              <Text style={styles.instrumentTitle}>現在選択中の楽器</Text>
+              <TouchableOpacity
+                style={styles.refreshButton}
+                onPress={loadUserInstrument}
+                disabled={isLoadingInstrument}
+              >
+                <MaterialIcons name="refresh" size={20} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
+            
+            {isLoadingInstrument ? (
+              <Text style={styles.loadingText}>読み込み中...</Text>
+            ) : instrumentInfo ? (
+              <View style={styles.instrumentInfo}>
+                <View style={styles.instrumentRow}>
+                  <Text style={styles.instrumentLabel}>カテゴリ:</Text>
+                  <Text style={styles.instrumentValue}>{instrumentInfo.categoryName}</Text>
+                </View>
+                <View style={styles.instrumentRow}>
+                  <Text style={styles.instrumentLabel}>楽器:</Text>
+                  <Text style={styles.instrumentValue}>{instrumentInfo.instrumentName}</Text>
+                </View>
+                <View style={styles.instrumentRow}>
+                  <Text style={styles.instrumentLabel}>モデル:</Text>
+                  <Text style={styles.instrumentValue}>
+                    {instrumentInfo.modelName}
+                    {instrumentInfo.isArtistModel && (
+                      <Text style={styles.artistModelText}> (アーティストモデル)</Text>
+                    )}
+                  </Text>
+                </View>
+                
+                <TouchableOpacity 
+                  style={styles.changeInstrumentButton}
+                  onPress={() => router.push('/instrument-settings')}
+                >
+                  <Text style={styles.changeInstrumentText}>楽器設定を変更</Text>
+                  <MaterialIcons name="arrow-forward" size={16} color="#007AFF" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={styles.errorText}>楽器情報を取得できませんでした</Text>
+            )}
           </View>
         </View>
 
@@ -360,5 +440,92 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  // 新しく追加した楽器情報用スタイル
+  instrumentContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  instrumentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    justifyContent: 'space-between',
+  },
+  instrumentTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginLeft: 8,
+    flex: 1,
+  },
+  refreshButton: {
+    padding: 8,
+  },
+  instrumentInfo: {
+    paddingHorizontal: 4,
+  },
+  instrumentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F5',
+  },
+  instrumentLabel: {
+    fontSize: 16,
+    color: '#666',
+  },
+  instrumentValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1C1C1E',
+  },
+  artistModelText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '400',
+  },
+  changeInstrumentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  changeInstrumentText: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '500',
+    marginRight: 4,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#8E8E93',
+    textAlign: 'center',
+    padding: 12,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
+    padding: 12,
   },
 });
