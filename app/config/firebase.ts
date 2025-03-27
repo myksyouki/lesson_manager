@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getFunctions } from 'firebase/functions';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import Constants from 'expo-constants';
 
 // 環境変数を取得する関数
@@ -35,15 +35,32 @@ export const db = getFirestore(firebaseApp);
 export const storage = getStorage(firebaseApp);
 
 // Firebase Functions の初期化 (リージョンを明示的に指定)
-export const functions = getFunctions(firebaseApp, 'asia-northeast1');
+const functionsRegion = 'asia-northeast1';
+export const functions = getFunctions(firebaseApp, functionsRegion);
 
 // デバッグ用に詳細情報をログ出力
-console.log('Firebase Functions初期化完了', {
+console.log('Firebase Functions初期化診断:', {
   projectId: firebaseApp.options.projectId,
-  region: 'asia-northeast1',
+  region: functionsRegion,
   appName: firebaseApp.name,
   functionsInstance: !!functions,
+  functionsUrl: `https://${functionsRegion}-${firebaseApp.options.projectId}.cloudfunctions.net`,
   mode: __DEV__ ? 'development' : 'production'
 });
+
+// 初期化の内部状態を検証
+try {
+  const functionsType = typeof functions;
+  const functionsKeys = Object.keys(functions);
+  const hasCustomDomain = 'customDomain' in functions;
+  console.log('Functions検証結果:', {
+    functionsType,
+    functionsKeys,
+    hasCustomDomain,
+    hasApp: 'app' in functions
+  });
+} catch (error) {
+  console.error('Functions検証エラー:', error);
+}
 
 export default firebaseApp;

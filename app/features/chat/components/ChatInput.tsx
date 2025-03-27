@@ -7,7 +7,8 @@ import {
   sendMessageToLessonAI,
   testDifyApiConnection,
   testDifyDirectApiConnection,
-  testDifyApiVariations
+  testDifyApiVariations,
+  createTestChatRoom
 } from '../../../services/lessonAIService';
 
 interface TestResult {
@@ -48,6 +49,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       
       console.log('接続テスト開始...');
       
+      // まずテスト用のチャットルームを作成
+      let testRoomId = "test-room-id";
+      try {
+        testRoomId = await createTestChatRoom();
+        console.log('テスト用チャットルーム作成完了:', testRoomId);
+      } catch (roomError) {
+        console.error('テスト用チャットルーム作成失敗:', roomError);
+      }
+      
       // Firebase Functionsの接続テスト
       const functionResult = await testFunctionConnection();
       console.log('Firebase Functions接続テスト結果:', functionResult);
@@ -55,40 +65,31 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       // Firebase Functions接続が成功したら、続けてDify APIの接続テスト
       if (functionResult.success) {
         try {
-          console.log('Dify API ping-pongテスト開始...');
-          const difyPingResult = await testDifyApiConnection();
-          console.log('Dify API ping-pongテスト結果:', difyPingResult);
+          console.log('実際のメッセージテスト開始...');
+          const chatResult = await sendMessageToLessonAI(
+            'これはテストメッセージです', 
+            '', // 空の会話IDで新しい会話を開始
+            'standard',
+            testRoomId, // 作成したテスト用ルームIDを使用
+            true // テストモード
+          );
+          console.log('メッセージテスト結果:', chatResult);
           
-          if (difyPingResult.responseValid) {
-            // Difyとの接続が成功したら、実際のチャットメッセージテスト
-            console.log('チャットメッセージテスト開始...');
-            const chatResult = await sendMessageToLessonAI(
-              'これはテストメッセージです', 
-              'test-conversation-id',
-              'piano',
-              'test-room-id'
-            );
-            console.log('チャットメッセージテスト結果:', chatResult);
+          // レスポンスのanswerプロパティが存在するか確認
+          if (chatResult && chatResult.success) {
+            const answerText = chatResult.answer 
+              ? chatResult.answer.substring(0, 50) 
+              : 'レスポンスデータはありますが、answerプロパティがありません';
             
-            // レスポンスのanswerプロパティが存在するか確認
-            if (chatResult && chatResult.success) {
-              const answerText = chatResult.answer 
-                ? chatResult.answer.substring(0, 50) 
-                : 'レスポンスデータはありますが、answerプロパティがありません';
-              
-              setTestResults(`Firebase Functions: ✅ 成功\nDify API: ✅ 成功\nチャットメッセージ: ✅ 成功\n応答: ${answerText}...`);
-              setTestSuccess(true);
-            } else {
-              setTestResults(`Firebase Functions: ✅ 成功\nDify API: ✅ 成功\nチャットメッセージ: ⚠️ 応答異常\nデータ形式: ${JSON.stringify(chatResult || {}).substring(0, 100)}...`);
-              setTestSuccess(false);
-            }
+            setTestResults(`Firebase Functions: ✅ 成功\nDify API: ✅ 成功\n応答: ${answerText}...\nルームID: ${testRoomId}`);
+            setTestSuccess(true);
           } else {
-            setTestResults(`Firebase Functions: ✅ 成功\nDify API: ❌ 失敗\nエラー: ${difyPingResult.message || 'Unknown error'}`);
+            setTestResults(`Firebase Functions: ✅ 成功\nDify API: ⚠️ レスポンスエラー\nデータ形式: ${JSON.stringify(chatResult || {}).substring(0, 100)}...\nルームID: ${testRoomId}`);
             setTestSuccess(false);
           }
         } catch (chatError) {
-          console.error('チャットAPI接続テストエラー:', chatError);
-          setTestResults(`Firebase Functions: ✅ 成功\nDify API: ❌ 失敗\nエラー: ${chatError}`);
+          console.error('メッセージ送信テストエラー:', chatError);
+          setTestResults(`Firebase Functions: ✅ 成功\nDify API: ❌ 失敗\nエラー: ${chatError}\nルームID: ${testRoomId}`);
           setTestSuccess(false);
         }
       } else {
@@ -110,6 +111,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setTestResultArray([]);
     
     try {
+      // テスト用チャットルームを作成
+      let testRoomId = "";
+      try {
+        testRoomId = await createTestChatRoom();
+        setTestResultArray(prev => [...prev, {
+          name: 'テストチャットルーム作成',
+          success: true,
+          message: `ルームID: ${testRoomId}`
+        }]);
+      } catch (roomError) {
+        console.error('テスト用チャットルーム作成失敗:', roomError);
+        setTestResultArray(prev => [...prev, {
+          name: 'テストチャットルーム作成',
+          success: false,
+          message: `エラー: ${roomError}`
+        }]);
+      }
+
       // Firebase Functions接続テスト
       const firebaseTest = await testFunctionConnection();
       setTestResultArray(prev => [...prev, {
@@ -118,47 +137,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         message: firebaseTest.message
       }]);
       
-      // Dify API接続テスト（Secret Manager）
-      const difyTest = await testDifyApiConnection();
-      setTestResultArray(prev => [...prev, {
-        name: 'Dify API接続 (Ping)',
-        success: difyTest.success,
-        message: difyTest.message || 'Unknown error'
-      }]);
-
-      // Dify API直接接続テスト（ハードコード）
-      const difyDirectTest = await testDifyDirectApiConnection();
-      setTestResultArray(prev => [...prev, {
-        name: 'Dify API直接接続 (ハードコード)',
-        success: difyDirectTest.success,
-        message: difyDirectTest.message || 'Unknown error'
-      }]);
-      
-      // Dify APIバリエーションテスト
-      const difyVarTest = await testDifyApiVariations();
-      
-      // バリエーションの結果を追加
-      if (difyVarTest.success && difyVarTest.results) {
-        difyVarTest.results.forEach((result: any, index: number) => {
-          setTestResultArray(prev => [...prev, {
-            name: `Dify API バリエーション ${index+1}: ${result.variation}`,
-            success: result.success,
-            message: result.success ? 'テスト成功' : `エラー: ${result.error}`
-          }]);
-        });
-      } else {
+      // 実際のメッセージ送信テスト
+      if (firebaseTest.success && testRoomId) {
+        const chatTest = await sendMessageToLessonAI('テストメッセージ', '', 'standard', testRoomId, true);
         setTestResultArray(prev => [...prev, {
-          name: 'Dify APIバリエーション',
-          success: false,
-          message: difyVarTest.message || 'Unknown error'
+          name: 'メッセージ送信',
+          success: chatTest.success,
+          message: chatTest.success 
+            ? `成功: ${chatTest.answer?.substring(0, 30)}...` 
+            : `失敗: ${chatTest.message || 'Unknown error'}`
         }]);
-      }
-      
-      // チャットメッセージ送信テスト（通常のもの）
-      if (firebaseTest.success && roomId) {
-        const chatTest = await sendMessageToLessonAI('テストメッセージ', '', instrument || '', roomId);
+      } else if (roomId) {
+        // 既存のルームIDを使用する場合のテスト
+        const chatTest = await sendMessageToLessonAI('テストメッセージ', '', instrument || '', roomId, true);
         setTestResultArray(prev => [...prev, {
-          name: 'チャットメッセージ送信',
+          name: '既存ルームでのメッセージ送信',
           success: chatTest.success,
           message: chatTest.success ? 'メッセージ送信成功' : chatTest.message
         }]);

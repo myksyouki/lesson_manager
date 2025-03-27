@@ -54,7 +54,7 @@ export default function Root() {
 
   // 認証状態に基づいて適切なルートにリダイレクト
   if (isAuthenticated) {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/tabs" />;
   } else {
     return <Redirect href="/login" />;
   }

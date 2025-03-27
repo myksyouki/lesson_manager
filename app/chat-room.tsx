@@ -171,15 +171,27 @@ export default function ChatRoomScreen() {
       setMessage('');
       
       // メッセージを送信してAIの応答を取得
-      console.log('AIにメッセージを送信:', message);
+      console.log('AIにメッセージを送信:', {
+        message: message,
+        conversationId: chatRoom.conversationId || '(新規)',
+        modelType: chatRoom.modelType || 'default',
+        roomId: chatRoom.id,
+        isTestMode: false
+      });
+      
       const aiResponse = await sendMessageToLessonAI(
         message, 
         chatRoom.conversationId,
-        chatRoom.modelType
+        chatRoom.modelType,
+        chatRoom.id,
+        false  // isTestMode - 明示的にfalseを指定
       );
       
+      console.log('AI応答結果:', aiResponse);
+      
       if (!aiResponse || !aiResponse.success) {
-        throw new Error('AIからの応答の取得に失敗しました');
+        console.error('AI応答エラー:', aiResponse);
+        throw new Error(aiResponse?.message || 'AIからの応答の取得に失敗しました');
       }
       
       // AI応答メッセージの作成
@@ -302,8 +314,8 @@ export default function ChatRoomScreen() {
           onChangeMessage={setMessage}
           onSend={handleSend}
           sending={sending}
-          roomId={chatRoom?.id || ''}
-          instrument={''}
+          roomId={chatRoom?.id || ""}
+          instrument={chatRoom?.modelType || ""}
         />
       </KeyboardAvoidingView>
       

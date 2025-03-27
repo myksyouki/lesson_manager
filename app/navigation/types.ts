@@ -1,5 +1,5 @@
 export type RootStackParamList = {
-  '(tabs)': undefined;
+  '/tabs': undefined;
   'lesson-detail': { id: string };
   'lesson-form': { id?: string };
   login: undefined;

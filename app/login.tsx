@@ -136,7 +136,10 @@ export default function LoginScreen() {
   // ユーザー状態に応じた画面遷移
   useEffect(() => {
     if (user) {
-      router.replace("/(tabs)" as any);
+      // レイアウトがマウントされるのを待つために遅延させる
+      setTimeout(() => {
+        router.replace("/tabs" as any);
+      }, 100);
     }
   }, [user]);
 

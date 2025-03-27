@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Stack, Redirect } from 'expo-router';
+import { Stack, Redirect, Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, View, Text, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet, View, Text, ActivityIndicator, Platform, useColorScheme } from 'react-native';
 import { useAuthStore } from './store/auth';
 import { useSettingsStore } from './store/settings';
 import { useTheme } from './theme/index';
@@ -16,10 +16,30 @@ import { getUserProfile } from './services/userProfileService';
 import { auth } from './config/firebase';
 import { initializeDatabaseStructure } from './services/dbConfig';
 import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// TabBarIconコンポーネント（インラインで定義）
+function TabBarIcon({ name, color }: { name: string; color: string }) {
+  return <Ionicons name={name as any} size={24} color={color} />;
+}
 
 declare global {
   interface Window {
     frameworkReady?: () => void;
+  }
+  
+  // 重複しないようにFormDataValueをコメントアウト
+  /*interface FormDataValue {
+    uri: string;
+    name: string;
+    type: string;
+  }*/
+  
+  interface FormData {
+    append(name: string, value: FormDataValue, fileName?: string): void;
+    set(name: string, value: FormDataValue, fileName?: string): void;
   }
 }
 
@@ -35,6 +55,9 @@ export default function RootLayout() {
   
   // SpaceMonoフォントの読み込みを削除し、FontAwesomeのみ読み込む
   const [loaded, error] = useFonts(FontAwesome.font);
+
+  const authStore = useAuthStore();
+  const colorScheme = useColorScheme();
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -90,6 +113,44 @@ export default function RootLayout() {
     if (error) throw error;
   }, [error]);
 
+  useEffect(() => {
+    // ユーザーの認証状態の変更を監視
+    const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
+      // ユーザーがログインしている場合
+      if (user) {
+        authStore.setUser({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL || null,
+        });
+        
+        // ユーザー情報をAsyncStorageに保存
+        await AsyncStorage.setItem('user', JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL || null,
+        }));
+        
+        // ユーザーのデータベース構造を初期化 - 引数なしで呼び出す
+        await initializeDatabaseStructure();
+      } else {
+        // ユーザーがログアウトした場合
+        authStore.setUser(null);
+        
+        // ユーザー情報をAsyncStorageから削除
+        await AsyncStorage.removeItem('user');
+      }
+      
+      // 初期化完了フラグを設定
+      authStore.setLoading(false);
+    });
+    
+    // クリーンアップ関数
+    return () => unsubscribe();
+  }, []);
+
   // Show loading screen while checking authentication
   if (isLoading) {
     return (
@@ -100,6 +161,23 @@ export default function RootLayout() {
     );
   }
 
+  if (!loaded || authStore.isLoading) {
+    // フォントがロードされていない、または認証状態が初期化されていない場合
+    return null;
+  }
+
+  // ユーザーがログインしていない場合
+  if (!authStore.isAuthenticated) {
+    return (
+      <Stack>
+        <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/register" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
+      </Stack>
+    );
+  }
+
+  // ユーザーがログインしている場合
   return (
     <GestureHandlerRootView style={styles.container}>
       <Stack 
