@@ -7,6 +7,7 @@ import { useAuthStore } from './store/auth';
 import { useSettingsStore } from './store/settings';
 import { useTheme } from './theme/index';
 import { FadeIn, AnimatedLoader } from './components/AnimatedComponents';
+import LoadingScreen from './components/LoadingScreen';
 import 'react-native-url-polyfill/auto';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as SplashScreen from 'expo-splash-screen';
@@ -92,14 +93,10 @@ export default function RootLayout() {
   // Show loading screen while checking authentication
   if (isLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.backgroundSecondary }]}>
-        <FadeIn duration={800}>
-          <AnimatedLoader size={50} color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily.medium }]}>
-            読み込み中...
-          </Text>
-        </FadeIn>
-      </View>
+      <LoadingScreen 
+        customMessage="認証確認中..." 
+        showMusicElements={true} 
+      />
     );
   }
 
@@ -114,7 +111,7 @@ export default function RootLayout() {
       >
         {!user ? (
           <React.Fragment>
-            <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+            <Stack.Screen name="login" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           </React.Fragment>
         ) : (

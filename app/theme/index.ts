@@ -40,6 +40,7 @@ export interface ThemeColors {
 
 export interface ThemeType {
   colors: ThemeColors;
+  chartColors: string[];
   spacing: {
     xs: number;
     sm: number;
@@ -152,6 +153,16 @@ const theme: ThemeType = {
     glass: 'rgba(255, 255, 255, 0.7)',
     highlight: '#E8F0FE',
   },
+  chartColors: [
+    '#4285F4',  // 青
+    '#34A853',  // 緑
+    '#FBBC05',  // 黄
+    '#EA4335',  // 赤
+    '#8AB4F8',  // 薄青
+    '#81C995',  // 薄緑
+    '#FDD663',  // 薄黄
+    '#F28B82',  // 薄赤
+  ],
   spacing: {
     xs: 4,
     sm: 8,
@@ -253,6 +264,16 @@ export const darkTheme: ThemeType = {
     glass: 'rgba(32, 33, 36, 0.7)',
     highlight: '#3C4043',
   },
+  chartColors: [
+    '#8AB4F8',  // 薄青
+    '#81C995',  // 薄緑
+    '#FDD663',  // 薄黄
+    '#F28B82',  // 薄赤
+    '#ADC8FF',  // より薄い青
+    '#A8DAB5',  // より薄い緑
+    '#FEE695',  // より薄い黄
+    '#FFADA6',  // より薄い赤
+  ],
 };
 
 // テーマフック

@@ -39,7 +39,7 @@ export default function SettingsScreen() {
       setLoggingOut(true);
       await logout();
       setUser(null);
-      router.replace('/auth/login' as any);
+      router.replace('/login' as any);
     } catch (error) {
       console.error('ログアウトエラー:', error);
       Alert.alert('エラー', 'ログアウト中にエラーが発生しました。');

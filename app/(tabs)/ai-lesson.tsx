@@ -76,7 +76,7 @@ const PRACTICE_CHAT_ROOMS: ChatRoom[] = [
   },
   {
     id: 'practice-3',
-    title: 'アーティキュレーション',
+    title: '低音域練習',
     topic: '表現力',
     modelType: 'practice',
     createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
@@ -86,7 +86,7 @@ const PRACTICE_CHAT_ROOMS: ChatRoom[] = [
   },
   {
     id: 'practice-4',
-    title: 'リズム練習',
+    title: 'タンギング',
     topic: '正確さ',
     modelType: 'practice',
     createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
@@ -96,7 +96,7 @@ const PRACTICE_CHAT_ROOMS: ChatRoom[] = [
   },
   {
     id: 'practice-5',
-    title: '楽曲解釈',
+    title: 'ヴィブラート',
     topic: '音楽性',
     modelType: 'practice',
     createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
@@ -305,19 +305,21 @@ export default function AILessonScreen() {
       <Pressable
         style={[
           styles.tabButton,
-          activeTab === TABS.PRACTICE && styles.activeTabButton
+          styles.disabledTabButton,
+          activeTab === TABS.PRACTICE && styles.activeDisabledTabButton
         ]}
         onPress={() => setActiveTab(TABS.PRACTICE)}
       >
         <Text
           style={[
             styles.tabText,
-            activeTab === TABS.PRACTICE && styles.activeTabText
+            styles.disabledTabText,
+            activeTab === TABS.PRACTICE && styles.activeDisabledTabText
           ]}
         >
-          練習
+          トレーニング
         </Text>
-        {activeTab === TABS.PRACTICE && <View style={styles.tabIndicator} />}
+        {activeTab === TABS.PRACTICE && <View style={[styles.tabIndicator, styles.disabledTabIndicator]} />}
       </Pressable>
       
       <Pressable
@@ -415,7 +417,9 @@ export default function AILessonScreen() {
             </Text>
           </View>
         </View>
-        <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
+        <View style={styles.arrowContainer}>
+          <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
+        </View>
       </RippleButton>
     </Animated.View>
   ), [theme.colors, handleOpenRoom]);
@@ -534,7 +538,7 @@ export default function AILessonScreen() {
   );
 
   const renderPracticeTab = () => (
-    <>
+    <View style={styles.tabContentContainer}>
       <FlatList
         data={PRACTICE_CHAT_ROOMS}
         renderItem={renderPracticeChatRoomItem}
@@ -542,7 +546,13 @@ export default function AILessonScreen() {
         contentContainerStyle={styles.chatRoomsList}
         showsVerticalScrollIndicator={false}
       />
-    </>
+      <View style={styles.disabledOverlay}>
+        <View style={styles.developmentBanner}>
+          <MaterialIcons name="construction" size={24} color="#FFFFFF" style={styles.developmentIcon} />
+          <Text style={styles.developmentText}>開発中...</Text>
+        </View>
+      </View>
+    </View>
   );
 
   console.log('Render state:', { loading, refreshing, chatRoomsLength: chatRooms.length, error });
@@ -550,10 +560,6 @@ export default function AILessonScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>AIレッスン</Text>
-        </View>
-        
         {renderTabBar()}
         
         {activeTab === TABS.PRACTICE 
@@ -568,62 +574,68 @@ export default function AILessonScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
   container: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: Platform.OS === 'android' ? 24 : 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#202124',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     height: 48,
+    marginTop: 16,
+    marginHorizontal: 16,
+    borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tabButton: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    borderRadius: 24,
   },
   activeTabButton: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
+  },
+  disabledTabButton: {
+    opacity: 0.75,
+  },
+  activeDisabledTabButton: {
+    backgroundColor: '#f2f2f2',
   },
   tabText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
     color: '#5F6368',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    paddingVertical: 12,
   },
   activeTabText: {
     color: AI_THEME_COLOR,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  disabledTabText: {
+    color: '#9AA0A6',
+  },
+  activeDisabledTabText: {
+    color: '#9AA0A6',
   },
   tabIndicator: {
     position: 'absolute',
-    bottom: 0,
-    height: 3,
-    width: '50%',
+    bottom: 6,
+    height: 4,
+    width: '30%',
     backgroundColor: AI_THEME_COLOR,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
+    borderRadius: 2,
+  },
+  disabledTabIndicator: {
+    backgroundColor: '#BDBDBD',
+    width: '20%',
   },
   loadingContainer: {
     flex: 1,
@@ -670,40 +682,53 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 4,
   },
   practiceIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: AI_THEME_COLOR,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  arrowContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f0f4ff',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   chatRoomContent: {
     flex: 1,
   },
   chatRoomTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#202124',
     marginBottom: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   topicContainer: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   chatRoomTopic: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
     overflow: 'hidden',
     marginRight: 8,
   },
@@ -797,17 +822,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#7C4DFF',
+    backgroundColor: AI_THEME_COLOR,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
+    shadowRadius: 6,
+    elevation: 8,
   },
   selectedChatRoomItem: {
     backgroundColor: 'rgba(124, 77, 255, 0.05)',
@@ -866,5 +891,42 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: '#EA4335',
+  },
+  tabContentContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  disabledOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(245, 245, 245, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  developmentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    backgroundColor: 'rgba(124, 77, 255, 0.9)',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  developmentIcon: {
+    marginRight: 8,
+  },
+  developmentText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 });

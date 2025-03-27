@@ -17,6 +17,10 @@ admin.initializeApp();
 // 正しく初期化されたことをログに記録
 console.log("Firebase Functions初期化完了");
 
+// 練習メニュー生成機能をインポート
+import { generatePracticeMenu } from "./practice-menu";
+
 // 他のモジュールで必要な関数をエクスポート（必要に応じて）
 export * from "./summaries";
 export * from "./common/errors";
+export { generatePracticeMenu };

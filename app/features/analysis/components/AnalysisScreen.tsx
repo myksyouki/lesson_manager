@@ -8,26 +8,29 @@ import {
   StatusBar,
   Platform,
   TouchableOpacity,
+  Dimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../theme';
 import ChartSection from './ChartSection';
+import DetailedReport from './DetailedReport';
+import { useRouter } from 'expo-router';
 
 // スケジュール関連のコンポーネントをインポート
 import CalendarHeader from '../../schedule/components/CalendarHeader';
 import WeekDayHeader from '../../schedule/components/WeekDayHeader';
 import CalendarGrid from '../../schedule/components/CalendarGrid';
 import LessonDetails from '../../schedule/components/LessonDetails';
-import ScheduleHeader from '../../schedule/components/ScheduleHeader';
 import { useLessonStore } from '../../../store/lessons';
 import { auth } from '../../../config/firebase';
 
 export default function AnalysisScreen() {
-  const [activeTab, setActiveTab] = useState<'calendar' | 'charts'>('charts');
+  const [activeTab, setActiveTab] = useState<'charts' | 'calendar'>('charts');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const { lessons, fetchLessons, isLoading } = useLessonStore();
   const theme = useTheme();
+  const router = useRouter();
 
   React.useEffect(() => {
     const loadLessons = async () => {
@@ -55,13 +58,14 @@ export default function AnalysisScreen() {
     return lessons.find(lesson => lesson.date === formattedDate);
   }, [lessons, formatDate]);
 
+  const handleShowDetailedReport = () => {
+    router.push('/analysis/detailed-report');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={styles.container}>
-        <ScheduleHeader />
-        
-        {/* タブ切り替え */}
         <View style={styles.tabContainer}>
           <TouchableOpacity 
             style={[
@@ -132,9 +136,21 @@ export default function AnalysisScreen() {
                   </View>
                 </View>
               </View>
+              
+              {/* 詳細レポートボタンを最下部に配置 */}
+              <TouchableOpacity 
+                style={styles.detailReportButton}
+                onPress={handleShowDetailedReport}
+              >
+                <MaterialIcons 
+                  name="assessment" 
+                  size={24} 
+                  color="#FFFFFF"
+                />
+                <Text style={styles.detailButtonText}>詳細レポート</Text>
+              </TouchableOpacity>
             </View>
           ) : (
-            // カレンダー表示
             <>
               <View style={styles.calendarContainer}>
                 <CalendarHeader 
@@ -190,9 +206,8 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 12,
-    marginVertical: 12,
     borderRadius: 8,
+    margin: 12,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -224,6 +239,34 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: '#515BD4',
     fontWeight: '600',
+  },
+  detailReportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#515BD4',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginTop: 24,
+    marginBottom: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  detailButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 8,
   },
   calendarContainer: {
     padding: 14,

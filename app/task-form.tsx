@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,16 +23,15 @@ import {
   PracticeMenuRequest, 
   PracticeMenuItem 
 } from './services/practiceMenuService';
+import { getCurrentUserProfile } from './services/userProfileService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 // スキルレベルのリスト
 const SKILL_LEVELS = ['初心者', '中級者', '上級者'];
 
-// 重点分野のリスト
-const FOCUS_AREAS = [
-  '音色', 'リズム', '表現力', 'テクニック', '読譜力', '暗譜', 'アンサンブル'
-];
+// 練習メニュー生成のためのフォームデータの初期値
+const DEFAULT_PRACTICE_DURATION = 60; // デフォルトの練習時間（分）
 
 export default function PracticeMenuGenerator() {
   const params = useLocalSearchParams<{ 
@@ -48,15 +47,36 @@ export default function PracticeMenuGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedMenu, setGeneratedMenu] = useState<PracticeMenuItem[]>([]);
   const [menuSummary, setMenuSummary] = useState('');
+  const [userInstrument, setUserInstrument] = useState('');
 
   // 練習メニュー生成のためのフォームデータ
   const [formData, setFormData] = useState<PracticeMenuRequest>({
     instrument: '',
     skill_level: '中級者',
-    practice_duration: 60,
-    focus_areas: [],
+    practice_duration: DEFAULT_PRACTICE_DURATION,
+    practice_content: '',
     specific_goals: ''
   });
+
+  // ユーザープロフィールから楽器情報を取得
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const profile = await getCurrentUserProfile();
+        if (profile && profile.selectedInstrument) {
+          setUserInstrument(profile.selectedInstrument);
+          setFormData(prev => ({
+            ...prev,
+            instrument: profile.selectedInstrument
+          }));
+        }
+      } catch (error) {
+        console.error('プロフィール取得エラー:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
 
   // 生成された練習メニューをタスクとして保存
   const handleSaveTasks = async () => {
@@ -110,13 +130,13 @@ export default function PracticeMenuGenerator() {
 
   // 練習メニューの生成
   const handleGenerateMenu = async () => {
-    if (!formData.instrument.trim()) {
-      Alert.alert('エラー', '楽器を入力してください');
+    if (!formData.instrument) {
+      Alert.alert('エラー', '楽器情報が取得できません。楽器設定を確認してください');
       return;
     }
-
-    if (formData.practice_duration <= 0) {
-      Alert.alert('エラー', '有効な練習時間を入力してください');
+    
+    if (!formData.practice_content || formData.practice_content.trim() === '') {
+      Alert.alert('エラー', '練習したい内容を入力してください');
       return;
     }
 
@@ -125,33 +145,34 @@ export default function PracticeMenuGenerator() {
       setGeneratedMenu([]);
       setMenuSummary('');
 
+      console.log('練習メニュー生成開始:', formData);
+      
       // APIを使用して練習メニューを生成
       const response = await generatePracticeMenu(formData);
+      
+      console.log('練習メニュー生成成功:', response);
       
       setGeneratedMenu(response.practice_menu);
       setMenuSummary(response.summary);
       
       setIsGenerating(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('練習メニュー生成エラー:', error);
-      Alert.alert('エラー', '練習メニューの生成に失敗しました。再試行してください。');
+      
+      // エラーメッセージを取得
+      const errorMessage = error.message || '練習メニューの生成に失敗しました';
+      
+      // FirebaseFunctionsError からのエラーコードを取得
+      const errorCode = error.code ? `(コード: ${error.code})` : '';
+      
+      Alert.alert(
+        'エラー', 
+        `${errorMessage} ${errorCode}\n\n開発者に問い合わせてください。`,
+        [{ text: 'OK' }]
+      );
+      
       setIsGenerating(false);
     }
-  };
-
-  // 重点分野の選択を切り替える
-  const toggleFocusArea = (area: string) => {
-    setFormData(prev => {
-      const currentAreas = prev.focus_areas || [];
-      const newAreas = currentAreas.includes(area) 
-        ? currentAreas.filter(a => a !== area)
-        : [...currentAreas, area];
-      
-      return {
-        ...prev,
-        focus_areas: newAreas
-      };
-    });
   };
 
   // スキルレベルを選択
@@ -182,23 +203,13 @@ export default function PracticeMenuGenerator() {
             <Text style={styles.loadingText}>タスクを保存中...</Text>
           </View>
         ) : (
-          <ScrollView style={styles.scrollView}>
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
             {!generatedMenu.length ? (
               // 練習メニュー生成フォーム
-              <>
-                <View style={styles.form}>
+              <View style={styles.form}>
+                <View style={styles.formCard}>
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>楽器 *</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={formData.instrument}
-                      onChangeText={(text) => setFormData({ ...formData, instrument: text })}
-                      placeholder="楽器を入力（例: トランペット、ピアノ）"
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>スキルレベル</Text>
+                    <Text style={styles.label}>スキルレベル <Text style={styles.required}>*</Text></Text>
                     <View style={styles.pillContainer}>
                       {SKILL_LEVELS.map(level => (
                         <TouchableOpacity
@@ -221,40 +232,17 @@ export default function PracticeMenuGenerator() {
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>練習時間（分）</Text>
+                    <Text style={styles.label}>練習したい内容 <Text style={styles.required}>*</Text></Text>
                     <TextInput
                       style={styles.input}
-                      value={formData.practice_duration.toString()}
+                      value={formData.practice_content}
                       onChangeText={(text) => {
-                        const value = parseInt(text) || 0;
-                        setFormData({ ...formData, practice_duration: value });
+                        const limitedText = text.slice(0, 20);
+                        setFormData({ ...formData, practice_content: limitedText });
                       }}
-                      keyboardType="number-pad"
-                      placeholder="練習時間を入力（例: 60）"
+                      placeholder="例: 高音域の安定性、タンギング"
+                      maxLength={20}
                     />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>重点を置きたい分野</Text>
-                    <View style={styles.pillContainer}>
-                      {FOCUS_AREAS.map(area => (
-                        <TouchableOpacity
-                          key={area}
-                          style={[
-                            styles.pill,
-                            (formData.focus_areas || []).includes(area) && styles.pillSelected
-                          ]}
-                          onPress={() => toggleFocusArea(area)}
-                        >
-                          <Text style={[
-                            styles.pillText,
-                            (formData.focus_areas || []).includes(area) && styles.pillTextSelected
-                          ]}>
-                            {area}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
                   </View>
 
                   <View style={styles.inputGroup}>
@@ -271,23 +259,21 @@ export default function PracticeMenuGenerator() {
                   </View>
                 </View>
 
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity
-                    style={styles.generateButton}
-                    onPress={handleGenerateMenu}
-                    disabled={isGenerating}
-                  >
-                    {isGenerating ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <>
-                        <Text style={styles.generateButtonText}>練習メニューを生成</Text>
-                        <FontAwesome5 name="magic" size={18} color="#FFFFFF" style={styles.buttonIcon} />
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </>
+                <TouchableOpacity 
+                  style={styles.generateButton}
+                  onPress={handleGenerateMenu}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <>
+                      <MaterialIcons name="auto-fix-high" size={24} color="#ffffff" />
+                      <Text style={styles.generateButtonText}>練習メニューを生成</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             ) : (
               // 生成された練習メニューの表示
               <View style={styles.generatedMenuContainer}>
@@ -354,46 +340,64 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    backgroundColor: '#F0F2F5',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 20 : 30,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingTop: Platform.OS === 'ios' ? 12 : 16,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   backButton: {
-    padding: 10,
-    marginRight: 8,
+    padding: 8,
+    marginRight: 4,
+    borderRadius: 20,
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '600',
     color: '#1C1C1E',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
     marginRight: 'auto',
   },
   form: {
+    padding: 16,
+  },
+  formCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
     padding: 20,
+    marginBottom: 24,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   label: {
-    fontSize: 17,
-    fontWeight: '500',
-    color: '#1C1C1E',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   input: {
-    backgroundColor: 'white',
+    backgroundColor: '#F8F9FA',
     borderRadius: 12,
     padding: 16,
-    fontSize: 17,
+    fontSize: 16,
     borderWidth: 1,
     borderColor: '#E5E5EA',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
@@ -405,53 +409,62 @@ const styles = StyleSheet.create({
   pillContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 5,
+    marginTop: 8,
   },
   pill: {
     backgroundColor: '#f0f0f0',
     borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginRight: 10,
+    marginBottom: 10,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
   },
   pillSelected: {
-    backgroundColor: '#d0e8ff',
+    backgroundColor: '#007AFF',
   },
   pillText: {
     fontSize: 14,
     color: '#555',
+    fontWeight: '500',
   },
   pillTextSelected: {
-    color: '#007AFF',
+    color: 'white',
     fontWeight: '600',
-  },
-  buttonContainer: {
-    padding: 20,
-    alignItems: 'center',
   },
   generateButton: {
     backgroundColor: '#4CAF50',
     borderRadius: 12,
-    padding: 16,
-    minWidth: 200,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   generateButtonText: {
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    marginLeft: 8,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F8F9FA',
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 16,
     color: '#1C1C1E',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
@@ -461,51 +474,61 @@ const styles = StyleSheet.create({
   },
   // 生成された練習メニューのスタイル
   generatedMenuContainer: {
-    padding: 20,
+    padding: 16,
   },
   summaryContainer: {
     backgroundColor: '#e4f5f0',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   summaryTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1C1C1E',
-    marginBottom: 8,
+    marginBottom: 12,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   summaryText: {
     fontSize: 16,
     color: '#333',
-    lineHeight: 22,
+    lineHeight: 24,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   menuSectionTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1C1C1E',
-    marginBottom: 12,
+    marginBottom: 16,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   menuItem: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E5E5EA',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   menuItemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   menuItemTitle: {
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1C1C1E',
     flex: 1,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
@@ -515,20 +538,21 @@ const styles = StyleSheet.create({
   },
   menuItemDuration: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#666',
-    marginBottom: 4,
+    marginBottom: 6,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   categoryPill: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#007AFF20',
     borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   categoryText: {
     fontSize: 12,
-    color: '#555',
+    color: '#007AFF',
+    fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   menuItemDescription: {
@@ -537,32 +561,49 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
+  buttonContainer: {
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
   backToFormButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#F0F2F5',
     borderRadius: 12,
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    paddingHorizontal: 24,
+    marginBottom: 20,
+    width: '100%',
+    alignItems: 'center',
   },
   backToFormButtonText: {
     color: '#555',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   saveButton: {
     backgroundColor: '#4CAF50',
     borderRadius: 12,
-    padding: 16,
-    minWidth: 200,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    width: '100%',
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   saveButtonText: {
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  required: {
+    color: '#FF3B30',
+    fontWeight: '600',
   },
 });

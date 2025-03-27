@@ -36,11 +36,37 @@ export const OPENAI_API_KEY_SECRET = "openai-api-key";
 export const DIFY_API_KEY_SECRET = "dify-summary-api-key";
 export const DIFY_APP_ID_SECRET = "dify-summary-app-id";
 export const GEMINI_API_KEY_SECRET = "gemini-api-key";
+export const DIFY_PRACTICE_API_KEY_SECRET = "dify-practice-api-key";
+export const DIFY_PRACTICE_APP_ID_SECRET = "dify-practice-app-id";
 
 // API エンドポイント
 export const DIFY_API_ENDPOINT = "https://api.dify.ai/v1";
 export const WHISPER_API_ENDPOINT = "https://api.openai.com/v1/audio/transcriptions";
 export const GEMINI_API_ENDPOINT = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
+
+// 楽器別のDify API設定
+export const INSTRUMENT_DIFY_CONFIGS = {
+  default: {
+    apiEndpoint: DIFY_API_ENDPOINT,
+    appIdSecret: DIFY_PRACTICE_APP_ID_SECRET,
+    apiKeySecret: DIFY_PRACTICE_API_KEY_SECRET,
+  },
+  saxophone: {
+    apiEndpoint: DIFY_API_ENDPOINT,
+    appIdSecret: DIFY_PRACTICE_APP_ID_SECRET,
+    apiKeySecret: DIFY_PRACTICE_API_KEY_SECRET,
+  },
+  piano: {
+    apiEndpoint: DIFY_API_ENDPOINT,
+    appIdSecret: DIFY_PRACTICE_APP_ID_SECRET,
+    apiKeySecret: DIFY_PRACTICE_API_KEY_SECRET,
+  },
+  violin: {
+    apiEndpoint: DIFY_API_ENDPOINT,
+    appIdSecret: DIFY_PRACTICE_APP_ID_SECRET,
+    apiKeySecret: DIFY_PRACTICE_API_KEY_SECRET,
+  },
+};
 
 // プロジェクト ID
 export const PROJECT_ID = "lesson-manager-99ab9";
