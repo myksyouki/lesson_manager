@@ -12,13 +12,14 @@ import 'react-native-url-polyfill/auto';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as SplashScreen from 'expo-splash-screen';
 import { useGoogleAuth } from './store/auth';
-import { getUserProfile } from './services/userProfileService';
+import { getUserProfile, checkOnboardingStatus } from './services/userProfileService';
 import { auth } from './config/firebase';
 import { initializeDatabaseStructure } from './services/dbConfig';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 
 // TabBarIconコンポーネント（インラインで定義）
 function TabBarIcon({ name, color }: { name: string; color: string }) {
@@ -52,6 +53,7 @@ export default function RootLayout() {
   const theme = useTheme();
   const { request, promptAsync } = useGoogleAuth();
   const [isMounted, setIsMounted] = useState(false);
+  const [isOnboardingCompleted, setIsOnboardingCompleted] = useState<boolean | null>(null);
   
   // SpaceMonoフォントの読み込みを削除し、FontAwesomeのみ読み込む
   const [loaded, error] = useFonts(FontAwesome.font);
@@ -74,9 +76,13 @@ export default function RootLayout() {
         try {
           // ユーザープロファイルを取得
           await getUserProfile();
-          console.log('✅ ユーザープロファイルを読み込みました');
+          // オンボーディングの状態を確認
+          const onboardingCompleted = await checkOnboardingStatus();
+          setIsOnboardingCompleted(onboardingCompleted);
+          console.log('✅ ユーザープロファイルを読み込みました', { onboardingCompleted });
         } catch (error) {
           console.error('❌ ユーザープロファイルの読み込みに失敗しました:', error);
+          setIsOnboardingCompleted(false);
         }
       }
     };
@@ -151,6 +157,15 @@ export default function RootLayout() {
     return () => unsubscribe();
   }, []);
 
+  // オンボーディング状態に基づいてリダイレクト
+  useEffect(() => {
+    // ユーザーがログインしていて、オンボーディングが未完了の場合
+    if (user && isOnboardingCompleted === false && isMounted) {
+      console.log('🔄 未完了のオンボーディングを検出 - リダイレクト');
+      router.replace('/onboarding');
+    }
+  }, [user, isOnboardingCompleted, isMounted]);
+
   // Show loading screen while checking authentication
   if (isLoading) {
     return (
@@ -192,6 +207,11 @@ export default function RootLayout() {
             <Stack.Screen name="login" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           </React.Fragment>
+        ) : isOnboardingCompleted === false ? (
+          // オンボーディングが完了していない場合は、オンボーディング画面にリダイレクト
+          <React.Fragment>
+            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+          </React.Fragment>
         ) : (
           <React.Fragment>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -213,9 +233,12 @@ export default function RootLayout() {
             <Stack.Screen name="privacy-policy" options={{ title: 'プライバシーポリシー' }} />
             <Stack.Screen name="sync" options={{ title: 'データ同期' }} />
             <Stack.Screen name="shared-audio" options={{ title: '共有音声' }} />
+            {/* 管理者機能は現在非表示
             <Stack.Screen name="admin/knowledge-management" options={{ title: 'ナレッジベース管理' }} />
             <Stack.Screen name="admin/knowledge-edit" options={{ title: 'ナレッジ編集' }} />
             <Stack.Screen name="admin/db-migration" options={{ title: 'DB移行' }} />
+            */}
+            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           </React.Fragment>
         )}
       </Stack>

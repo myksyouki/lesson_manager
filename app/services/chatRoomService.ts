@@ -128,38 +128,76 @@ export const getChatRoom = async (roomId: string): Promise<ChatRoom | null> => {
 // ユーザーのチャットルーム一覧を取得
 export const getUserChatRooms = async (userId: string): Promise<ChatRoom[]> => {
   try {
+    console.log('📋 ChatRoomService: getUserChatRooms開始', userId);
     const currentUser = auth.currentUser;
     if (!currentUser) {
+      console.error('❌ ChatRoomService: 認証済みユーザーがいません');
       throw new Error('ユーザーが認証されていません');
     }
 
     // ユーザーのchatRoomsサブコレクションからドキュメントを取得
     const chatRoomsRef = collection(db, `users/${userId}/chatRooms`);
+    console.log('🔍 ChatRoomService: コレクションパス', `users/${userId}/chatRooms`);
+    
     const q = query(
       chatRoomsRef,
       orderBy('updatedAt', 'desc')
     );
-    const querySnapshot = await getDocs(q);
     
-    console.log(`チャットルーム一覧を取得: ${querySnapshot.size}件`);
+    try {
+      const querySnapshot = await getDocs(q);
+      console.log(`✅ ChatRoomService: クエリ実行完了 ${querySnapshot.size}件`);
 
-    const chatRooms: ChatRoom[] = [];
+      const chatRooms: ChatRoom[] = [];
 
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      // 削除されていないチャットルームのみを追加
-      if (!data.isDeleted) {
-        chatRooms.push({
-          id: doc.id,
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        // Timestampオブジェクトの処理
+        const processedData = {
           ...data,
-        } as ChatRoom);
-      }
-    });
+          createdAt: data.createdAt || { seconds: 0, nanoseconds: 0 },
+          updatedAt: data.updatedAt || { seconds: 0, nanoseconds: 0 },
+        };
+        
+        // 削除されていないチャットルームのみを追加
+        if (!data.isDeleted) {
+          chatRooms.push({
+            id: doc.id,
+            ...processedData,
+          } as ChatRoom);
+        }
+      });
 
-    console.log(`削除済みを除外後のチャットルーム数: ${chatRooms.length}件`);
-    return chatRooms;
+      console.log(`📊 ChatRoomService: 削除済みを除外後のチャットルーム数: ${chatRooms.length}件`);
+      
+      // 空の配列ではない場合、最初のチャットルームの内容をログに出力して確認
+      if (chatRooms.length > 0) {
+        console.log('📝 ChatRoomService: 最初のチャットルーム例:', JSON.stringify({
+          id: chatRooms[0].id,
+          title: chatRooms[0].title,
+          topic: chatRooms[0].topic,
+          updatedAt: chatRooms[0].updatedAt
+        }, null, 2));
+      } else {
+        console.log('⚠️ ChatRoomService: チャットルームが見つかりませんでした');
+        
+        // デバッグ: コレクション内のすべてのドキュメントを表示
+        if (querySnapshot.size > 0) {
+          console.log('🔎 ChatRoomService: コレクション内のすべてのドキュメント:');
+          querySnapshot.forEach((doc) => {
+            const rawData = doc.data();
+            console.log(`  - ID: ${doc.id}, isDeleted: ${rawData.isDeleted}, title: ${rawData.title}`);
+          });
+        }
+      }
+      
+      return chatRooms;
+    } catch (queryError) {
+      console.error('❌ ChatRoomService: クエリ実行エラー:', queryError);
+      throw queryError;
+    }
   } catch (error) {
-    console.error('チャットルーム一覧取得エラー:', error);
+    console.error('❌ ChatRoomService: チャットルーム一覧取得エラー:', error);
     throw error;
   }
 };

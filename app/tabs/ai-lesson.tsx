@@ -56,8 +56,8 @@ const TABS = {
 const PRACTICE_CHAT_ROOMS: ChatRoom[] = [
   {
     id: 'practice-1',
-    title: 'ロングトーン練習',
-    topic: '息の安定性',
+    title: 'トーン練習',
+    topic: '音色改善',
     modelType: 'practice',
     createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
     updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
@@ -76,8 +76,8 @@ const PRACTICE_CHAT_ROOMS: ChatRoom[] = [
   },
   {
     id: 'practice-3',
-    title: 'アーティキュレーション',
-    topic: '表現力',
+    title: '低音域練習',
+    topic: '音域安定',
     modelType: 'practice',
     createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
     updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
@@ -86,8 +86,8 @@ const PRACTICE_CHAT_ROOMS: ChatRoom[] = [
   },
   {
     id: 'practice-4',
-    title: 'リズム練習',
-    topic: '正確さ',
+    title: 'タンギング練習',
+    topic: '技術向上',
     modelType: 'practice',
     createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
     updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
@@ -96,8 +96,8 @@ const PRACTICE_CHAT_ROOMS: ChatRoom[] = [
   },
   {
     id: 'practice-5',
-    title: '楽曲解釈',
-    topic: '音楽性',
+    title: 'ビブラート練習',
+    topic: '表現力',
     modelType: 'practice',
     createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
     updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
@@ -215,40 +215,40 @@ export default function AILessonScreen() {
   }, [router, user]);
 
   const handleOpenRoom = useCallback((roomId: string) => {
-    // 選択モードの場合は選択/選択解除
     if (isSelectionMode) {
-      handleSelectRoom(roomId);
+      // 選択モード中はルーム選択の処理
+      // 選択/選択解除のロジック
+      setSelectedRoomIds(prev => {
+        if (prev.includes(roomId)) {
+          return prev.filter(id => id !== roomId);
+        } else {
+          return [...prev, roomId];
+        }
+      });
       return;
     }
     
-    // 通常モードの場合は部屋を開く
-    console.log('Opening room:', roomId);
+    // 練習タブのアイテムをクリックした場合
+    if (activeTab === TABS.PRACTICE) {
+      Alert.alert(
+        '開発中',
+        'この機能は現在開発中です。もうしばらくお待ちください。',
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+    
+    // 通常のチャットルーム表示処理
     router.push({
-      pathname: '/chat-room' as any,
+      pathname: '/chat-room',
       params: { id: roomId }
     });
-  }, [router, isSelectionMode]);
+  }, [router, isSelectionMode, activeTab, setSelectedRoomIds]);
 
   const handleLongPress = useCallback((roomId: string) => {
     // 選択モードを開始
     setIsSelectionMode(true);
     setSelectedRoomIds([roomId]);
-  }, []);
-
-  const handleSelectRoom = useCallback((roomId: string) => {
-    setSelectedRoomIds(prevSelected => {
-      // すでに選択されている場合は選択解除
-      if (prevSelected.includes(roomId)) {
-        const newSelected = prevSelected.filter(id => id !== roomId);
-        // 選択が0になった場合は選択モードを解除
-        if (newSelected.length === 0) {
-          setIsSelectionMode(false);
-        }
-        return newSelected;
-      } 
-      // 選択されていない場合は選択に追加
-      return [...prevSelected, roomId];
-    });
   }, []);
 
   const handleDeleteSelected = useCallback(async () => {
@@ -309,14 +309,21 @@ export default function AILessonScreen() {
         ]}
         onPress={() => setActiveTab(TABS.PRACTICE)}
       >
-        <Text
-          style={[
-            styles.tabText,
-            activeTab === TABS.PRACTICE && styles.activeTabText
-          ]}
-        >
-          練習
-        </Text>
+        <View style={styles.tabContent}>
+          <MaterialIcons 
+            name="fitness-center" 
+            size={20} 
+            color={activeTab === TABS.PRACTICE ? AI_THEME_COLOR : '#5F6368'} 
+          />
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === TABS.PRACTICE && styles.activeTabText
+            ]}
+          >
+            トレーニング
+          </Text>
+        </View>
         {activeTab === TABS.PRACTICE && <View style={styles.tabIndicator} />}
       </Pressable>
       
@@ -327,14 +334,21 @@ export default function AILessonScreen() {
         ]}
         onPress={() => setActiveTab(TABS.CONSULTATION)}
       >
-        <Text
-          style={[
-            styles.tabText,
-            activeTab === TABS.CONSULTATION && styles.activeTabText
-          ]}
-        >
-          相談
-        </Text>
+        <View style={styles.tabContent}>
+          <MaterialIcons 
+            name="chat" 
+            size={20} 
+            color={activeTab === TABS.CONSULTATION ? AI_THEME_COLOR : '#5F6368'} 
+          />
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === TABS.CONSULTATION && styles.activeTabText
+            ]}
+          >
+            チャット
+          </Text>
+        </View>
         {activeTab === TABS.CONSULTATION && <View style={styles.tabIndicator} />}
       </Pressable>
     </View>
@@ -535,13 +549,26 @@ export default function AILessonScreen() {
 
   const renderPracticeTab = () => (
     <>
-      <FlatList
-        data={PRACTICE_CHAT_ROOMS}
-        renderItem={renderPracticeChatRoomItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.chatRoomsList}
-        showsVerticalScrollIndicator={false}
-      />
+      <View style={styles.developmentBanner}>
+        <MaterialIcons name="construction" size={20} color="#FFFFFF" />
+        <Text style={styles.developmentText}>この機能は現在開発中です</Text>
+      </View>
+      
+      <View style={styles.practiceContentContainer}>
+        <FlatList
+          data={PRACTICE_CHAT_ROOMS}
+          renderItem={renderPracticeChatRoomItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.chatRoomsList}
+          showsVerticalScrollIndicator={false}
+        />
+        
+        <View style={styles.developmentOverlay}>
+          <Text style={styles.developmentOverlayText}>
+            トレーニング機能 近日公開予定
+          </Text>
+        </View>
+      </View>
     </>
   );
 
@@ -550,10 +577,6 @@ export default function AILessonScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>AIレッスン</Text>
-        </View>
-        
         {renderTabBar()}
         
         {activeTab === TABS.PRACTICE 
@@ -590,7 +613,7 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    height: 48,
+    height: 56,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -603,13 +626,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
+  tabContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   activeTabButton: {
     backgroundColor: '#fff',
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
     color: '#5F6368',
+    marginLeft: 6,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   activeTabText: {
@@ -620,7 +649,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     height: 3,
-    width: '50%',
+    width: '70%',
     backgroundColor: AI_THEME_COLOR,
     borderTopLeftRadius: 3,
     borderTopRightRadius: 3,
@@ -866,5 +895,44 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: '#EA4335',
+  },
+  developmentBanner: {
+    backgroundColor: '#FF9800',
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  developmentText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginLeft: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  practiceContentContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  developmentOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  developmentOverlayText: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    overflow: 'hidden',
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 });

@@ -199,6 +199,20 @@ export const useAuthStore = create<AuthState>((set, get) => {
           isOnboardingCompleted: false
         });
         
+        // ユーザーのプロファイルも作成（新しい構造対応）
+        const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
+        await setDoc(profileRef, {
+          name: '',
+          email: userCredential.user.email,
+          selectedCategory: '',
+          selectedInstrument: '',
+          selectedModel: '',
+          isPremium: false,
+          isOnboardingCompleted: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        
         // 新規ユーザーフラグを設定
         set({ isNewUser: true });
         
@@ -237,8 +251,50 @@ export const useAuthStore = create<AuthState>((set, get) => {
                 isOnboardingCompleted: false
               });
               
+              // ユーザーのプロファイルも作成（新しい構造対応）
+              const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
+              await setDoc(profileRef, {
+                name: userCredential.user.displayName || '',
+                email: userCredential.user.email,
+                selectedCategory: '',
+                selectedInstrument: '',
+                selectedModel: '',
+                isPremium: false,
+                isOnboardingCompleted: false,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              });
+              
               // 新規ユーザーフラグを設定
               set({ isNewUser: true });
+            } else {
+              // 既存ユーザーの場合、オンボーディング完了状態を確認
+              const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
+              const profileDoc = await getDoc(profileRef);
+              
+              if (profileDoc.exists()) {
+                const profileData = profileDoc.data();
+                // オンボーディングが未完了の場合も新規ユーザーと同様に扱う
+                if (profileData.isOnboardingCompleted === false) {
+                  set({ isNewUser: true });
+                }
+              } else {
+                // プロファイルが存在しない場合、新規作成
+                await setDoc(profileRef, {
+                  name: userCredential.user.displayName || '',
+                  email: userCredential.user.email,
+                  selectedCategory: '',
+                  selectedInstrument: '',
+                  selectedModel: '',
+                  isPremium: false,
+                  isOnboardingCompleted: false,
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                });
+                
+                // 新規ユーザーフラグを設定
+                set({ isNewUser: true });
+              }
             }
             
             console.log("✅ Googleサインイン成功");

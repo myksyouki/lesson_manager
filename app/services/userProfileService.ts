@@ -491,6 +491,9 @@ export const saveOnboardingCompletion = async (): Promise<boolean> => {
   }
 };
 
+// completeOnboardingとしてエクスポート（別名）
+export const completeOnboarding = saveOnboardingCompletion;
+
 // オンボーディング状態のチェック
 export const checkOnboardingStatus = async (): Promise<boolean> => {
   try {
