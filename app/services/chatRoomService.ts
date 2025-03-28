@@ -37,7 +37,31 @@ export interface CreateChatRoomData {
   modelType?: string;
 }
 
-// チャットルームの作成
+// ユーザーのアクティブなチャットルーム数を取得する関数
+export const getUserActiveChatRoomsCount = async (userId: string): Promise<number> => {
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('ユーザーが認証されていません');
+    }
+
+    // ユーザーのchatRoomsサブコレクションから非削除のドキュメント数を取得
+    const chatRoomsRef = collection(db, `users/${userId}/chatRooms`);
+    const q = query(
+      chatRoomsRef, 
+      where('isDeleted', '==', false)
+    );
+    const querySnapshot = await getDocs(q);
+    
+    console.log(`アクティブなチャットルーム数: ${querySnapshot.size}件`);
+    return querySnapshot.size;
+  } catch (error) {
+    console.error('アクティブなチャットルーム数取得エラー:', error);
+    throw error;
+  }
+};
+
+// チャットルームの作成前に数の確認を行う
 export const createChatRoom = async (
   title: string,
   topic: string,
@@ -48,6 +72,14 @@ export const createChatRoom = async (
     const currentUser = auth.currentUser;
     if (!currentUser) {
       throw new Error('ユーザーが認証されていません');
+    }
+
+    // アクティブなチャットルーム数を取得
+    const activeRoomsCount = await getUserActiveChatRoomsCount(currentUser.uid);
+    
+    // チャットルーム数が5つ以上ならエラー
+    if (activeRoomsCount >= 5) {
+      throw new Error('チャットルームは最大5つまでしか作成できません。既存のチャットルームを削除してください。');
     }
 
     console.log('チャットルーム作成開始:', {
@@ -75,6 +107,7 @@ export const createChatRoom = async (
       messages: [userMessage],
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
+      isDeleted: false, // 初期値を明示的に設定
     };
 
     // ユーザーのchatRoomsサブコレクションにドキュメントを追加

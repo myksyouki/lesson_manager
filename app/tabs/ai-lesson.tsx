@@ -18,7 +18,7 @@ import {
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/auth';
-import { getUserChatRooms, ChatRoom, deleteChatRoom } from '../services/chatRoomService';
+import { getUserChatRooms, ChatRoom, deleteChatRoom, getUserActiveChatRoomsCount } from '../services/chatRoomService';
 import { useTheme } from '../theme';
 import Animated, { FadeIn, SlideInRight, SlideInUp } from 'react-native-reanimated';
 import { RippleButton } from '../components/RippleButton';
@@ -201,6 +201,17 @@ export default function AILessonScreen() {
       console.log('handleCreateRoom called');
       if (!user) {
         console.log('No user found for room creation');
+        return;
+      }
+      
+      // アクティブなチャットルーム数をチェック
+      const activeRoomsCount = await getUserActiveChatRoomsCount(user.uid);
+      
+      if (activeRoomsCount >= 5) {
+        Alert.alert(
+          'チャットルーム制限',
+          'チャットルームは最大5つまでしか作成できません。既存のチャットルームを削除してください。'
+        );
         return;
       }
       

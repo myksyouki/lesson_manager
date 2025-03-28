@@ -24,6 +24,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Timestamp } from 'firebase/firestore';
 import ChatsHeader from './components/ui/ChatsHeader';
 import { ChatInput } from './features/chat/components/ChatInput';
+import { useFocusEffect } from 'expo-router';
 
 // チャットルーム画面のメインコンポーネント
 export default function ChatRoomScreen() {
@@ -43,38 +44,62 @@ export default function ChatRoomScreen() {
   const [newTopic, setNewTopic] = useState('');
   const [updating, setUpdating] = useState(false);
 
-  // チャットルームデータの読み込み
-  useEffect(() => {
-    const loadChatRoom = async () => {
-      if (!id || !user) {
-        setLoading(false);
+  // チャットルームデータの読み込み関数
+  const loadChatRoom = async () => {
+    if (!id || !user) {
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const roomId = Array.isArray(id) ? id[0] : id;
+      console.log('チャットルームデータを読み込み中:', roomId);
+      
+      const roomData = await getChatRoomById(roomId);
+      
+      if (!roomData) {
+        Alert.alert('エラー', 'チャットルームが見つかりませんでした');
+        router.back();
         return;
       }
       
-      try {
-        const roomId = Array.isArray(id) ? id[0] : id;
-        const roomData = await getChatRoomById(roomId);
-        
-        if (!roomData) {
-          Alert.alert('エラー', 'チャットルームが見つかりませんでした');
-          router.back();
-          return;
-        }
-        
-        setChatRoom(roomData);
-        // 編集用の初期値をセット
-        setNewTitle(roomData.title);
-        setNewTopic(roomData.topic);
-      } catch (error) {
-        console.error('チャットルーム読み込みエラー:', error);
-        Alert.alert('エラー', 'チャットルームの読み込みに失敗しました');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
+      setChatRoom(roomData);
+      // 編集用の初期値をセット
+      setNewTitle(roomData.title);
+      setNewTopic(roomData.topic);
+      console.log('チャットルームデータの読み込みが完了しました', roomData.title);
+    } catch (error) {
+      console.error('チャットルーム読み込みエラー:', error);
+      Alert.alert('エラー', 'チャットルームの読み込みに失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 初回マウント時にデータを読み込む
+  useEffect(() => {
     loadChatRoom();
   }, [id, user, router]);
+
+  // 画面がフォーカスされたときにデータを再読み込み（新規作成時のみ）
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('チャットルーム画面がフォーカスされました');
+      // パラメータから新規作成かどうかを確認
+      const isNewlyCreated = useLocalSearchParams().isNewlyCreated === 'true';
+      
+      if (isNewlyCreated) {
+        console.log('新規作成されたチャットルームのため再読み込みします');
+        loadChatRoom();
+      }
+      
+      return () => {
+        // クリーンアップ処理
+        console.log('チャットルーム画面のフォーカスが外れました');
+      };
+    }, [id, user])
+  );
 
   // 編集モーダルを開く
   const handleOpenEditModal = () => {

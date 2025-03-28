@@ -22,7 +22,7 @@ import LessonCard from '../features/lessons/components/list/LessonCard';
 import { Lesson } from '../store/lessons';
 import { useTheme } from '../theme/index';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useLessonStore } from '../store/lessons';
 import Collapsible from 'react-native-collapsible';
 
@@ -41,6 +41,9 @@ export default function LessonsScreen() {
   const [isTagsVisible, setIsTagsVisible] = useState(false);
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  
+  // パラメータを取得（トップレベルに移動）
+  const params = useLocalSearchParams();
   
   // 画面サイズの状態を管理
   const [dimensions, setDimensions] = useState({
@@ -248,24 +251,30 @@ export default function LessonsScreen() {
         if (!auth.currentUser) return;
         
         try {
-          console.log('タブフォーカス: レッスンデータ再取得を開始します');
-          await fetchLessons(auth.currentUser.uid);
-          console.log(`タブフォーカス: ${lessons.length}件のレッスンを再取得しました`);
+          // トップレベルで取得したパラメータを使用
+          const isNewlyCreated = params.isNewlyCreated === 'true';
           
-          // 選択モードと選択済みレッスンをリセットする
-          setIsSelectionMode(false);
-          setSelectedLessons([]);
+          if (isNewlyCreated) {
+            console.log('レッスン一覧: 新規作成されたレッスンがあるため再取得します');
+            await fetchLessons(auth.currentUser.uid);
+            
+            // 選択モードと選択済みレッスンをリセットする
+            setIsSelectionMode(false);
+            setSelectedLessons([]);
+          } else {
+            console.log('レッスン一覧: フォーカス時の自動更新はスキップします');
+          }
         } catch (error) {
-          console.error('タブフォーカス: レッスンデータ再取得エラー', error);
+          console.error('レッスン一覧: フォーカス時の更新エラー', error);
         }
       };
       
       refreshLessonsOnFocus();
       
       return () => {
-        // クリーンアップ関数（必要に応じて）
+        // クリーンアップ関数
       };
-    }, [fetchLessons, auth.currentUser?.uid])
+    }, [auth.currentUser?.uid, fetchLessons, params.isNewlyCreated])
   );
 
   // 検索テキスト変更ハンドラ

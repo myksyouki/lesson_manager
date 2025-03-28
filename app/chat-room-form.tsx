@@ -32,6 +32,7 @@ const TOPICS = [
 export default function ChatRoomFormScreen() {
   const [title, setTitle] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
+  const [customTopic, setCustomTopic] = useState('');
   const [initialMessage, setInitialMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [userModelType, setUserModelType] = useState<string>('');
@@ -71,16 +72,6 @@ export default function ChatRoomFormScreen() {
       return;
     }
 
-    if (!selectedTopic) {
-      Alert.alert('エラー', 'トピックを選択してください');
-      return;
-    }
-
-    if (!initialMessage.trim()) {
-      Alert.alert('エラー', '最初のメッセージを入力してください');
-      return;
-    }
-
     try {
       setLoading(true);
       if (!user) {
@@ -88,18 +79,23 @@ export default function ChatRoomFormScreen() {
         return;
       }
 
+      // カスタムトピックか選択トピックのどちらかがあれば使用、なければデフォルト値
+      const finalTopic = customTopic.trim() || selectedTopic || 'その他';
+      // 初期メッセージが空の場合はデフォルトメッセージを使用
+      const finalMessage = initialMessage.trim() || 'AIコーチとの会話を開始します';
+
       console.log('チャットルーム作成開始:', {
         userId: user.uid,
         title: title.trim(),
-        topic: selectedTopic,
-        initialMessageLength: initialMessage.trim().length,
+        topic: finalTopic,
+        initialMessageLength: finalMessage.length,
         modelType: userModelType || 'standard'
       });
 
       const chatRoom = await createChatRoom(
         title.trim(),
-        selectedTopic,
-        initialMessage.trim(),
+        finalTopic,
+        finalMessage,
         userModelType || 'standard'
       );
 
@@ -112,21 +108,29 @@ export default function ChatRoomFormScreen() {
           {
             text: 'OK',
             onPress: () => {
-              if (params?.redirectToChat === 'true') {
-                router.navigate({
-                  pathname: `/chat-room/${chatRoom.id}`,
-                } as any);
-              } else {
-                router.back();
-              }
+              // replaceを使用してナビゲーションスタックから現在の画面を削除
+              router.replace({
+                pathname: '/chat-room',
+                params: { 
+                  id: chatRoom.id,
+                  isNewlyCreated: 'true'
+                }
+              });
             }
           }
         ]
       );
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('チャットルーム作成エラー:', error);
-      Alert.alert('エラー', 'チャットルームの作成に失敗しました。後でもう一度お試しください。');
+      let errorMessage = 'チャットルームの作成に失敗しました。後でもう一度お試しください。';
+      
+      // チャットルーム制限に関するエラーメッセージを確認
+      if (error.message && error.message.includes('最大5つ')) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('エラー', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -166,7 +170,10 @@ export default function ChatRoomFormScreen() {
                     styles.topicButton,
                     selectedTopic === topic && styles.selectedTopic,
                   ]}
-                  onPress={() => setSelectedTopic(topic)}
+                  onPress={() => {
+                    setSelectedTopic(topic);
+                    setCustomTopic(topic);
+                  }}
                 >
                   <Text
                     style={[
@@ -179,6 +186,19 @@ export default function ChatRoomFormScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+
+            <TextInput
+              style={styles.input}
+              value={customTopic}
+              onChangeText={(text) => {
+                setCustomTopic(text);
+                if (selectedTopic && text !== selectedTopic) {
+                  setSelectedTopic('');
+                }
+              }}
+              placeholder="トピックを自由に入力（または上から選択）"
+              maxLength={30}
+            />
 
             <Text style={styles.label}>最初のメッセージ</Text>
             <TextInput
@@ -204,7 +224,7 @@ export default function ChatRoomFormScreen() {
           <TouchableOpacity
             style={[styles.createButton, loading && styles.disabledButton]}
             onPress={handleCreateRoom}
-            disabled={loading || !title.trim() || !selectedTopic || !initialMessage.trim()}
+            disabled={loading || !title.trim()}
           >
             {loading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
