@@ -36,7 +36,7 @@ export default function ChatRoomScreen() {
   const [sending, setSending] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const flatListRef = useRef<FlatList>(null);
-  const [useHttpDirect, setUseHttpDirect] = useState(false);
+  const [useHttpDirect, setUseHttpDirect] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   

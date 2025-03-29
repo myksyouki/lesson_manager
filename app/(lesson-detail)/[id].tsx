@@ -389,18 +389,16 @@ export default function LessonDetail() {
         isEditing={isEditing}
         formData={formData}
         onUpdateFormData={handleUpdateFormData}
+        afterSummary={(
+          <TouchableOpacity
+            style={[styles.inlineActionButton, { backgroundColor: '#4285F4' }]}
+            onPress={openExportModal}
+          >
+            <MaterialIcons name="share" size={24} color="#FFFFFF" />
+            <Text style={styles.actionButtonText}>エクスポート</Text>
+          </TouchableOpacity>
+        )}
       />
-
-      {/* アクションボタン - アーカイブボタンはヘッダーに移動したため削除 */}
-      <View style={styles.actionButtonsContainer}>
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: '#4285F4' }]}
-          onPress={openExportModal}
-        >
-          <MaterialIcons name="share" size={24} color="#FFFFFF" />
-          <Text style={styles.actionButtonText}>エクスポート</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* アーカイブステータスバナー */}
       {currentLesson?.isArchived && (
@@ -415,12 +413,16 @@ export default function LessonDetail() {
       {/* Export Modal */}
       <Modal
         visible={showExportModal}
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         onRequestClose={() => setShowExportModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowExportModal(false)}
+        >
+          <View style={[styles.modalContent, styles.popoverMenu]}>
             <Text style={styles.modalTitle}>エクスポート</Text>
             
             <TouchableOpacity 
@@ -438,15 +440,8 @@ export default function LessonDetail() {
               <MaterialIcons name="smart-toy" size={24} color="#5856D6" />
               <Text style={styles.modalOptionText}>AIに相談</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.modalOption, styles.cancelOption]}
-              onPress={() => setShowExportModal(false)}
-            >
-              <Text style={styles.cancelText}>キャンセル</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );
@@ -457,30 +452,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  exportButtonWrapper: {
-    position: 'absolute',
-    bottom: 24,
-    left: 0,
-    right: 0,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  exportButton: {
+  inlineActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4285F4',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 28,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    marginTop: -4,
+    marginBottom: 24,
+    marginHorizontal: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
-  exportButtonText: {
+  actionButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
@@ -530,35 +518,6 @@ const styles = StyleSheet.create({
     color: '#FF3B30',
     textAlign: 'center',
   },
-  actionButtonsContainer: {
-    position: 'absolute',
-    bottom: 80,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
   archiveBanner: {
     position: 'absolute',
     bottom: 0,
@@ -581,5 +540,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
     marginLeft: 10,
+  },
+  popoverMenu: {
+    position: 'relative',
+    width: '60%',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
   },
 });

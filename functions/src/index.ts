@@ -8,7 +8,7 @@ import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
 import axios from "axios";
 
 // Firebaseの初期化
-admin.initializeApp();
+  admin.initializeApp();
 
 const secretManager = new SecretManagerServiceClient();
 
@@ -320,7 +320,7 @@ export const sendMessage = onCall(
       console.log("認証チェックをスキップしました");
 
       if (!data.message) {
-        throw new HttpsError(
+    throw new HttpsError(
           "invalid-argument",
           "メッセージは必須です",
         );
@@ -477,8 +477,8 @@ export const sendMessage = onCall(
               console.log("Dify チャットAPIレスポンス構造:", JSON.stringify(chatResponse.data, null, 2).substring(0, 500) + "...");
               
               // レスポンスを返す
-              return {
-                success: true,
+    return {
+      success: true,
                 answer: chatResponse.data.answer === "♪エラー♪" ? 
                   "楽器種類の指定がないため、応答できません。プロフィール設定で楽器を選択してからお試しください。" : 
                   chatResponse.data.answer || "応答がありませんでした",
@@ -490,8 +490,8 @@ export const sendMessage = onCall(
                 workflowError: workflowError.message,
                 chatError: chatError.message,
               });
-              
-              throw new HttpsError(
+    
+    throw new HttpsError(
                 "internal",
                 `Dify API呼び出しエラー: ${chatError.message}`,
                 {

@@ -71,7 +71,7 @@ export const sendMessageToLessonAI = async (
     
     // リクエストパラメータ
     const params = {
-      message,
+      query: message,
       conversationId,
       instrument,
       roomId,
@@ -80,7 +80,7 @@ export const sendMessageToLessonAI = async (
     
     console.log('SDKリクエスト送信直前...');
     console.log('リクエストパラメータ詳細:', JSON.stringify({
-      messageLength: message.length,
+      queryLength: message.length,
       conversationId: conversationId || '(新規)',
       instrument,
       roomId,

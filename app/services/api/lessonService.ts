@@ -78,7 +78,7 @@ class LessonService {
    */
   async getUserLessonsNewStructure(userId: string): Promise<Lesson[]> {
     const lessonsRef = collection(db, `users/${userId}/lessons`);
-    const lessonsSnapshot = await getDocs(query(lessonsRef, orderBy('created_at', 'desc')));
+    const lessonsSnapshot = await getDocs(query(lessonsRef, orderBy('date', 'desc')));
     
     return lessonsSnapshot.docs.map(doc => ({
       id: doc.id,
@@ -277,7 +277,7 @@ class LessonService {
     const lessonsQuery = query(
       lessonsRef,
       where('created_at', '>=', startDate),
-      orderBy('created_at', 'desc')
+      orderBy('date', 'desc')
     );
     
     const lessonsSnapshot = await getDocs(lessonsQuery);

@@ -772,7 +772,7 @@ export default function LessonsScreen() {
             styles.addButton, 
             { 
               backgroundColor: LESSON_THEME_COLOR,
-              bottom: Math.max(20, dimensions.height * 0.03) + (insets.bottom || 0)
+              bottom: 24
             }
           ]}
           onPress={() => router.push('/lesson-form' as any)}
@@ -1054,8 +1054,8 @@ const styles = StyleSheet.create({
   // FAB
   addButton: {
     position: 'absolute',
-    right: 20,
-    bottom: 20,
+    right: 24,
+    bottom: 24,
     width: 56,
     height: 56,
     borderRadius: 28,

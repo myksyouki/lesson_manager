@@ -33,6 +33,7 @@ interface LessonDetailContentProps {
   onUpdateFormData: (data: Partial<LessonFormData>) => void;
   onSave?: () => void;
   onToggleFavorite?: () => void;
+  afterSummary?: React.ReactNode;
 }
 
 export const LessonDetailContent: React.FC<LessonDetailContentProps> = ({
@@ -41,6 +42,7 @@ export const LessonDetailContent: React.FC<LessonDetailContentProps> = ({
   onUpdateFormData,
   onSave = () => {},
   onToggleFavorite = () => {},
+  afterSummary
 }) => {
   const [refreshing, setRefreshing] = React.useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -207,6 +209,9 @@ export const LessonDetailContent: React.FC<LessonDetailContentProps> = ({
             onUpdateSummary={(summary) => onUpdateFormData({ summary })}
           />
         </View>
+
+        {/* AIサマリーの後に表示する任意のコンポーネント */}
+        {afterSummary}
 
         {/* 基本情報セクション */}
         {renderCollapsibleSection("基本情報", "basicInfo", (

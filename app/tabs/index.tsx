@@ -157,12 +157,12 @@ export default function HomeScreen() {
   };
 
   const navigateToAllTasks = () => {
-    router.push('/task' as any);
+    router.push('/tabs/task' as any);
   };
 
   const navigateToTaskDetail = (taskId: string) => {
     router.push({
-      pathname: '/task/[id]',
+      pathname: '/tabs/task/[id]',
       params: { id: taskId }
     } as any);
   };
@@ -232,7 +232,7 @@ export default function HomeScreen() {
       case 'tonguing':
         return <FontAwesome5 name="wave-square" size={dynamicStyles.iconSize - 2} color="#FF9800" />;
       default:
-        return <MaterialIcons name="chat" size={dynamicStyles.iconSize} color="#4CAF50" />;
+        return <MaterialIcons name="chat" size={dynamicStyles.iconSize} color="#7C4DFF" />;
     }
   };
 
@@ -271,25 +271,28 @@ export default function HomeScreen() {
     // タスクに関連するアイコンを取得
     const getTaskIcon = () => {
       if (task.tags && task.tags.includes("練習")) {
-        return <MaterialIcons name="music-note" size={dynamicStyles.iconSize - 2} color="#9C27B0" />;
+        return <MaterialIcons name="music-note" size={dynamicStyles.iconSize - 2} color="#4CAF50" />;
       } else if (task.tags && task.tags.includes("理論")) {
-        return <MaterialIcons name="school" size={dynamicStyles.iconSize - 2} color="#2196F3" />;
+        return <MaterialIcons name="school" size={dynamicStyles.iconSize - 2} color="#4CAF50" />;
       } else if (task.tags && task.tags.includes("テクニック")) {
-        return <MaterialIcons name="speed" size={dynamicStyles.iconSize - 2} color="#FF9800" />;
+        return <MaterialIcons name="speed" size={dynamicStyles.iconSize - 2} color="#4CAF50" />;
       }
       return null;
     };
 
     // タスクの背景色を取得
     const getTaskColor = () => {
-      if (task.tags && task.tags.includes("練習")) {
-        return "#9C27B0";
-      } else if (task.tags && task.tags.includes("理論")) {
-        return "#2196F3";
-      } else if (task.tags && task.tags.includes("テクニック")) {
-        return "#FF9800";
+      if (task.completed) {
+        return "#4CAF50"; // 完了したタスクは緑色
       }
-      return theme.colors.primary; // デフォルトカラー
+      if (task.tags && task.tags.includes("練習")) {
+        return "#4CAF50";
+      } else if (task.tags && task.tags.includes("理論")) {
+        return "#4CAF50";
+      } else if (task.tags && task.tags.includes("テクニック")) {
+        return "#4CAF50";
+      }
+      return "#4CAF50"; // デフォルトカラー
     };
 
     const dueDate = formatDueDate();
@@ -458,7 +461,7 @@ export default function HomeScreen() {
             height: dynamicStyles.iconSize * 1.8, 
             borderRadius: dynamicStyles.iconSize * 0.9,
             marginRight: dynamicStyles.itemSpacing,
-            backgroundColor: '#f5f5f5',
+            backgroundColor: 'rgba(124, 77, 255, 0.1)',
             justifyContent: 'center',
             alignItems: 'center',
           }
@@ -621,12 +624,13 @@ export default function HomeScreen() {
                       styles.emptyTaskSlot,
                       { 
                         height: dynamicStyles.checkboxSize * 2.4,
-                        marginBottom: dynamicStyles.itemSpacing
+                        marginBottom: dynamicStyles.itemSpacing,
+                        borderColor: 'rgba(76, 175, 80, 0.3)'
                       }
                     ]}
                     onPress={navigateToAllTasks}
                   >
-                    <MaterialIcons name="add-circle-outline" size={dynamicStyles.iconSize + 4} color={theme.colors.borderLight} />
+                    <MaterialIcons name="add-circle-outline" size={dynamicStyles.iconSize + 4} color="#4CAF50" />
                     <Text style={[styles.emptySlotText, { 
                       marginLeft: dynamicStyles.itemSpacing,
                       fontSize: dynamicStyles.subtitleFontSize

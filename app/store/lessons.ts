@@ -116,6 +116,14 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
         return (lesson.status !== 'duplicate' && lesson.isDeleted !== true);
       });
 
+      // レッスン日付の降順でソート
+      lessons.sort((a, b) => {
+        if (!a.date && !b.date) return 0;
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return b.date.localeCompare(a.date);
+      });
+
       console.log(`有効なレッスン数: ${lessons.length}`);
       const archivedCount = lessons.filter(lesson => lesson.isArchived === true).length;
       console.log(`うちアーカイブされたレッスン: ${archivedCount}件`);
@@ -325,6 +333,13 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
     Object.keys(byMonth)
       .sort((a, b) => b.localeCompare(a))
       .forEach(month => {
+        // 各月ごとのレッスンを日付の降順でソート
+        byMonth[month].sort((a, b) => {
+          if (!a.date && !b.date) return 0;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return b.date.localeCompare(a.date);
+        });
         sortedByMonth[month] = byMonth[month];
       });
 

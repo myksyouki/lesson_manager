@@ -21,7 +21,7 @@ export function ChatInput({
   roomId,
   instrument,
 }: ChatInputProps) {
-  const [useHttpDirect, setUseHttpDirect] = useState(false);
+  const [useHttpDirect, setUseHttpDirect] = useState(true);
   const theme = useTheme();
   const { user } = useAuthStore();
 
@@ -31,19 +31,19 @@ export function ChatInput({
 
   return (
     <View style={styles.container}>
+      <View style={styles.switchContainer}>
+        <Text style={styles.switchLabel}>
+          HTTP直接呼び出し
+        </Text>
+        <Switch
+          value={useHttpDirect}
+          onValueChange={toggleHttpDirect}
+          trackColor={{ false: '#767577', true: '#4285F4' }}
+          thumbColor={useHttpDirect ? '#8BB4F7' : '#f4f3f4'}
+        />
+      </View>
+      
       <View style={styles.inputContainer}>
-        <View style={styles.switchContainer}>
-          <Text style={styles.switchLabel}>
-            HTTP直接呼び出し
-          </Text>
-          <Switch
-            value={useHttpDirect}
-            onValueChange={toggleHttpDirect}
-            trackColor={{ false: '#767577', true: '#4285F4' }}
-            thumbColor={useHttpDirect ? '#8BB4F7' : '#f4f3f4'}
-          />
-        </View>
-
         <TextInput
           style={styles.input}
           value={message}
@@ -55,19 +55,17 @@ export function ChatInput({
           editable={!sending}
         />
         
-        <View style={styles.buttonGroup}>
-          <TouchableOpacity
-            style={[styles.iconButton, styles.sendButton, !message.trim() && styles.disabledButton]}
-            onPress={onSend}
-            disabled={!message.trim() || sending}
-          >
-            {sending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Ionicons name="send" size={22} color="#FFFFFF" />
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.sendButton, !message.trim() && styles.disabledButton]}
+          onPress={onSend}
+          disabled={!message.trim() || sending}
+        >
+          {sending ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Ionicons name="send" size={22} color="#FFFFFF" />
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -75,43 +73,48 @@ export function ChatInput({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: 0,
     paddingHorizontal: 10,
     borderTopWidth: 1,
     borderTopColor: '#EEEEEE',
+    backgroundColor: '#f7f8fc',
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 8,
+    marginBottom: 4,
+  },
+  switchLabel: {
+    fontSize: 12,
+    marginRight: 4,
+    color: '#666666',
   },
   inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: 20,
     borderWidth: 1,
-    overflow: 'hidden',
     borderColor: '#EEEEEE',
+    backgroundColor: '#F8F8F8',
+    paddingHorizontal: 12,
+    paddingVertical: 0,
+    overflow: 'hidden',
   },
   input: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 36,
     maxHeight: 120,
-    paddingHorizontal: 12,
+    paddingVertical: 4,
     fontSize: 16,
-    backgroundColor: '#F8F8F8',
-  },
-  buttonGroup: {
-    flexDirection: 'row',
-    marginLeft: 8,
-    alignItems: 'center',
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 6,
   },
   sendButton: {
     backgroundColor: '#4285F4',
     padding: 8,
     borderRadius: 20,
-    marginLeft: 4,
+    marginLeft: 8,
     width: 36,
     height: 36,
     alignItems: 'center',
@@ -120,17 +123,5 @@ const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: '#A0A0A0',
     opacity: 0.7,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 8,
-    paddingTop: 4,
-  },
-  switchLabel: {
-    fontSize: 12,
-    marginRight: 4,
-    color: '#666666',
   },
 });
