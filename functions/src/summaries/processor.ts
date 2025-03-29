@@ -1,5 +1,7 @@
 /**
  * 音声処理のメイン制御ロジック
+ * 
+ * レッスン音声をアップロードからタグ生成までを管理します。
  */
 
 // 標準ライブラリ
@@ -17,20 +19,23 @@ import {downloadFileFromUrl, splitAudio, SplitAudioResult} from "../common/audio
 import {transcribeAudio} from "./transcriber";
 import {summarizeText} from "./summarizer";
 import {generateTags} from "./tagger";
-import {
-  TEMP_DIR, PROJECT_ID,
-} from "../config";
+import {TEMP_DIR, PROJECT_ID} from "../config";
 
-// 進捗状況の区切り
-const PROGRESS_DOWNLOAD = 10;
-const PROGRESS_SPLIT = 20;
-const PROGRESS_TRANSCRIBE_START = 25;
-const PROGRESS_TRANSCRIBE_END = 70;
-const PROGRESS_SUMMARIZE = 80;
-const PROGRESS_TAGS = 90;
-const PROGRESS_COMPLETE = 100;
+// 進捗状況の区切り（パーセンテージ）
+const PROGRESS = {
+  START: 5,
+  DOWNLOAD: 10,
+  SPLIT: 20,
+  TRANSCRIBE_START: 25,
+  TRANSCRIBE_END: 70,
+  SUMMARIZE: 80,
+  TAGS: 90,
+  COMPLETE: 100
+};
 
-// 音声処理のリクエスト型
+/**
+ * 音声処理のリクエスト型
+ */
 export interface ProcessAudioRequest {
   audioUrl: string;
   lessonId: string;
@@ -40,7 +45,9 @@ export interface ProcessAudioRequest {
   userPrompt?: string; // ユーザーからのAI指示
 }
 
-// 音声処理の結果型
+/**
+ * 音声処理の結果型
+ */
 export interface ProcessAudioResult {
   success: boolean;
   transcription: string;
@@ -52,6 +59,7 @@ export interface ProcessAudioResult {
 
 /**
  * 音声処理のメイン関数
+ * 音声データをダウンロード、分割、文字起こし、要約、タグ生成を行います
  */
 export async function processAudio(request: ProcessAudioRequest): Promise<ProcessAudioResult> {
   const {audioUrl, lessonId, userId, instrument = ""} = request;
@@ -61,16 +69,15 @@ export async function processAudio(request: ProcessAudioRequest): Promise<Proces
   let userPrompt = request.userPrompt || "";
 
   try {
-    logger.info("音声処理を開始:", {lessonId, userId});
+    logger.info("音声処理を開始:", {lessonId, userId, timestamp: new Date().toISOString()});
 
     // 必須パラメータのチェック
     validateRequiredParams(audioUrl, lessonId, userId);
     
-    // レッスンIDの正規化 (lesson_プレフィックスの処理)
-    const normalizedLessonId = lessonId.startsWith("lesson_") ? lessonId : `lesson_${lessonId}`;
-    logger.info(`正規化されたレッスンID: ${normalizedLessonId}`);
-
-    // レッスンデータから楽器情報とuserPromptを取得
+    // レッスンIDの正規化
+    const normalizedLessonId = normalizeId(lessonId);
+    
+    // 楽器情報とユーザープロンプトを取得
     const instrumentInfo = await getInstrumentInfo(userId, normalizedLessonId, instrument, userPrompt);
     const instrumentName = instrumentInfo.instrument;
     if (instrumentInfo.userPrompt) {
@@ -82,71 +89,23 @@ export async function processAudio(request: ProcessAudioRequest): Promise<Proces
     fs.mkdirSync(tempDir, {recursive: true});
     
     // 処理開始を記録
-    await updateProcessingStatus(normalizedLessonId, "processing", 5, "Processing started", audioUrl);
+    await updateProcessingStatus(normalizedLessonId, "processing", PROGRESS.START, "処理を開始しました", audioUrl);
 
     // 音声ファイルのダウンロード
-    let audioFilePath;
-    try {
-      logger.info("音声ファイルをダウンロード中:", audioUrl);
-      audioFilePath = await downloadFileFromUrl(audioUrl, tempDir);
-      await updateProcessingStatus(normalizedLessonId, "processing", PROGRESS_DOWNLOAD, undefined, audioUrl);
-    } catch (error) {
-      logger.error(`音声ファイルのダウンロードに失敗: ${audioUrl}`, error);
-      throw createError(
-        ErrorType.FAILED_PRECONDITION,
-        `Failed to download audio file: ${error instanceof Error ? error.message : String(error)}`,
-        {audioUrl, lessonId: normalizedLessonId}
-      );
-    }
+    const audioFilePath = await downloadAudioFile(audioUrl, tempDir, normalizedLessonId);
+    await updateProcessingStatus(normalizedLessonId, "processing", PROGRESS.DOWNLOAD, "音声ファイルのダウンロードが完了しました", audioUrl);
 
     // 音声ファイルの分割
-    try {
-      logger.info("音声ファイルを分割中");
-      const splitResult: SplitAudioResult = await splitAudio(audioFilePath, tempDir);
-      audioFiles = splitResult.outputFiles;
-      await updateProcessingStatus(normalizedLessonId, "processing", PROGRESS_SPLIT, undefined, audioUrl);
-    } catch (error) {
-      logger.error(`音声ファイルの分割に失敗: ${audioFilePath}`, error);
-      throw createError(
-        ErrorType.INTERNAL,
-        `Failed to split audio file: ${error instanceof Error ? error.message : String(error)}`,
-        {audioFilePath, lessonId: normalizedLessonId}
-      );
-    }
+    audioFiles = await splitAudioFile(audioFilePath, tempDir, normalizedLessonId);
+    await updateProcessingStatus(normalizedLessonId, "processing", PROGRESS.SPLIT, "音声ファイルの分割が完了しました", audioUrl);
 
     // 音声ファイルの文字起こし
-    logger.info(`${audioFiles.length}個のファイルを文字起こし中`);
-    const transcriptionResult = await transcribeAudio(audioFiles, async (progress, current, total) => {
-      // 文字起こし進捗の更新
-      const transcribeProgress = PROGRESS_TRANSCRIBE_START +
-        ((progress / 100) * (PROGRESS_TRANSCRIBE_END - PROGRESS_TRANSCRIBE_START));
-
-      await updateProcessingStatus(
-        normalizedLessonId, 
-        "processing", 
-        Math.round(transcribeProgress),
-        `Transcribing ${current}/${total}`,
-        audioUrl
-      );
-    });
-
-    if (!transcriptionResult.success || !transcriptionResult.text) {
-      throw createError(
-        ErrorType.INTERNAL,
-        `Transcription failed: ${transcriptionResult.error || "Unknown error"}`,
-        {lessonId: normalizedLessonId}
-      );
-    }
-
-    const transcription = transcriptionResult.text;
-    logger.info(`文字起こし完了: ${transcription.length}文字`);
-
-    // 文字起こし完了ステータスの更新
+    const transcription = await transcribeAudioFiles(audioFiles, normalizedLessonId, audioUrl);
     await updateLessonProcessingStatus(
       normalizedLessonId,
       "processing",
-      PROGRESS_TRANSCRIBE_END,
-      "Transcription completed",
+      PROGRESS.TRANSCRIBE_END,
+      "文字起こしが完了しました",
       {
         transcription,
         transcriptionCompleteTime: new Date().toISOString(),
@@ -155,59 +114,22 @@ export async function processAudio(request: ProcessAudioRequest): Promise<Proces
       audioUrl
     );
 
-    // 文字起こしテキストを要約
-    logger.info("要約を生成中:", {transcriptionLength: transcription.length, instrumentName});
-    await updateProcessingStatus(normalizedLessonId, "processing", PROGRESS_SUMMARIZE, "Generating summary", audioUrl);
-    
     // 要約の生成
-    let summary = "";
-    try {
-      const summaryResult = await summarizeText(
-        transcription, 
-        instrumentName,
-        userPrompt,
-        request.pieces
-      );
-      if (!summaryResult.success) {
-        throw new Error(summaryResult.error || "Unknown error during summarization");
-      }
-      summary = summaryResult.summary;
-    } catch (error) {
-      logger.error(`要約生成に失敗: ${normalizedLessonId}`, error);
-      throw createError(
-        ErrorType.INTERNAL,
-        `Failed to generate summary: ${error instanceof Error ? error.message : String(error)}`,
-        {lessonId: normalizedLessonId}
-      );
-    }
+    logger.info("要約を生成中:", {transcriptionLength: transcription.length, instrumentName});
+    await updateProcessingStatus(normalizedLessonId, "processing", PROGRESS.SUMMARIZE, "要約を生成中", audioUrl);
+    const summary = await generateSummary(transcription, instrumentName, userPrompt, request.pieces, normalizedLessonId);
 
     // タグの生成
     logger.info("タグを生成中:", {summaryLength: summary.length, instrumentName});
-    await updateProcessingStatus(normalizedLessonId, "processing", PROGRESS_TAGS, "Generating tags", audioUrl);
-    
-    // タグ生成
-    let tags: string[] = [];
-    try {
-      const tagResult = await generateTags(transcription, summary, instrumentName);
-      if (tagResult.success) {
-        tags = tagResult.tags;
-      } else {
-        logger.warn(`タグ生成に失敗: ${normalizedLessonId} - ${tagResult.error}`);
-        // タグが生成できなくても処理は続行
-        tags = [instrumentName || "音楽", "レッスン", "練習"];
-      }
-    } catch (error) {
-      logger.warn(`タグ生成に失敗: ${normalizedLessonId}`, error);
-      // タグが生成できなくても処理は続行
-      tags = [instrumentName || "音楽", "レッスン", "練習"];
-    }
+    await updateProcessingStatus(normalizedLessonId, "processing", PROGRESS.TAGS, "タグを生成中", audioUrl);
+    const tags = await generateTagsForLesson(transcription, summary, instrumentName, normalizedLessonId);
 
     // 処理完了ステータスの更新
     await updateLessonProcessingStatus(
       normalizedLessonId,
       "completed",
-      PROGRESS_COMPLETE,
-      "Processing completed",
+      PROGRESS.COMPLETE,
+      "処理が完了しました",
       {
         summary,
         tags,
@@ -220,7 +142,7 @@ export async function processAudio(request: ProcessAudioRequest): Promise<Proces
     cleanupTempFiles(tempDir);
 
     // 処理時間の計算と結果の返却
-    const processingTimeSeconds = (Date.now() - startTime) / 1000;
+    const processingTimeSeconds = Math.round((Date.now() - startTime) / 1000);
     logger.info(`音声処理が完了しました: ${normalizedLessonId}`, {
       processingTimeSeconds,
       transcriptionLength: transcription.length,
@@ -236,44 +158,16 @@ export async function processAudio(request: ProcessAudioRequest): Promise<Proces
       processingTimeSeconds,
     };
   } catch (error) {
-    // エラー時のクリーンアップ
-    if (tempDir) {
-      cleanupTempFiles(tempDir);
-    }
-
-    // エラー詳細のログ出力
-    const errorDetails = handleError(error, "processAudio");
-    logger.error(`音声処理中にエラーが発生: ${lessonId}`, errorDetails);
-
-    // エラーステータスの更新
-    try {
-      const normalizedLessonId = lessonId.startsWith("lesson_") ? lessonId : `lesson_${lessonId}`;
-      await updateLessonProcessingStatus(
-        normalizedLessonId,
-        "error",
-        0,
-        `Error: ${errorDetails.message}`,
-        {
-          error: errorDetails.message,
-          errorType: errorDetails.type,
-          errorTime: new Date().toISOString(),
-        },
-        audioUrl
-      );
-    } catch (updateError) {
-      logger.error(`エラーステータス更新に失敗: ${lessonId}`, updateError);
-    }
-
-    // エラー結果の返却
-    return {
-      success: false,
-      transcription: "",
-      summary: "",
-      tags: [],
-      error: errorDetails.message,
-      processingTimeSeconds: (Date.now() - startTime) / 1000,
-    };
+    // エラー時のクリーンアップと詳細なログ記録
+    return handleProcessingError(error, tempDir, startTime, lessonId, audioUrl);
   }
+}
+
+/**
+ * レッスンIDを正規化する
+ */
+function normalizeId(lessonId: string): string {
+  return lessonId.startsWith("lesson_") ? lessonId : `lesson_${lessonId}`;
 }
 
 /**
@@ -281,13 +175,13 @@ export async function processAudio(request: ProcessAudioRequest): Promise<Proces
  */
 function validateRequiredParams(audioUrl: string, lessonId: string, userId: string): void {
   if (!audioUrl || !audioUrl.trim()) {
-    throw createError(ErrorType.INVALID_ARGUMENT, "Audio URL is required");
+    throw createError(ErrorType.INVALID_ARGUMENT, "音声URLが指定されていません");
   }
   if (!lessonId || !lessonId.trim()) {
-    throw createError(ErrorType.INVALID_ARGUMENT, "Lesson ID is required");
+    throw createError(ErrorType.INVALID_ARGUMENT, "レッスンIDが指定されていません");
   }
   if (!userId || !userId.trim()) {
-    throw createError(ErrorType.INVALID_ARGUMENT, "User ID is required");
+    throw createError(ErrorType.INVALID_ARGUMENT, "ユーザーIDが指定されていません");
   }
 }
 
@@ -320,7 +214,7 @@ async function getInstrumentInfo(
       // userPromptを取得（リクエストのものが空の場合のみ）
       if (!userPrompt && lessonData.userPrompt) {
         userPrompt = lessonData.userPrompt;
-        logger.info(`レッスンデータからuserPromptを取得: "${userPrompt}"`);
+        logger.info(`レッスンデータからユーザープロンプトを取得: "${userPrompt}"`);
       }
     } else {
       // ユーザープロファイルから楽器情報を取得（レッスンで見つからない場合）
@@ -344,6 +238,140 @@ async function getInstrumentInfo(
   }
   
   return {instrument: instrumentName, userPrompt};
+}
+
+/**
+ * 音声ファイルのダウンロード
+ */
+async function downloadAudioFile(audioUrl: string, tempDir: string, lessonId: string): Promise<string> {
+  try {
+    logger.info("音声ファイルをダウンロード中:", audioUrl);
+    return await downloadFileFromUrl(audioUrl, tempDir);
+  } catch (error) {
+    logger.error(`音声ファイルのダウンロードに失敗: ${audioUrl}`, error);
+    throw createError(
+      ErrorType.FAILED_PRECONDITION,
+      `音声ファイルのダウンロードに失敗: ${error instanceof Error ? error.message : String(error)}`,
+      {audioUrl, lessonId}
+    );
+  }
+}
+
+/**
+ * 音声ファイルの分割
+ */
+async function splitAudioFile(audioFilePath: string, tempDir: string, lessonId: string): Promise<string[]> {
+  try {
+    logger.info("音声ファイルを分割中");
+    const splitResult: SplitAudioResult = await splitAudio(audioFilePath, tempDir);
+    return splitResult.outputFiles;
+  } catch (error) {
+    logger.error(`音声ファイルの分割に失敗: ${audioFilePath}`, error);
+    throw createError(
+      ErrorType.INTERNAL,
+      `音声ファイルの分割に失敗: ${error instanceof Error ? error.message : String(error)}`,
+      {audioFilePath, lessonId}
+    );
+  }
+}
+
+/**
+ * 音声ファイルの文字起こし
+ */
+async function transcribeAudioFiles(audioFiles: string[], lessonId: string, audioUrl: string): Promise<string> {
+  logger.info(`${audioFiles.length}個のファイルを文字起こし中`);
+  
+  const transcriptionResult = await transcribeAudio(audioFiles, async (progress, current, total) => {
+    // 文字起こし進捗の更新
+    const transcribeProgress = PROGRESS.TRANSCRIBE_START +
+      ((progress / 100) * (PROGRESS.TRANSCRIBE_END - PROGRESS.TRANSCRIBE_START));
+
+    await updateProcessingStatus(
+      lessonId, 
+      "processing", 
+      Math.round(transcribeProgress),
+      `文字起こし中 (${current}/${total})`,
+      audioUrl
+    );
+  });
+
+  if (!transcriptionResult.success || !transcriptionResult.text) {
+    throw createError(
+      ErrorType.INTERNAL,
+      `文字起こしに失敗: ${transcriptionResult.error || "不明なエラー"}`,
+      {lessonId}
+    );
+  }
+
+  const transcription = transcriptionResult.text;
+  logger.info(`文字起こし完了: ${transcription.length}文字`);
+  
+  return transcription;
+}
+
+/**
+ * 要約の生成
+ */
+async function generateSummary(
+  transcription: string,
+  instrumentName: string,
+  userPrompt?: string,
+  pieces?: string,
+  lessonId?: string
+): Promise<string> {
+  try {
+    const summaryResult = await summarizeText(
+      transcription, 
+      instrumentName,
+      userPrompt,
+      pieces
+    );
+    
+    if (!summaryResult.success) {
+      throw new Error(summaryResult.error || "要約生成中に不明なエラーが発生しました");
+    }
+    
+    return summaryResult.summary;
+  } catch (error) {
+    logger.error(`要約生成に失敗: ${lessonId || "不明"}`, error);
+    throw createError(
+      ErrorType.INTERNAL,
+      `要約生成に失敗: ${error instanceof Error ? error.message : String(error)}`,
+      {lessonId}
+    );
+  }
+}
+
+/**
+ * タグの生成
+ */
+async function generateTagsForLesson(
+  transcription: string,
+  summary: string,
+  instrumentName: string,
+  lessonId: string
+): Promise<string[]> {
+  try {
+    const tagResult = await generateTags(transcription, summary, instrumentName);
+    if (tagResult.success) {
+      return tagResult.tags;
+    } else {
+      logger.warn(`タグ生成に失敗: ${lessonId} - ${tagResult.error}`);
+      // タグが生成できなくても処理は続行
+      return getFallbackTags(instrumentName);
+    }
+  } catch (error) {
+    logger.warn(`タグ生成に失敗: ${lessonId}`, error);
+    // タグが生成できなくても処理は続行
+    return getFallbackTags(instrumentName);
+  }
+}
+
+/**
+ * フォールバックタグの生成
+ */
+function getFallbackTags(instrumentName: string): string[] {
+  return [instrumentName || "音楽", "レッスン", "練習"];
 }
 
 /**
@@ -394,6 +422,55 @@ function generateUniqueId(): string {
 }
 
 /**
+ * 処理エラーのハンドリング
+ */
+function handleProcessingError(
+  error: unknown, 
+  tempDir: string, 
+  startTime: number, 
+  lessonId: string,
+  audioUrl?: string
+): ProcessAudioResult {
+  // エラー時のクリーンアップ
+  if (tempDir) {
+    cleanupTempFiles(tempDir);
+  }
+
+  // エラー詳細のログ出力
+  const errorDetails = handleError(error, "processAudio");
+  logger.error(`音声処理中にエラーが発生: ${lessonId}`, errorDetails);
+
+  // エラーステータスの更新
+  try {
+    const normalizedLessonId = normalizeId(lessonId);
+    updateLessonProcessingStatus(
+      normalizedLessonId,
+      "error",
+      0,
+      `エラー: ${errorDetails.message}`,
+      {
+        error: errorDetails.message,
+        errorType: errorDetails.type,
+        errorTime: new Date().toISOString(),
+      },
+      audioUrl
+    );
+  } catch (updateError) {
+    logger.error(`エラーステータス更新に失敗: ${lessonId}`, updateError);
+  }
+
+  // エラー結果の返却
+  return {
+    success: false,
+    transcription: "",
+    summary: "",
+    tags: [],
+    error: errorDetails.message,
+    processingTimeSeconds: Math.round((Date.now() - startTime) / 1000),
+  };
+}
+
+/**
  * Secret Managerからシークレットを取得
  */
 export async function getSecret(secretName: string): Promise<string> {
@@ -405,16 +482,16 @@ export async function getSecret(secretName: string): Promise<string> {
     if (!version.payload || !version.payload.data) {
       throw createError(
         ErrorType.NOT_FOUND, 
-        `Secret ${secretName} not found or has no data`
+        `シークレット ${secretName} が見つからないか、データがありません`
       );
     }
 
     return version.payload.data.toString();
   } catch (error) {
-    logger.error(`Secret ${secretName} の取得に失敗`, error);
+    logger.error(`シークレット ${secretName} の取得に失敗`, error);
     throw createError(
       ErrorType.INTERNAL,
-      `Failed to retrieve secret: ${secretName}`,
+      `シークレットの取得に失敗: ${secretName}`,
       {secretName}
     );
   }

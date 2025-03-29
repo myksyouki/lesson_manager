@@ -1,3 +1,9 @@
+/**
+ * レッスンカードコンポーネント
+ * 
+ * レッスン一覧で表示される個々のレッスンカードを提供します。
+ * 教師名、日付、楽曲情報、タグ、お気に入りの状態などを表示します。
+ */
 import React from 'react';
 import {
   View,
@@ -11,6 +17,19 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useLessonStore } from '../store/lessons';
 
+// 定数
+const COLORS = {
+  CARD_BACKGROUND: '#ffffff',
+  TEXT_PRIMARY: '#1C1C1E',
+  TEXT_SECONDARY: '#636366',
+  TEXT_TERTIARY: '#8E8E93',
+  FAVORITE_ACTIVE: '#FF3B30',
+  FAVORITE_INACTIVE: '#8E8E93',
+  TAG_BACKGROUND: '#F2F2F7',
+  TAG_TEXT: '#636366',
+};
+
+// 型定義
 interface LessonCardProps {
   id: string;
   teacher: string;
@@ -21,6 +40,9 @@ interface LessonCardProps {
   showFavoriteButton?: boolean;
 }
 
+/**
+ * レッスンカードコンポーネント
+ */
 export default function LessonCard({
   id,
   teacher,
@@ -32,6 +54,9 @@ export default function LessonCard({
 }: LessonCardProps) {
   const { toggleFavorite } = useLessonStore();
 
+  /**
+   * レッスン詳細画面に遷移
+   */
   const handlePress = () => {
     router.push({
       pathname: '/(lesson-detail)',
@@ -39,6 +64,9 @@ export default function LessonCard({
     });
   };
 
+  /**
+   * お気に入りの状態を切り替え
+   */
   const handleFavoritePress = (e: GestureResponderEvent) => {
     e.stopPropagation();
     toggleFavorite(id);
@@ -50,37 +78,87 @@ export default function LessonCard({
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      <View style={styles.cardHeader}>
-        <Text style={styles.lessonDate}>{date}</Text>
-        {showFavoriteButton && (
-          <TouchableOpacity 
-            style={styles.favoriteButton} 
-            onPress={handleFavoritePress}
-          >
-            <MaterialIcons 
-              name={isFavorite ? "favorite" : "favorite-border"} 
-              size={24} 
-              color={isFavorite ? "#FF3B30" : "#8E8E93"} 
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-      <Text style={styles.lessonTeacher}>{teacher}</Text>
-      <Text style={styles.lessonPiece}>{piece}</Text>
-      <View style={styles.tagContainer}>
-        {tags && tags.map((tag, index) => (
-          <View key={`${id}-tag-${index}`} style={styles.lessonTag}>
-            <Text style={styles.lessonTagText}>{tag}</Text>
-          </View>
-        ))}
-      </View>
+      {renderCardHeader(date, isFavorite, showFavoriteButton, handleFavoritePress)}
+      {renderTeacherName(teacher)}
+      {renderPieceInfo(piece)}
+      {renderTags(id, tags)}
     </TouchableOpacity>
   );
 }
 
+/**
+ * カードヘッダー（日付とお気に入りボタン）を表示
+ */
+function renderCardHeader(
+  date: string, 
+  isFavorite: boolean, 
+  showFavoriteButton: boolean, 
+  onFavoritePress: (e: GestureResponderEvent) => void
+) {
+  return (
+    <View style={styles.cardHeader}>
+      <Text style={styles.lessonDate}>{date}</Text>
+      {showFavoriteButton && renderFavoriteButton(isFavorite, onFavoritePress)}
+    </View>
+  );
+}
+
+/**
+ * お気に入りボタンを表示
+ */
+function renderFavoriteButton(
+  isFavorite: boolean, 
+  onPress: (e: GestureResponderEvent) => void
+) {
+  return (
+    <TouchableOpacity 
+      style={styles.favoriteButton} 
+      onPress={onPress}
+    >
+      <MaterialIcons 
+        name={isFavorite ? "favorite" : "favorite-border"} 
+        size={24} 
+        color={isFavorite ? COLORS.FAVORITE_ACTIVE : COLORS.FAVORITE_INACTIVE} 
+      />
+    </TouchableOpacity>
+  );
+}
+
+/**
+ * 教師名を表示
+ */
+function renderTeacherName(teacher: string) {
+  return <Text style={styles.lessonTeacher}>{teacher}</Text>;
+}
+
+/**
+ * 演奏曲情報を表示
+ */
+function renderPieceInfo(piece: string) {
+  return <Text style={styles.lessonPiece}>{piece}</Text>;
+}
+
+/**
+ * タグ一覧を表示
+ */
+function renderTags(lessonId: string, tags: string[]) {
+  return (
+    <View style={styles.tagContainer}>
+      {tags && tags.map((tag, index) => (
+        <View key={`${lessonId}-tag-${index}`} style={styles.lessonTag}>
+          <Text style={styles.lessonTagText}>{tag}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * スタイル定義
+ */
 const styles = StyleSheet.create({
   lessonCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.CARD_BACKGROUND,
     borderRadius: 18,
     padding: 20,
     marginBottom: 16,
@@ -104,7 +182,7 @@ const styles = StyleSheet.create({
   },
   lessonDate: {
     fontSize: 15,
-    color: '#8E8E93',
+    color: COLORS.TEXT_TERTIARY,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   favoriteButton: {
@@ -113,13 +191,13 @@ const styles = StyleSheet.create({
   lessonTeacher: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: COLORS.TEXT_PRIMARY,
     marginBottom: 4,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   lessonPiece: {
     fontSize: 17,
-    color: '#636366',
+    color: COLORS.TEXT_SECONDARY,
     marginBottom: 12,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
@@ -128,7 +206,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   lessonTag: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: COLORS.TAG_BACKGROUND,
     borderRadius: 14,
     paddingVertical: 6,
     paddingHorizontal: 10,
@@ -137,7 +215,7 @@ const styles = StyleSheet.create({
   },
   lessonTagText: {
     fontSize: 13,
-    color: '#636366',
+    color: COLORS.TAG_TEXT,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 });

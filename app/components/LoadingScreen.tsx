@@ -1,3 +1,10 @@
+/**
+ * アプリのローディング画面コンポーネント
+ * 
+ * アニメーション付きのローディング画面を表示します。
+ * 音楽関連のビジュアル要素（音符、波形など）とカスタムメッセージをサポートします。
+ */
+
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
@@ -10,10 +17,21 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+// 定数
 const { width, height } = Dimensions.get('window');
 
+const ANIMATION_CONFIG = {
+  WAVE_DELAY_MS: 180,
+  WAVE_DURATION_MS: 1000,
+  NOTE_ANIMATION_DURATION_MS: 6000,
+  SPINNER_DURATION_MS: 2000,
+  COLOR_CHANGE_INTERVAL_MS: 8000,
+  MESSAGE_CHANGE_INTERVAL_MS: 3000,
+  NOTE_DELAY_MS: 1000,
+};
+
 // 爽やかなカラーパレット
-const freshColors = [
+const FRESH_COLORS = [
   ['#4ECDC4', '#51BBF3'], // ターコイズとスカイブルー
   ['#5DB8FE', '#29D0BE'], // ブルーとミントグリーン
   ['#56CCF2', '#2F80ED'], // ライトブルーとブルー
@@ -21,7 +39,7 @@ const freshColors = [
 ];
 
 // 音楽関連のメッセージ
-const loadingMessages = [
+const LOADING_MESSAGES = [
   "音符を調律中...",
   "メロディーを準備中...",
   "リズムを整えています...",
@@ -30,7 +48,7 @@ const loadingMessages = [
 ];
 
 // 音符アイコン種類
-const noteIcons = [
+const NOTE_ICONS = [
   "music-note",
   "music-note-eighth",
   "music-note-quarter",
@@ -40,23 +58,37 @@ const noteIcons = [
   "music-accidental-flat"
 ];
 
+// 型定義
 type LoadingScreenProps = {
   customMessage?: string;
   showMusicElements?: boolean;
 };
 
+type FloatingNote = {
+  position: Animated.ValueXY;
+  rotation: Animated.Value;
+  opacity: Animated.Value;
+  scale: Animated.Value;
+  icon: string;
+};
+
+/**
+ * ローディング画面コンポーネント
+ */
 const LoadingScreen: React.FC<LoadingScreenProps> = ({ 
   customMessage,
   showMusicElements = true
 }) => {
+  // 状態
   const [currentColorSet, setCurrentColorSet] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
   
-  // 音波アニメーションのための値
-  const waveHeight = useMemo(() => Array(5).fill(0).map(() => new Animated.Value(0)), []);
+  // アニメーション値の初期化
+  const waveHeight = useMemo(() => 
+    Array(5).fill(0).map(() => new Animated.Value(0)), 
+  []);
   
-  // 浮かぶ音符のアニメーション値
-  const floatingNotes = useMemo(() => 
+  const floatingNotes = useMemo<FloatingNote[]>(() => 
     Array(6).fill(0).map(() => ({
       position: new Animated.ValueXY({ 
         x: Math.random() * width * 0.8, 
@@ -65,28 +97,35 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
       rotation: new Animated.Value(0),
       opacity: new Animated.Value(0),
       scale: new Animated.Value(0.6),
-      icon: noteIcons[Math.floor(Math.random() * noteIcons.length)]
+      icon: NOTE_ICONS[Math.floor(Math.random() * NOTE_ICONS.length)]
     })), 
   []);
   
-  // スピナーアニメーション
   const spinValue = useMemo(() => new Animated.Value(0), []);
   
-  // 10秒ごとに色を変える
+  // カラーセット切り替えのタイマー
   useEffect(() => {
     const colorInterval = setInterval(() => {
-      setCurrentColorSet((prev) => (prev + 1) % freshColors.length);
-    }, 8000);
+      setCurrentColorSet((prev) => (prev + 1) % FRESH_COLORS.length);
+    }, ANIMATION_CONFIG.COLOR_CHANGE_INTERVAL_MS);
     
     return () => clearInterval(colorInterval);
+  }, []);
+  
+  // メッセージ切り替えのタイマー
+  useEffect(() => {
+    const messageInterval = setInterval(() => {
+      setMessageIndex(prev => (prev + 1) % LOADING_MESSAGES.length);
+    }, ANIMATION_CONFIG.MESSAGE_CHANGE_INTERVAL_MS);
+    
+    return () => clearInterval(messageInterval);
   }, []);
   
   // 音波アニメーション
   const startWaveAnimation = useCallback(() => {
     const animations = waveHeight.map((wave, index) => {
-      // それぞれの波で少しずつタイミングをずらす
-      const delay = index * 180;
-      const duration = 1000 + Math.random() * 600;
+      const delay = index * ANIMATION_CONFIG.WAVE_DELAY_MS;
+      const duration = ANIMATION_CONFIG.WAVE_DURATION_MS + Math.random() * 600;
       
       return Animated.sequence([
         Animated.timing(wave, {
@@ -110,33 +149,9 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
     });
   }, [waveHeight]);
   
-  // 音符の浮上アニメーション
-  const animateFloatingNotes = useCallback(() => {
-    floatingNotes.forEach((note, index) => {
-      const resetNote = () => {
-        // 音符を画面下に戻す
-        note.position.setValue({ 
-          x: Math.random() * width * 0.8, 
-          y: height + Math.random() * 50
-        });
-        note.opacity.setValue(0);
-        note.scale.setValue(0.6);
-        note.rotation.setValue(0);
-        
-        // 新しくアニメーションを開始
-        startNoteAnimation(note, index);
-      };
-      
-      // 遅延させて開始
-      setTimeout(() => {
-        startNoteAnimation(note, index);
-      }, index * 1000); // 音符ごとに表示タイミングをずらす
-    });
-  }, [floatingNotes]);
-  
-  // 個別の音符アニメーション
-  const startNoteAnimation = (note: any, index: number) => {
-    const duration = 6000 + Math.random() * 4000;
+  // 音符アニメーション
+  const startNoteAnimation = useCallback((note: FloatingNote) => {
+    const duration = ANIMATION_CONFIG.NOTE_ANIMATION_DURATION_MS + Math.random() * 4000;
     const targetY = -100;
     
     // フェードイン
@@ -156,7 +171,8 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
       // 音符が上まで到達したらリセット
       setTimeout(() => {
         note.opacity.setValue(0);
-        startNoteAnimation(note, index);
+        resetNotePosition(note);
+        startNoteAnimation(note);
       }, Math.random() * 1000);
     });
     
@@ -188,49 +204,71 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
         useNativeDriver: true
       })
     ]).start();
-  };
-
+  }, []);
+  
+  // 音符の位置をリセット
+  const resetNotePosition = useCallback((note: FloatingNote) => {
+    note.position.setValue({ 
+      x: Math.random() * width * 0.8, 
+      y: height + Math.random() * 50
+    });
+    note.opacity.setValue(0);
+    note.scale.setValue(0.6);
+    note.rotation.setValue(0);
+  }, []);
+  
+  // すべての音符アニメーションを開始
+  const animateFloatingNotes = useCallback(() => {
+    floatingNotes.forEach((note, index) => {
+      // 遅延させて開始
+      setTimeout(() => {
+        startNoteAnimation(note);
+      }, index * ANIMATION_CONFIG.NOTE_DELAY_MS);
+    });
+  }, [floatingNotes, startNoteAnimation]);
+  
   // スピナーアニメーション
   const startSpinnerAnimation = useCallback(() => {
     Animated.loop(
       Animated.timing(spinValue, {
         toValue: 1,
-        duration: 2000,
+        duration: ANIMATION_CONFIG.SPINNER_DURATION_MS,
         easing: Easing.linear,
         useNativeDriver: true
       })
     ).start();
   }, [spinValue]);
   
-  // メッセージを数秒ごとに切り替える
+  // マウント時にすべてのアニメーションを開始
   useEffect(() => {
-    const messageInterval = setInterval(() => {
-      setMessageIndex(prev => (prev + 1) % loadingMessages.length);
-    }, 3000);
-    
-    return () => clearInterval(messageInterval);
-  }, []);
-  
-  // コンポーネントがマウントされたらアニメーション開始
-  useEffect(() => {
-    startWaveAnimation();
-    animateFloatingNotes();
+    if (showMusicElements) {
+      startWaveAnimation();
+      animateFloatingNotes();
+    }
     startSpinnerAnimation();
     
+    // アンマウント時のクリーンアップ
     return () => {
-      // アンマウント時にアニメーションをクリーンアップ
       spinValue.stopAnimation();
-      waveHeight.forEach(value => {
-        value.stopAnimation();
-      });
-      floatingNotes.forEach(note => {
-        note.position.stopAnimation();
-        note.rotation.stopAnimation();
-        note.opacity.stopAnimation();
-        note.scale.stopAnimation();
-      });
+      if (showMusicElements) {
+        waveHeight.forEach(value => value.stopAnimation());
+        floatingNotes.forEach(note => {
+          note.position.stopAnimation();
+          note.rotation.stopAnimation();
+          note.opacity.stopAnimation();
+          note.scale.stopAnimation();
+        });
+      }
     };
-  }, [startWaveAnimation, animateFloatingNotes, startSpinnerAnimation]);
+  }, [
+    showMusicElements, 
+    startWaveAnimation, 
+    animateFloatingNotes, 
+    startSpinnerAnimation, 
+    spinValue, 
+    waveHeight, 
+    floatingNotes
+  ]);
 
   // スピナーのローテーション変換
   const spin = spinValue.interpolate({
@@ -239,59 +277,14 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
   });
 
   return (
-    <View style={[styles.loadingContainer, { backgroundColor: '#FFFFFF' }]}>
+    <View style={styles.loadingContainer}>
       {showMusicElements && (
         <>
           {/* 音符アニメーション */}
-          {floatingNotes.map((note, index) => (
-            <Animated.View
-              key={`note-${index}`}
-              style={[
-                styles.floatingNote,
-                {
-                  transform: [
-                    { translateX: note.position.x },
-                    { translateY: note.position.y },
-                    { rotate: note.rotation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ['0deg', '360deg']
-                      })
-                    },
-                    { scale: note.scale }
-                  ],
-                  opacity: note.opacity
-                }
-              ]}
-            >
-              <MaterialCommunityIcons
-                name={note.icon as any}
-                size={28}
-                color={freshColors[currentColorSet][index % 2]}
-              />
-            </Animated.View>
-          ))}
+          {renderFloatingNotes(floatingNotes, FRESH_COLORS[currentColorSet])}
           
           {/* 音波アニメーション */}
-          <View style={styles.waveContainer}>
-            {waveHeight.map((wave, index) => (
-              <Animated.View
-                key={`wave-${index}`}
-                style={[
-                  styles.wave,
-                  {
-                    height: wave.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [4, 30]
-                    }),
-                    backgroundColor: index % 2 === 0 
-                      ? freshColors[currentColorSet][0] 
-                      : freshColors[currentColorSet][1],
-                    marginHorizontal: 6
-                  }
-                ]}
-              />
-            ))}
-          </View>
+          {renderWaveAnimation(waveHeight, FRESH_COLORS[currentColorSet])}
         </>
       )}
       
@@ -300,7 +293,7 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
         style={[
           styles.spinner,
           {
-            borderColor: freshColors[currentColorSet][0],
+            borderColor: FRESH_COLORS[currentColorSet][0],
             transform: [{ rotate: spin }]
           }
         ]}
@@ -308,8 +301,69 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
       
       {/* ローディングメッセージ */}
       <Text style={styles.loadingText}>
-        {customMessage || loadingMessages[messageIndex]}
+        {customMessage || LOADING_MESSAGES[messageIndex]}
       </Text>
+    </View>
+  );
+};
+
+/**
+ * 浮かぶ音符を描画
+ */
+const renderFloatingNotes = (notes: FloatingNote[], colorSet: string[]) => {
+  return notes.map((note, index) => (
+    <Animated.View
+      key={`note-${index}`}
+      style={[
+        styles.floatingNote,
+        {
+          transform: [
+            { translateX: note.position.x },
+            { translateY: note.position.y },
+            { rotate: note.rotation.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0deg', '360deg']
+              })
+            },
+            { scale: note.scale }
+          ],
+          opacity: note.opacity
+        }
+      ]}
+    >
+      <MaterialCommunityIcons
+        name={note.icon as any}
+        size={28}
+        color={colorSet[index % 2]}
+      />
+    </Animated.View>
+  ));
+};
+
+/**
+ * 音波アニメーションを描画
+ */
+const renderWaveAnimation = (waves: Animated.Value[], colorSet: string[]) => {
+  return (
+    <View style={styles.waveContainer}>
+      {waves.map((wave, index) => (
+        <Animated.View
+          key={`wave-${index}`}
+          style={[
+            styles.wave,
+            {
+              height: wave.interpolate({
+                inputRange: [0, 1],
+                outputRange: [4, 30]
+              }),
+              backgroundColor: index % 2 === 0 
+                ? colorSet[0] 
+                : colorSet[1],
+              marginHorizontal: 6
+            }
+          ]}
+        />
+      ))}
     </View>
   );
 };

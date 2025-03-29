@@ -1,21 +1,38 @@
 /**
  * Cloud Functions エントリポイント
+ * 
+ * アプリのCloud Functions機能のメインエントリポイントです。
+ * 各モジュールからの機能をエクスポートし、初期設定を行います。
  */
 
+// Firebase 関連
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+import * as logger from "firebase-functions/logger";
+
+// ユーティリティ
 import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
 import axios from "axios";
 
-// Firebaseの初期化
-  admin.initializeApp();
+// プロジェクトモジュール
+import {processAudioOnUpload} from "./summaries";
+import {generateTasksFromLessons} from "./practice-menu";
 
+// Firebaseの初期化（まだ初期化されていない場合）
+if (admin.apps.length === 0) {
+admin.initializeApp();
+  logger.info("Firebase Admin SDK初期化完了");
+}
+
+// Secret Manager クライアント
 const secretManager = new SecretManagerServiceClient();
 
-// DifyシークレットをSecret Managerから取得する関数
+/**
+ * Dify APIシークレットを取得
+ */
 async function getDifySecrets() {
   try {
-    console.log("Difyシークレットの取得を開始...");
+    logger.info("Difyシークレットの取得を開始...");
     
     const [apiKeyVersion] = await secretManager.accessSecretVersion({
       name: "projects/lesson-manager-99ab9/secrets/dify-standard-api-key/versions/latest",
@@ -32,33 +49,33 @@ async function getDifySecrets() {
       throw new Error("Difyシークレットの取得に失敗しました");
     }
 
-    console.log("Difyシークレットの取得に成功");
+    logger.info("Difyシークレットの取得に成功");
     
     return {
       apiKey,
       appId,
     };
   } catch (error) {
-    console.error("Difyシークレットの取得エラー:", error);
+    logger.error("Difyシークレットの取得エラー:", error);
     throw new Error("Difyシークレットの取得に失敗しました");
   }
 }
 
 /**
- * 楽器名を正規化する関数
- * woodwind-saxophone-standard -> saxophone のように変換
+ * 楽器名を正規化する
+ * 例: woodwind-saxophone-standard → saxophone
  */
 function normalizeInstrumentName(instrument: string): string {
-  if (!instrument) return "saxophone"; // デフォルト値を設定
+  if (!instrument) return "saxophone"; // デフォルト値
   
-  console.log(`正規化前の楽器名: "${instrument}"`);
+  logger.info(`正規化前の楽器名: "${instrument}"`);
   
-  // woodwind-saxophone-standard -> saxophone
+  // woodwind-saxophone-standard → saxophone
   if (instrument.includes("-")) {
     const parts = instrument.split("-");
     // 真ん中の部分（saxophoneなど）を抽出
     if (parts.length >= 2) {
-      console.log(`楽器名を分割: ${parts.join(", ")}`);
+      logger.info(`楽器名を分割: ${parts.join(", ")}`);
       return parts[1];
     }
   }
@@ -81,16 +98,18 @@ function normalizeInstrumentName(instrument: string): string {
   // スペースや特殊文字を削除した小文字の楽器名
   const normalizedKey = instrument.toLowerCase().replace(/[^a-z]/g, "");
   if (instrumentMap[normalizedKey]) {
-    console.log(`マッピングから楽器名を検出: ${normalizedKey} -> ${instrumentMap[normalizedKey]}`);
+    logger.info(`マッピングから楽器名を検出: ${normalizedKey} → ${instrumentMap[normalizedKey]}`);
     return instrumentMap[normalizedKey];
   }
   
   // どの条件にも一致しない場合はそのまま返す
-  console.log(`変換なしで楽器名を使用: "${instrument}"`);
+  logger.info(`変換なしで楽器名を使用: "${instrument}"`);
   return instrument;
 }
 
-// AIアシスタントにメッセージを送信するCloud Function
+/**
+ * AIアシスタントにメッセージを送信するCloud Function
+ */
 export const sendMessage = onCall(
   {
     enforceAppCheck: false,
@@ -104,7 +123,7 @@ export const sendMessage = onCall(
     
     try {
       // パラメータをログに出力
-      console.log("sendMessage関数が呼び出されました", {
+      logger.info("sendMessage関数が呼び出されました", {
         messageLength: data.message ? data.message.length : 0,
         conversationId: data.conversationId || "(新規)",
         instrument: data.instrument || "(なし)",
@@ -115,7 +134,7 @@ export const sendMessage = onCall(
 
       // 認証必須の処理
       if (!request.auth) {
-        console.error("認証されていないユーザーからのリクエストを拒否しました");
+        logger.error("認証されていないユーザーからのリクエストを拒否しました");
         throw new HttpsError(
           "unauthenticated",
           "この機能を使用するには認証が必要です"
@@ -124,298 +143,273 @@ export const sendMessage = onCall(
 
       // 認証ユーザーのIDを記録
       const authUid = request.auth.uid;
-      console.log("認証ユーザーID:", authUid);
-
-      // 追加デバッグログ - 要求されたパラメータを全てログに出力
-      console.log("送信パラメータ詳細:", JSON.stringify({
-        message: data.message ? data.message.substring(0, 100) + "..." : undefined,
-        conversationId: data.conversationId,
-        instrument: data.instrument,
-        roomId: data.roomId,
-        isTestMode: data.isTestMode,
-        userId: authUid,
-      }));
+      logger.info("認証ユーザーID:", authUid);
 
       // テストモードの場合はエコー応答
       if (data.isTestMode === true) {
-        console.log("テストモードでエコー応答を返します (isTestMode=true)");
-        
-        try {
-          // 少し待機してテスト処理をシミュレート
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          
-          // テスト用のレスポンスを構築
-          const testResponse = {
-            success: true,
-            answer: `テストレスポンス: ${data.message} (roomId: ${data.roomId}, instrument: ${data.instrument || "なし"})`,
-            conversationId: data.conversationId || "test-conversation-id",
-            testInfo: {
-              timestamp: new Date().toISOString(),
-              params: {
-                messageLength: data.message.length,
-                hasRoomId: !!data.roomId,
-                hasInstrument: !!data.instrument,
-                hasConversationId: !!data.conversationId,
-              },
-            },
-          };
-          
-          console.log("テストモードレスポンス:", testResponse);
-          return testResponse;
-        } catch (testError) {
-          console.error("テストモード処理エラー:", testError);
-          throw new HttpsError(
-            "internal",
-            `テストモード処理中にエラーが発生しました: ${testError instanceof Error ? testError.message : "不明なエラー"}`,
-            {testMode: true}
-          );
-        }
+        return handleTestModeResponse(data, authUid);
       }
       
-      // 認証チェック（テストモード以外）
-      // 認証チェックを一時的に無効化 (デバッグ用)
-      /*
-      if (!request.auth && !data.isTestMode) {
-        throw new HttpsError(
-          "unauthenticated",
-          "認証が必要です",
-        );
-      }
-      */
-      console.log("認証チェックをスキップしました");
+      // 必須パラメータの検証
+      validateMessageParams(data);
 
-      if (!data.message) {
-    throw new HttpsError(
-          "invalid-argument",
-          "メッセージは必須です",
-        );
-      }
+      // 楽器情報の取得
+      const instrumentName = await getInstrumentFromProfile(request.auth.uid, data.instrument);
 
-      if (!data.roomId) {
-        throw new HttpsError(
-          "invalid-argument",
-          "roomIdは必須です",
-        );
-      }
-
-      try {
-        // ユーザープロファイルから楽器情報を取得
-        let instrumentFromProfile = "";
-        if (request.auth?.uid) {
-          try {
-            const userProfileRef = admin.firestore().collection("users").doc(request.auth.uid);
-            const userProfile = await userProfileRef.get();
-            
-            if (userProfile.exists) {
-              const profileData = userProfile.data();
-              
-              // 三層構造の楽器情報を取得
-              const instrumentCategory = profileData?.instrumentCategory || "";
-              const instrumentName = profileData?.instrumentName || "";
-              const instrumentModel = profileData?.instrumentModel || "";
-              
-              console.log(`ユーザープロファイルから楽器情報を取得: カテゴリ="${instrumentCategory}", 楽器="${instrumentName}", モデル="${instrumentModel}"`);
-              
-              // 楽器名を小文字で取得（メインの楽器名を優先）
-              if (instrumentName) {
-                instrumentFromProfile = instrumentName.toLowerCase();
-              } else if (instrumentCategory) {
-                // カテゴリのみがある場合はそれを使用
-                instrumentFromProfile = instrumentCategory.toLowerCase();
-              }
-              
-              console.log(`使用する楽器名: "${instrumentFromProfile}"`);
-            } else {
-              console.log("ユーザープロファイルが見つかりません");
-            }
-          } catch (profileError) {
-            console.error("ユーザープロファイル取得エラー:", profileError);
-          }
-        }
-
-        // 実際のDify API呼び出し
-        try {
-          const {apiKey, appId} = await getDifySecrets();
-          
-          // 認証情報の詳細（機密情報を隠して）をログに出力
-          console.log("Dify API認証情報:", {apiKeyLength: apiKey.length, apiKeyPrefix: apiKey.substring(0, 4), appIdLength: appId.length, appIdPrefix: appId.substring(0, 4)});
-          
-          console.log("Dify API呼び出しを開始します...");
-          
-          // ワークフローエンドポイント
-          const workflowEndpoint = "https://api.dify.ai/v1/workflows/run";
-          console.log("使用するエンドポイント:", workflowEndpoint);
-
-          // バックアップエンドポイント（通常のチャットメッセージAPI）
-          const chatEndpoint = "https://api.dify.ai/v1/chat-messages";
-          
-          // 使用する楽器名（プロファイルからの情報を優先）
-          const instrumentToUse = instrumentFromProfile || data.instrument || "";
-          console.log(`使用する楽器情報: "${instrumentToUse}" (プロファイルから: ${!!instrumentFromProfile}, パラメータから: ${!!data.instrument})`);
-          
-          // リクエスト構造を完全にログに出力
-          console.log("Dify APIリクエスト構造:", {
-            workflow_id: appId,
-            inputs: {
-              instrument: instrumentToUse,
-              roomId: data.roomId || "",
-            },
-            query: data.message,
-            user: request.auth ? request.auth.uid : "anonymous-user",
-            apiKey: apiKey ? "設定済み (長さ: " + apiKey.length + ")" : "未設定",
-          });
-          
-          console.log("Dify APIリクエスト送信開始:", workflowEndpoint);
-          
-          // ワークフローエンドポイントにリクエスト
-          try {
-            // 楽器名を正規化
-            const normalizedInstrument = normalizeInstrumentName(instrumentToUse);
-            console.log(`楽器名を正規化: "${instrumentToUse}" -> "${normalizedInstrument}"`);
-            
-            const workflowResponse = await axios.post(
-              workflowEndpoint,
-              {
-                workflow_id: appId,
-                inputs: {
-                  instrument: normalizedInstrument,
-                  roomId: data.roomId || "",
-                },
-                query: data.message,
-                user: request.auth ? request.auth.uid : "anonymous-user",
-              },
-              {
-                headers: {
-                  "Authorization": "Bearer " + apiKey,
-                  "Content-Type": "application/json",
-                },
-                timeout: 30000, // 30秒タイムアウト
-              }
-            );
-            
-            console.log("Dify APIレスポンスステータス:", workflowResponse.status + " " + workflowResponse.statusText);
-            console.log("Dify APIレスポンスヘッダー:", JSON.stringify(workflowResponse.headers));
-            console.log("Dify APIレスポンス構造:", JSON.stringify(workflowResponse.data, null, 2).substring(0, 500) + "...");
-            
-            // ログにDifyの返答の主要部分だけを出力
-            if (workflowResponse.data && workflowResponse.data.answer) {
-              console.log("Dify AIの応答:", workflowResponse.data.answer.substring(0, 100) + "...");
-            }
-            
-            // 成功応答を返す
-            return {
-              success: true,
-              answer: workflowResponse.data.outputs?.answer === "♪エラー♪" || workflowResponse.data.answer === "♪エラー♪" ? 
-                "楽器種類の指定がないため、応答できません。プロフィール設定で楽器を選択してからお試しください。" :
-                workflowResponse.data.outputs?.answer || workflowResponse.data.answer || "応答がありませんでした",
-              conversationId: workflowResponse.data.outputs?.conversation_id || workflowResponse.data.conversation_id || data.conversationId || "",
-            };
-          } catch (workflowError: any) {
-            // ワークフローが失敗した場合、通常のチャットエンドポイントを試す
-            console.log("ワークフローエンドポイント失敗、チャットエンドポイントを試します:", chatEndpoint);
-            
-            try {
-              // 楽器名を正規化
-              const normalizedInstrument = normalizeInstrumentName(instrumentToUse);
-              
-              const chatResponse = await axios.post(
-                chatEndpoint,
-                {
-                  inputs: {
-                    instrument: normalizedInstrument,
-                  },
-                  query: data.message,
-                  response_mode: "blocking",
-                  conversation_id: data.conversationId || "",
-                  user: request.auth ? request.auth.uid : "anonymous-user",
-                },
-                {
-                  headers: {
-                    "Authorization": `Bearer ${apiKey}`,
-                    "Content-Type": "application/json",
-                  },
-                  timeout: 30000,
-                }
-              );
-              
-              console.log("Dify チャットAPIレスポンスステータス:", chatResponse.status);
-              console.log("Dify チャットAPIレスポンス構造:", JSON.stringify(chatResponse.data, null, 2).substring(0, 500) + "...");
-              
-              // レスポンスを返す
-    return {
-      success: true,
-                answer: chatResponse.data.answer === "♪エラー♪" ? 
-                  "楽器種類の指定がないため、応答できません。プロフィール設定で楽器を選択してからお試しください。" : 
-                  chatResponse.data.answer || "応答がありませんでした",
-                conversationId: chatResponse.data.conversation_id || data.conversationId || "",
-              };
-            } catch (chatError: any) {
-              // チャットエンドポイントも失敗した場合
-              console.error("両方のDify API呼び出しに失敗しました", {
-                workflowError: workflowError.message,
-                chatError: chatError.message,
-              });
-    
-    throw new HttpsError(
-                "internal",
-                `Dify API呼び出しエラー: ${chatError.message}`,
-                {
-                  status: chatError.response?.status,
-                  data: chatError.response?.data,
-                }
-              );
-            }
-          }
-        } catch (axiosError: any) {
-          console.error("Dify API呼び出しエラー:", {
-            message: axiosError.message,
-            code: axiosError.code,
-            response: axiosError.response ? {
-              status: axiosError.response.status,
-              statusText: axiosError.response.statusText,
-              headers: axiosError.response.headers,
-              data: axiosError.response.data,
-            } : "レスポンスなし",
-            config: axiosError.config ? {
-              url: axiosError.config.url,
-              method: axiosError.config.method,
-              timeout: axiosError.config.timeout,
-              headers: axiosError.config.headers,
-            } : "設定情報なし",
-          });
-          throw new HttpsError(
-            "internal",
-            `Dify API呼び出しエラー: ${axiosError.message}`,
-            {
-              status: axiosError.response?.status,
-              data: axiosError.response?.data,
-            }
-          );
-        }
-      } catch (error: any) {
-        console.error("処理エラー:", error);
-        throw new HttpsError(
-          "internal",
-          error instanceof Error ? error.message : "メッセージの送信に失敗しました",
-        );
-      }
+      // Dify API呼び出し
+      return await callDifyAPI(data, instrumentName, authUid);
+      
     } catch (error: any) {
-      console.error("処理エラー:", error);
+      // エラー処理を一貫化
+      logger.error("処理エラー:", error);
+      
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      
       throw new HttpsError(
         "internal",
         error instanceof Error ? error.message : "メッセージの送信に失敗しました",
+        { original: String(error) }
       );
     }
   },
 );
 
-// 正しく初期化されたことをログに記録
-console.log("Firebase Functions初期化完了");
+/**
+ * テストモードのレスポンスを処理
+ */
+async function handleTestModeResponse(data: any, userId: string): Promise<any> {
+  logger.info("テストモードでエコー応答を返します (isTestMode=true)");
+  
+  try {
+    // 少し待機してテスト処理をシミュレート
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    
+    // テスト用のレスポンスを構築
+    const testResponse = {
+      success: true,
+      answer: `テストレスポンス: ${data.message} (roomId: ${data.roomId}, instrument: ${data.instrument || "なし"})`,
+      conversationId: data.conversationId || "test-conversation-id",
+      testInfo: {
+        timestamp: new Date().toISOString(),
+        params: {
+          messageLength: data.message.length,
+          hasRoomId: !!data.roomId,
+          hasInstrument: !!data.instrument,
+          hasConversationId: !!data.conversationId,
+        },
+      },
+    };
+    
+    logger.info("テストモードレスポンス:", testResponse);
+    return testResponse;
+  } catch (testError) {
+    logger.error("テストモード処理エラー:", testError);
+    throw new HttpsError(
+      "internal",
+      `テストモード処理中にエラーが発生しました: ${testError instanceof Error ? testError.message : "不明なエラー"}`,
+      {testMode: true}
+    );
+  }
+}
 
-// 練習メニュー生成機能をインポート
-import {generateTasksFromLessons} from "./practice-menu";
+/**
+ * メッセージパラメータの検証
+ */
+function validateMessageParams(data: any): void {
+  if (!data.message) {
+    throw new HttpsError(
+      "invalid-argument",
+      "メッセージは必須です"
+    );
+  }
 
-// 他のモジュールで必要な関数をエクスポート（必要に応じて）
+  if (!data.roomId) {
+    throw new HttpsError(
+      "invalid-argument",
+      "roomIdは必須です"
+    );
+  }
+}
+
+/**
+ * ユーザープロファイルから楽器情報を取得
+ */
+async function getInstrumentFromProfile(userId: string, defaultInstrument: string = ""): Promise<string> {
+  let instrumentFromProfile = "";
+  
+  try {
+    const userProfileRef = admin.firestore().collection("users").doc(userId);
+    const userProfile = await userProfileRef.get();
+    
+    if (userProfile.exists) {
+      const profileData = userProfile.data();
+      
+      // 三層構造の楽器情報を取得
+      const instrumentCategory = profileData?.instrumentCategory || "";
+      const instrumentName = profileData?.instrumentName || "";
+      const instrumentModel = profileData?.instrumentModel || "";
+      
+      logger.info(`ユーザープロファイルから楽器情報を取得: カテゴリ="${instrumentCategory}", 楽器="${instrumentName}", モデル="${instrumentModel}"`);
+      
+      // 楽器名を小文字で取得（メインの楽器名を優先）
+      if (instrumentName) {
+        instrumentFromProfile = instrumentName.toLowerCase();
+      } else if (instrumentCategory) {
+        // カテゴリのみがある場合はそれを使用
+        instrumentFromProfile = instrumentCategory.toLowerCase();
+      }
+      
+      logger.info(`使用する楽器名: "${instrumentFromProfile}"`);
+    } else {
+      logger.info("ユーザープロファイルが見つかりません");
+    }
+  } catch (profileError) {
+    logger.error("ユーザープロファイル取得エラー:", profileError);
+  }
+  
+  // プロファイルの楽器情報が取得できなかった場合はデフォルト値を使用
+  return instrumentFromProfile || defaultInstrument || "";
+}
+
+/**
+ * Dify APIを呼び出す
+ */
+async function callDifyAPI(data: any, instrumentName: string, userId: string): Promise<any> {
+  try {
+    const {apiKey, appId} = await getDifySecrets();
+    
+    // 認証情報の詳細（機密情報を隠して）をログに出力
+    logger.info("Dify API認証情報:", {
+      apiKeyLength: apiKey.length, 
+      apiKeyPrefix: apiKey.substring(0, 4), 
+      appIdLength: appId.length, 
+      appIdPrefix: appId.substring(0, 4)
+    });
+    
+    logger.info("Dify API呼び出しを開始します...");
+    
+    // 楽器名を正規化
+    const normalizedInstrument = normalizeInstrumentName(instrumentName);
+    logger.info(`楽器名を正規化: "${instrumentName}" → "${normalizedInstrument}"`);
+    
+    // まずワークフローエンドポイントを試す
+    try {
+      return await callDifyWorkflow(apiKey, appId, data, normalizedInstrument, userId);
+    } catch (workflowError) {
+      // ワークフローが失敗した場合、通常のチャットエンドポイントを試す
+      logger.warn("ワークフローエンドポイント失敗、チャットエンドポイントを試します", workflowError);
+      return await callDifyChat(apiKey, appId, data, normalizedInstrument, userId);
+    }
+  } catch (error) {
+    logger.error("Dify API呼び出しエラー:", error);
+    
+    if (axios.isAxiosError(error)) {
+      throw new HttpsError(
+        "internal",
+        `Dify API呼び出しエラー: ${error.message}`,
+        {
+          status: error.response?.status,
+          data: error.response?.data,
+        }
+      );
+    }
+    
+    throw error;
+  }
+}
+
+/**
+ * Dify ワークフローエンドポイントを呼び出す
+ */
+async function callDifyWorkflow(apiKey: string, appId: string, data: any, instrument: string, userId: string): Promise<any> {
+  const workflowEndpoint = "https://api.dify.ai/v1/workflows/run";
+  logger.info("使用するエンドポイント:", workflowEndpoint);
+  
+  const response = await axios.post(
+    workflowEndpoint,
+    {
+      workflow_id: appId,
+      inputs: {
+        instrument: instrument,
+        roomId: data.roomId || "",
+      },
+      query: data.message,
+      user: userId,
+    },
+    {
+      headers: {
+        "Authorization": "Bearer " + apiKey,
+        "Content-Type": "application/json",
+      },
+      timeout: 30000, // 30秒タイムアウト
+    }
+  );
+  
+  logger.info("Dify APIレスポンスステータス:", response.status + " " + response.statusText);
+  
+  // ログにDifyの返答の主要部分だけを出力
+  if (response.data && response.data.answer) {
+    logger.info("Dify AIの応答:", response.data.answer.substring(0, 100) + "...");
+  }
+  
+  const answer = response.data.outputs?.answer === "♪エラー♪" || response.data.answer === "♪エラー♪" ?
+    "楽器種類の指定がないため、応答できません。プロフィール設定で楽器を選択してからお試しください。" :
+    response.data.outputs?.answer || response.data.answer || "応答がありませんでした";
+  
+  // 成功応答を返す
+  return {
+    success: true,
+    answer: answer,
+    conversationId: response.data.outputs?.conversation_id || response.data.conversation_id || data.conversationId || "",
+  };
+}
+
+/**
+ * Dify チャットエンドポイントを呼び出す
+ */
+async function callDifyChat(apiKey: string, appId: string, data: any, instrument: string, userId: string): Promise<any> {
+  const chatEndpoint = "https://api.dify.ai/v1/chat-messages";
+  logger.info("使用するエンドポイント:", chatEndpoint);
+  
+  const response = await axios.post(
+    chatEndpoint,
+    {
+      inputs: {
+        instrument: instrument,
+      },
+      query: data.message,
+      response_mode: "blocking",
+      conversation_id: data.conversationId || "",
+      user: userId,
+    },
+    {
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 30000,
+    }
+  );
+  
+  logger.info("Dify チャットAPIレスポンスステータス:", response.status);
+  
+  const answer = response.data.answer === "♪エラー♪" ? 
+    "楽器種類の指定がないため、応答できません。プロフィール設定で楽器を選択してからお試しください。" : 
+    response.data.answer || "応答がありませんでした";
+  
+  return {
+    success: true,
+    answer: answer,
+    conversationId: response.data.conversation_id || data.conversationId || "",
+  };
+}
+
+// Firebase Cloud Functions エクスポート
+export {processAudioOnUpload};
+export {generateTasksFromLessons};
+
+// 他のモジュールで必要な関数をエクスポート
 export * from "./summaries";
 export * from "./common/errors";
-export {generateTasksFromLessons};
