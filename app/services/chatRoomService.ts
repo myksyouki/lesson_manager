@@ -194,27 +194,32 @@ export const getChatRoomById = async (id: string): Promise<ChatRoom | null> => {
   }
 };
 
-// チャットルームのメッセージを更新
-export const updateChatRoomMessages = async (
-  roomId: string,
-  messages: ChatMessage[]
-): Promise<void> => {
+// チャットルームのメッセージを更新する
+export const updateChatRoomMessages = async (roomId: string, messages: ChatMessage[], conversationId?: string): Promise<void> => {
   try {
+    console.log(`チャットルームメッセージ更新開始 (roomId: ${roomId}, メッセージ数: ${messages.length})`);
     const currentUser = auth.currentUser;
-    if (!currentUser) {
-      throw new Error('ユーザーが認証されていません');
-    }
-
-    // ユーザーのchatRoomsサブコレクションのドキュメントを更新
+    if (!currentUser) throw new Error('認証エラー: ユーザーがログインしていません');
+    
+    // パスを修正 - ユーザーのサブコレクションを使用
     const chatRoomRef = doc(db, `users/${currentUser.uid}/chatRooms`, roomId);
-    await updateDoc(chatRoomRef, {
-      messages: messages,
-      updatedAt: Timestamp.now(),
-    });
-
-    console.log(`チャットルームのメッセージを更新しました: ${chatRoomRef.path}`);
+    
+    // 更新するデータ
+    const updateData: any = {
+      messages,
+      updatedAt: serverTimestamp()
+    };
+    
+    // 会話IDが指定されている場合は更新する
+    if (conversationId) {
+      console.log(`会話ID更新: ${conversationId}`);
+      updateData.conversationId = conversationId;
+    }
+    
+    await updateDoc(chatRoomRef, updateData);
+    console.log(`チャットルームメッセージ更新完了 (roomId: ${roomId})`);
   } catch (error) {
-    console.error('チャットルームのメッセージ更新エラー:', error);
+    console.error('チャットルームメッセージ更新エラー:', error);
     throw error;
   }
 };
@@ -283,27 +288,27 @@ export const addMessageToChatRoom = async (
   }
 };
 
-// チャットルームの更新
-export const updateChatRoom = async (
-  roomId: string,
-  updates: Partial<Omit<ChatRoom, 'id' | 'createdAt' | 'updatedAt'>>
-): Promise<void> => {
+// チャットルームを更新する
+export const updateChatRoom = async (roomId: string, data: Partial<ChatRoom>): Promise<void> => {
   try {
+    console.log(`チャットルーム情報更新開始 (roomId: ${roomId})`, data);
     const currentUser = auth.currentUser;
-    if (!currentUser) {
-      throw new Error('ユーザーが認証されていません');
-    }
-
-    // ユーザーのchatRoomsサブコレクションのドキュメントを更新
-    const docRef = doc(db, `users/${currentUser.uid}/chatRooms`, roomId);
+    if (!currentUser) throw new Error('認証エラー: ユーザーがログインしていません');
     
-    await updateDoc(docRef, {
-      ...updates,
-      updatedAt: serverTimestamp(),
-    });
+    // パスを修正 - ユーザーのサブコレクションを使用
+    const chatRoomRef = doc(db, `users/${currentUser.uid}/chatRooms`, roomId);
+    
+    // updatedAtを追加
+    const updateData = {
+      ...data,
+      updatedAt: serverTimestamp()
+    };
+    
+    await updateDoc(chatRoomRef, updateData);
+    console.log(`チャットルーム情報更新完了 (roomId: ${roomId})`);
   } catch (error) {
-    console.error('チャットルーム更新中にエラーが発生しました:', error);
-    throw new Error('チャットルームの更新に失敗しました。後でもう一度お試しください。');
+    console.error('チャットルーム更新エラー:', error);
+    throw error;
   }
 };
 

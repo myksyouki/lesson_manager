@@ -17,13 +17,13 @@ import {
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { getChatRoomById, updateChatRoomMessages, updateChatRoom } from './services/chatRoomService';
-import { sendMessageToLessonAI } from './services/lessonAIService';
+import { sendMessageToLessonAI, sendMessageToLessonAIHttp } from './services/lessonAIService';
 import { ChatRoom, ChatMessage } from './types/chatRoom';
 import { useAuthStore } from './store/auth';
 import { StatusBar } from 'expo-status-bar';
 import { Timestamp } from 'firebase/firestore';
 import ChatsHeader from './components/ui/ChatsHeader';
-import { ChatInput } from './features/chat/components/ChatInput';
+import ChatInput from './features/chat/components/ChatInput';
 
 // チャットルーム画面のメインコンポーネント
 export default function ChatRoomScreen() {
@@ -36,6 +36,7 @@ export default function ChatRoomScreen() {
   const [sending, setSending] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+  const [useHttpDirect, setUseHttpDirect] = useState(false);
   
   // 編集用の状態
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -140,17 +141,19 @@ export default function ChatRoomScreen() {
     }
   };
 
-  // メッセージを送信する
-  const handleSend = async () => {
-    if (!message.trim() || !chatRoom || !user || sending) return;
+  // メッセージ送信ハンドラ
+  const handleSend = async (text: string, httpDirect: boolean = false) => {
+    if (!text.trim() || sending || !chatRoom) return;
+    
+    setSending(true);
     
     try {
-      setSending(true);
+      console.log('メッセージ送信開始:', text.substring(0, 20) + (text.length > 20 ? '...' : ''));
       
       // ユーザーメッセージの作成
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
-        content: message,
+        content: text,
         sender: 'user',
         timestamp: Timestamp.now()
       };
@@ -162,69 +165,176 @@ export default function ChatRoomScreen() {
       ];
       
       // ローカルでの状態更新
-      setChatRoom({
-        ...chatRoom,
-        messages: updatedMessages
+      setChatRoom(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: updatedMessages
+        };
       });
       
-      // メッセージ入力をクリア
-      setMessage('');
+      // HTTPダイレクト設定を更新
+      setUseHttpDirect(httpDirect);
       
       // メッセージを送信してAIの応答を取得
       console.log('AIにメッセージを送信:', {
-        message: message,
+        message: text,
         conversationId: chatRoom.conversationId || '(新規)',
         modelType: chatRoom.modelType || 'default',
         roomId: chatRoom.id,
-        isTestMode: false
+        isTestMode: false,
+        useHttpDirect: httpDirect
       });
+
+      // キャッチできるようにtryブロックを追加
+      try {
+        let aiResponse;
+        
+        // isTestModeはfalseに設定
+        const isTestMode = false;
+        
+        if (httpDirect) {
+          console.log('HTTP直接呼び出し方式でメッセージを送信');
+          try {
+            aiResponse = await sendMessageToLessonAIHttp(
+              text, 
+              chatRoom.conversationId || '',
+              chatRoom.modelType || 'standard',
+              chatRoom.id,
+              isTestMode
+            );
+          } catch (httpError: any) {
+            console.error('HTTP直接呼び出しエラー詳細:', {
+              message: httpError.message,
+              code: httpError.code,
+              details: httpError.details,
+              stack: httpError.stack?.split('\n').slice(0, 3).join('\n')
+            });
+            throw httpError;
+          }
+        } else {
+          console.log('SDK経由でメッセージを送信');
+          try {
+            aiResponse = await sendMessageToLessonAI(
+              text, 
+              chatRoom.conversationId || '',
+              chatRoom.modelType || 'standard',
+              chatRoom.id,
+              isTestMode
+            );
+          } catch (sdkError: any) {
+            console.error('SDK呼び出しエラー詳細:', {
+              message: sdkError.message,
+              code: sdkError.code,
+              details: sdkError.details,
+              stack: sdkError.stack?.split('\n').slice(0, 3).join('\n')
+            });
+            throw sdkError;
+          }
+        }
+        
+        console.log('AI応答結果:', aiResponse);
+        
+        // AIからの応答があるか確認
+        if (!aiResponse || !aiResponse.answer) {
+          throw new Error('AIからの有効な応答がありませんでした');
+        }
       
-      const aiResponse = await sendMessageToLessonAI(
-        message, 
-        chatRoom.conversationId,
-        chatRoom.modelType,
-        chatRoom.id,
-        false  // isTestMode - 明示的にfalseを指定
-      );
-      
-      console.log('AI応答結果:', aiResponse);
-      
-      if (!aiResponse || !aiResponse.success) {
-        console.error('AI応答エラー:', aiResponse);
-        throw new Error(aiResponse?.message || 'AIからの応答の取得に失敗しました');
+        // AIのメッセージを作成
+        const aiMessage: ChatMessage = {
+          id: `ai-${Date.now()}`,
+          content: aiResponse.answer,
+          sender: 'assistant',
+          timestamp: Timestamp.now()
+        };
+        
+        // 新しいメッセージ配列を作成（AIの応答を含む）
+        const messagesWithAiResponse = [
+          ...updatedMessages,
+          aiMessage
+        ];
+        
+        // Firestoreを更新
+        await updateChatRoomMessages(chatRoom.id, messagesWithAiResponse, aiResponse.conversationId);
+        
+        // 会話IDが返ってきた場合は保存
+        if (aiResponse.conversationId && aiResponse.conversationId !== chatRoom.conversationId) {
+          await updateChatRoom(chatRoom.id, {
+            conversationId: aiResponse.conversationId
+          });
+          
+          // ローカル状態も更新
+          setChatRoom(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              conversationId: aiResponse.conversationId,
+              messages: messagesWithAiResponse
+            };
+          });
+        } else {
+          // 会話IDの更新がない場合はメッセージだけ更新
+          setChatRoom(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              messages: messagesWithAiResponse
+            };
+          });
+        }
+      } catch (apiError: any) {
+        console.error('AI API呼び出しエラー:', apiError);
+        
+        // エラーメッセージをユーザーに表示
+        Alert.alert(
+          'エラー',
+          `メッセージの送信に失敗しました: ${apiError.message || '不明なエラー'}`,
+          [
+            { 
+              text: 'OK', 
+              style: 'cancel' 
+            },
+            {
+              text: 'ログを表示',
+              onPress: () => {
+                console.log('詳細エラー情報:', apiError);
+                Alert.alert(
+                  'デバッグ情報',
+                  `エラータイプ: ${apiError.code || 'なし'}\n` +
+                  `詳細: ${JSON.stringify(apiError.details || {})}\n` +
+                  `時刻: ${new Date().toLocaleTimeString()}`
+                );
+              }
+            }
+          ]
+        );
+        
+        // エラーメッセージをチャットに表示
+        const errorMessage: ChatMessage = {
+          id: `error-${Date.now()}`,
+          content: `エラー: ${apiError.message || 'AIからの応答を取得できませんでした'}`,
+          sender: 'system',
+          timestamp: Timestamp.now()
+        };
+        
+        // エラーメッセージを含む新しいメッセージ配列
+        const messagesWithError = [
+          ...updatedMessages,
+          errorMessage
+        ];
+        
+        // Firestoreを更新
+        await updateChatRoomMessages(chatRoom.id, messagesWithError);
+        
+        // ローカル状態も更新
+        setChatRoom(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            messages: messagesWithError
+          };
+        });
       }
-      
-      // AI応答メッセージの作成
-      const aiMessage: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        content: aiResponse.answer,
-        sender: 'ai',
-        timestamp: Timestamp.now()
-      };
-      
-      // 新しいメッセージ配列を作成
-      const finalMessages = [
-        ...updatedMessages,
-        aiMessage
-      ];
-      
-      // 会話ID更新
-      const updatedChatRoom = {
-        ...chatRoom,
-        messages: finalMessages,
-        conversationId: aiResponse.conversationId || chatRoom.conversationId
-      };
-      
-      // ローカルの状態を更新
-      setChatRoom(updatedChatRoom);
-      
-      // Firestoreに保存
-      await updateChatRoomMessages(chatRoom.id, [userMessage, aiMessage]);
-      
-      // 少し遅延させてからスクロールダウン
-      setTimeout(() => {
-        scrollToBottom();
-      }, 100);
     } catch (error) {
       console.error('メッセージ送信エラー:', error);
       Alert.alert('エラー', 'メッセージの送信に失敗しました');
@@ -310,12 +420,10 @@ export default function ChatRoomScreen() {
         </View>
         
         <ChatInput
-          message={message}
-          onChangeMessage={setMessage}
           onSend={handleSend}
-          sending={sending}
-          roomId={chatRoom?.id || ""}
-          instrument={chatRoom?.modelType || ""}
+          isLoading={sending}
+          disabled={false}
+          placeholder="メッセージを入力..."
         />
       </KeyboardAvoidingView>
       

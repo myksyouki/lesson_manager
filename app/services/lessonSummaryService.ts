@@ -73,12 +73,12 @@ export const testFunctionsConnection = async (): Promise<any> => {
     console.log('Firebase Functionsの疎通確認を開始します');
     
     const functions = getFunctions(undefined, 'asia-northeast1');
-    const helloWorldFunction = httpsCallable(functions, 'helloWorld');
+    const echoFunction = httpsCallable(functions, 'httpEcho');
     
-    console.log('helloWorld関数を呼び出します');
-    const result = await helloWorldFunction({ test: true });
+    console.log('httpEcho関数を呼び出します');
+    const result = await echoFunction({ test: true, timestamp: new Date().toISOString() });
     
-    console.log('helloWorld関数からの応答:', result.data);
+    console.log('httpEcho関数からの応答:', result.data);
     return result.data;
   } catch (error: any) {
     console.error('Firebase Functions疎通確認エラー:', error);

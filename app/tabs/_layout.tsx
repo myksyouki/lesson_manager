@@ -207,8 +207,6 @@ export default function TabLayout() {
             iconName = 'insights';
           } else if (route.name === 'settings') {
             iconName = 'settings';
-          } else if (route.name === 'AI-test') {
-            iconName = 'science';
           }
           
           return <AnimatedTabBarIcon name={iconName} color={color} size={ICON_SIZE} focused={focused} />;
@@ -262,12 +260,6 @@ export default function TabLayout() {
         name="schedule"
         options={{
           title: '分析',
-        }}
-      />
-      <Tabs.Screen
-        name="AI-test"
-        options={{
-          title: 'AIテスト',
         }}
       />
       <Tabs.Screen

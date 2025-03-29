@@ -3,7 +3,7 @@ import { Timestamp } from 'firebase/firestore';
 export interface ChatMessage {
   id: string;
   content: string;
-  sender: 'user' | 'ai';
+  sender: 'user' | 'ai' | 'assistant' | 'system';
   timestamp: Timestamp;
 }
 
