@@ -31,16 +31,16 @@ declare global {
     frameworkReady?: () => void;
   }
   
-  // 重複しないようにFormDataValueをコメントアウト
-  /*interface FormDataValue {
+  // CustomFormDataValue型として定義（名前を変更して衝突を避ける）
+  interface CustomFormDataValue {
     uri: string;
     name: string;
     type: string;
-  }*/
+  }
   
   interface FormData {
-    append(name: string, value: FormDataValue, fileName?: string): void;
-    set(name: string, value: FormDataValue, fileName?: string): void;
+    append(name: string, value: CustomFormDataValue, fileName?: string): void;
+    set(name: string, value: CustomFormDataValue, fileName?: string): void;
   }
 }
 
@@ -224,6 +224,7 @@ export default function RootLayout() {
             <Stack.Screen name="generate-tasks" options={{ title: '課題生成' }} />
             <Stack.Screen name="consult-ai" options={{ title: 'AIに相談' }} />
             <Stack.Screen name="settings" options={{ title: '設定' }} />
+            <Stack.Screen name="subscription" options={{ title: 'サブスクリプション' }} />
             <Stack.Screen name="profile" options={{ title: 'プロフィール' }} />
             <Stack.Screen name="instrument-settings" options={{ title: '楽器設定' }} />
             <Stack.Screen name="api-settings" options={{ title: 'API設定' }} />

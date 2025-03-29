@@ -1,6 +1,6 @@
 import { collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where, orderBy, serverTimestamp, Timestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Task } from '../types/task';
+import { Task } from '../types/_task';
 
 // ユーザーベース構造を常に使用する
 let useNewStructure = true;

@@ -11,6 +11,12 @@ service cloud.firestore {
       return request.auth.token.email == "test@example.com";
     }
     
+    // アプリケーション設定へのアクセス権限
+    match /appConfig/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
     // レッスンへのアクセスルール
     match /lessons/{lessonId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.shared == true);

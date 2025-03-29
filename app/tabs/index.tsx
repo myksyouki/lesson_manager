@@ -23,6 +23,8 @@ import { FadeIn } from '../components/AnimatedComponents';
 import { MaterialCommunityIcons, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { getUserChatRooms, ChatRoom as ChatRoomType } from '../services/chatRoomService';
+import { auth } from '../config/firebase';
 
 export default function HomeScreen() {
   // 画面サイズを取得
@@ -48,18 +50,10 @@ export default function HomeScreen() {
   // スクロール参照
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // ダミーのチャットルームデータ
-  const recentChatRooms: Array<{
-    id: string;
-    title: string;
-    lastMessage: string;
-    timestamp: string;
-    type: string;
-  }> = [];
+  // チャットルームデータの状態
+  const [recentChatRooms, setRecentChatRooms] = useState<ChatRoomType[]>([]);
+  const [isLoadingChats, setIsLoadingChats] = useState(true);
 
-  // 本来はAPI等から取得する
-  const [isLoadingChats, setIsLoadingChats] = useState(false);
-  
   // 画面サイズに応じたスタイルを計算
   const dynamicStyles = useMemo(() => {
     return {
@@ -89,6 +83,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (user) {
       loadData();
+      loadChatRooms(); // チャットルームも読み込む
     }
   }, [user]);
 
@@ -394,26 +389,66 @@ export default function HomeScreen() {
     );
   };
 
+  // チャットルームデータを読み込む
+  const loadChatRooms = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoadingChats(true);
+      console.log('ホーム画面: チャットルーム読み込み開始');
+      
+      const rooms = await getUserChatRooms(user.uid);
+      console.log(`ホーム画面: チャットルーム取得完了 (${rooms.length}件)`);
+      
+      // 最新の3件だけを表示
+      setRecentChatRooms(rooms.slice(0, 3));
+    } catch (error) {
+      console.error('ホーム画面: チャットルーム取得エラー:', error);
+    } finally {
+      setIsLoadingChats(false);
+    }
+  };
+
   // チャットルームカードコンポーネント
-  const ChatRoomCard = ({ chatRoom }: { chatRoom: any }) => {
+  const ChatRoomCard = ({ chatRoom }: { chatRoom: ChatRoomType }) => {
     const handleCardPress = () => {
-      navigateToChatRoom(chatRoom.id);
+      router.push({
+        pathname: '/chat-room',
+        params: { id: chatRoom.id }
+      } as any);
     };
 
-    const chatIcon = getChatRoomIcon(chatRoom.type);
-    const formattedDate = formatDate(chatRoom.timestamp);
+    const chatIcon = getChatRoomIcon(chatRoom.topic);
+    
+    // Timestamp型の場合の処理
+    const getFormattedDate = () => {
+      if (!chatRoom.updatedAt) return '';
+      
+      let date;
+      if (typeof chatRoom.updatedAt === 'object' && 'seconds' in chatRoom.updatedAt) {
+        date = new Date(chatRoom.updatedAt.seconds * 1000);
+      } else {
+        date = new Date(chatRoom.updatedAt);
+      }
+      
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      return `${month}/${day}`;
+    };
+
+    const formattedDate = getFormattedDate();
 
     return (
       <TouchableOpacity
         style={[
-          styles.flashCard, // 既存のスタイルを再利用
+          styles.flashCard,
           { 
             padding: dynamicStyles.cardPadding,
             marginBottom: dynamicStyles.itemSpacing * 1.5
           }
         ]}
         onPress={handleCardPress}
-        activeOpacity={0.6} // タップ時の透明度を調整して、タップフィードバックを強化
+        activeOpacity={0.6}
       >
         {/* 左側: アイコン */}
         <View style={[
@@ -452,7 +487,7 @@ export default function HomeScreen() {
             ]}
             numberOfLines={1}
           >
-            {chatRoom.lastMessage}
+            {chatRoom.topic}
           </Text>
         </View>
         
@@ -611,7 +646,7 @@ export default function HomeScreen() {
             <View style={[styles.sectionHeaderContainer, { marginBottom: dynamicStyles.itemSpacing * 1.5 }]}>
               <Text style={[styles.sectionTitle, { fontSize: dynamicStyles.titleFontSize }]}>最新のチャットルーム</Text>
               <TouchableOpacity 
-                onPress={() => router.push('/chat-room' as any)} 
+                onPress={() => router.push('/tabs/ai-lesson' as any)} 
                 style={styles.viewAllButton}
               >
                 <Text style={[styles.viewAllText, { fontSize: dynamicStyles.subtitleFontSize, color: theme.colors.primary }]}>すべて表示</Text>
@@ -648,9 +683,9 @@ export default function HomeScreen() {
                       paddingHorizontal: dynamicStyles.contentMargin
                     }
                   ]}
-                  onPress={() => router.push('/chat-room' as any)}
+                  onPress={() => router.push('/chat-room-form' as any)}
                 >
-                  <Text style={[styles.goToTaskButtonText, { fontSize: dynamicStyles.subtitleFontSize }]}>チャットルーム一覧へ</Text>
+                  <Text style={[styles.goToTaskButtonText, { fontSize: dynamicStyles.subtitleFontSize }]}>チャットルームを作成</Text>
                 </TouchableOpacity>
               </View>
             ) : (

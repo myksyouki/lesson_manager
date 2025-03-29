@@ -156,6 +156,13 @@ export default function SettingsScreen() {
             text="プロフィール設定" 
             onPress={() => router.push('/profile')}
           />
+          
+          <MenuItem 
+            icon="payments" 
+            text="サブスクリプション管理" 
+            onPress={() => router.push('/subscription')}
+            iconColor="#4caf50"
+          />
         </View>
 
         {/* アプリ設定セクション */}

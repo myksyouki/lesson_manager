@@ -34,6 +34,7 @@ interface CalendarModalProps {
   onClose: () => void;
   selectedDate: Date;
   onDateSelect: (date: Date, formattedDate: string) => void;
+  practiceDate?: Date; // 練習予定日（オプション）
 }
 
 export const CalendarModal: React.FC<CalendarModalProps> = ({
@@ -41,6 +42,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
   onClose,
   selectedDate,
   onDateSelect,
+  practiceDate,
 }) => {
   // 初期日付が無効な場合は現在の日付を使用
   const validInitialDate = selectedDate instanceof Date && !isNaN(selectedDate.getTime()) 
@@ -82,9 +84,18 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
            date.getFullYear() === today.getFullYear();
   };
 
+  // 練習予定日かどうかをチェックする関数
+  const isPracticeDate = (date: Date) => {
+    if (!practiceDate) return false;
+    
+    return date.getDate() === practiceDate.getDate() &&
+           date.getMonth() === practiceDate.getMonth() &&
+           date.getFullYear() === practiceDate.getFullYear();
+  };
+
   return (
     <Modal
-      animationType="fade"
+      animationType="slide"
       transparent={true}
       visible={isVisible}
       onRequestClose={onClose}
@@ -93,11 +104,10 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
         <View style={styles.modalView}>
           {/* ヘッダー部分 */}
           <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>日付を選択</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <MaterialIcons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>日付を選択</Text>
-            <View style={{ width: 48 }} />
           </View>
 
           {/* 月選択部分 */}
@@ -150,6 +160,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
                   const isSunday = dayOfWeek === 0;
                   const isSaturday = dayOfWeek === 6;
                   const isTodayDate = isToday(dayItem.date);
+                  const isPractice = isPracticeDate(dayItem.date);
 
                   return (
                     <TouchableOpacity
@@ -174,6 +185,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
                       >
                         {dayItem.date.getDate()}
                       </Text>
+                      {isPractice && <View style={styles.practiceDot} />}
                     </TouchableOpacity>
                   );
                 })}
@@ -189,36 +201,37 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
 const styles = StyleSheet.create({
   centeredView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalView: {
-    width: CALENDAR_WIDTH,
     backgroundColor: colors.background,
-    borderRadius: 20,
-    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 16,
+    paddingBottom: 32,
+    paddingHorizontal: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 5,
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    right: 0,
+    padding: 8,
     borderRadius: 20,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: colors.textPrimary,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
@@ -228,7 +241,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     paddingHorizontal: 8,
   },
   monthChangeButton: {
@@ -237,9 +250,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 20,
+    backgroundColor: colors.surface,
   },
   monthTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: colors.textPrimary,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
@@ -255,7 +269,7 @@ const styles = StyleSheet.create({
   dayHeaderText: {
     width: DAY_SIZE,
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.textSecondary,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
@@ -275,7 +289,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 46,
     width: '100%',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   dayItem: {
     width: DAY_SIZE,
@@ -283,9 +297,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: DAY_SIZE / 2,
+    position: 'relative',
   },
   dayText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
     color: colors.textPrimary,
     textAlign: 'center',
@@ -315,12 +330,19 @@ const styles = StyleSheet.create({
     color: colors.saturday,
   },
   todayItem: {
-    backgroundColor: colors.primaryLight,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.primary,
   },
   todayText: {
     fontWeight: '700',
     color: colors.primary,
+  },
+  practiceDot: {
+    position: 'absolute',
+    bottom: 2,
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.secondary,
   },
 });

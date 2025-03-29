@@ -16,9 +16,8 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { getChatRoomById, updateChatRoomMessages, updateChatRoom } from './services/chatRoomService';
+import { getChatRoomById, updateChatRoomMessages, updateChatRoom, ChatRoom, ChatMessage } from './services/chatRoomService';
 import { sendMessageToLessonAI } from './services/lessonAIService';
-import { ChatRoom, ChatMessage } from './types/chatRoom';
 import { useAuthStore } from './store/auth';
 import { StatusBar } from 'expo-status-bar';
 import { Timestamp } from 'firebase/firestore';
@@ -37,6 +36,8 @@ export default function ChatRoomScreen() {
   const [sending, setSending] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   
   // 編集用の状態
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -46,32 +47,102 @@ export default function ChatRoomScreen() {
 
   // チャットルームデータの読み込み関数
   const loadChatRoom = async () => {
-    if (!id || !user) {
+    if (!id) {
       setLoading(false);
+      setError('チャットルームIDが見つかりません');
+      return;
+    }
+
+    const roomId = Array.isArray(id) ? id[0] : id;
+    console.log('チャットルーム読み込み開始 - ID:', roomId);
+
+    if (!user) {
+      console.log('認証情報が確認できません。5秒後に再試行します');
+      setLoading(true);
+      setTimeout(() => {
+        setRetryCount(prev => prev + 1);
+        loadChatRoom();
+      }, 5000);
       return;
     }
     
     try {
       setLoading(true);
-      const roomId = Array.isArray(id) ? id[0] : id;
-      console.log('チャットルームデータを読み込み中:', roomId);
+      setError(null);
+      console.log('チャットルームデータを読み込み中:', roomId, '試行回数:', retryCount + 1);
       
       const roomData = await getChatRoomById(roomId);
       
       if (!roomData) {
-        Alert.alert('エラー', 'チャットルームが見つかりませんでした');
-        router.back();
-        return;
+        console.error(`チャットルーム(ID: ${roomId})が見つかりません`);
+        setError('チャットルームが見つかりませんでした');
+        
+        if (retryCount < 3) {
+          console.log(`3秒後に再試行します (${retryCount + 1}/3)`);
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+            loadChatRoom();
+          }, 3000);
+          return;
+        } else {
+          Alert.alert(
+            'エラー', 
+            'チャットルームが見つかりませんでした。再試行しますか？',
+            [
+              {
+                text: 'キャンセル',
+                onPress: () => router.back(),
+                style: 'cancel'
+              },
+              {
+                text: '再試行',
+                onPress: () => {
+                  setRetryCount(0);
+                  loadChatRoom();
+                }
+              }
+            ]
+          );
+          return;
+        }
       }
       
       setChatRoom(roomData);
       // 編集用の初期値をセット
       setNewTitle(roomData.title);
       setNewTopic(roomData.topic);
+      setRetryCount(0);
       console.log('チャットルームデータの読み込みが完了しました', roomData.title);
     } catch (error) {
       console.error('チャットルーム読み込みエラー:', error);
-      Alert.alert('エラー', 'チャットルームの読み込みに失敗しました');
+      setError('チャットルームの読み込みに失敗しました');
+      
+      if (retryCount < 3) {
+        console.log(`3秒後に再試行します (${retryCount + 1}/3)`);
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          loadChatRoom();
+        }, 3000);
+      } else {
+        Alert.alert(
+          'エラー', 
+          'チャットルームの読み込みに失敗しました。再試行しますか？',
+          [
+            {
+              text: 'キャンセル',
+              onPress: () => router.back(),
+              style: 'cancel'
+            },
+            {
+              text: '再試行',
+              onPress: () => {
+                setRetryCount(0);
+                loadChatRoom();
+              }
+            }
+          ]
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -79,18 +150,21 @@ export default function ChatRoomScreen() {
 
   // 初回マウント時にデータを読み込む
   useEffect(() => {
+    console.log('初期読み込み: useEffectトリガー', { id, userId: user?.uid });
     loadChatRoom();
-  }, [id, user, router]);
+  }, [id, user?.uid, retryCount]);
 
-  // 画面がフォーカスされたときにデータを再読み込み（新規作成時のみ）
+  // パラメータの取得（トップレベルで一度だけ実行）
+  const params = useLocalSearchParams();
+  const isNewlyCreated = params.isNewlyCreated === 'true';
+
+  // 画面がフォーカスされたときにデータを再読み込み
   useFocusEffect(
     React.useCallback(() => {
       console.log('チャットルーム画面がフォーカスされました');
-      // パラメータから新規作成かどうかを確認
-      const isNewlyCreated = useLocalSearchParams().isNewlyCreated === 'true';
       
-      if (isNewlyCreated) {
-        console.log('新規作成されたチャットルームのため再読み込みします');
+      if (isNewlyCreated || !chatRoom) {
+        console.log('チャットルームを再読み込みします', { isNewlyCreated, hasChatRoom: !!chatRoom });
         loadChatRoom();
       }
       
@@ -98,7 +172,7 @@ export default function ChatRoomScreen() {
         // クリーンアップ処理
         console.log('チャットルーム画面のフォーカスが外れました');
       };
-    }, [id, user])
+    }, [id, user?.uid, chatRoom, loadChatRoom, isNewlyCreated])
   );
 
   // 編集モーダルを開く
@@ -313,36 +387,84 @@ export default function ChatRoomScreen() {
         onEditPress={handleOpenEditModal}
       />
       
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <View style={styles.messagesContainer}>
-          {chatRoom?.messages?.length ? (
-            <FlatList
-              ref={flatListRef}
-              data={chatRoom.messages}
-              renderItem={renderItem}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.messagesContent}
-              onContentSizeChange={scrollToBottom}
-              onLayout={scrollToBottom}
-            />
-          ) : (
-            renderEmptyMessages()
-          )}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4285F4" />
+          <Text style={styles.loadingText}>チャットルームを読み込み中...</Text>
         </View>
-        
-        <ChatInput
-          message={message}
-          onChangeMessage={setMessage}
-          onSend={handleSend}
-          sending={sending}
-          roomId={chatRoom?.id || ""}
-          instrument={chatRoom?.modelType || ""}
-        />
-      </KeyboardAvoidingView>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => {
+            setRetryCount(0);
+            loadChatRoom();
+          }}>
+            <Text style={styles.retryButtonText}>再試行</Text>
+          </TouchableOpacity>
+        </View>
+      ) : chatRoom ? (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        >
+          <FlatList
+            ref={flatListRef}
+            data={chatRoom.messages || []}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.messagesContainer}
+            renderItem={({ item }) => (
+              <View style={[
+                styles.messageWrapper,
+                item.sender === 'user' ? styles.userMessage : styles.aiMessage
+              ]}>
+                <View style={[
+                  styles.messageBubble,
+                  item.sender === 'user' ? styles.userBubble : styles.aiBubble
+                ]}>
+                  <Text style={[
+                    styles.messageText,
+                    item.sender === 'user' ? styles.userText : styles.aiText
+                  ]}>
+                    {item.content}
+                  </Text>
+                </View>
+              </View>
+            )}
+            onEndReached={() => {
+              // 必要に応じて過去のメッセージをロード
+            }}
+            onEndReachedThreshold={0.1}
+            ListFooterComponent={sending ? (
+              <View style={styles.loadingMoreContainer}>
+                <ActivityIndicator size="small" color="#4285F4" />
+                <Text style={styles.loadingMoreText}>送信中...</Text>
+              </View>
+            ) : null}
+          />
+          
+          <View style={styles.inputContainer}>
+            <ChatInput
+              message={message}
+              onChangeMessage={setMessage}
+              onSend={handleSend}
+              sending={sending}
+              roomId={chatRoom.id}
+              instrument={chatRoom.modelType || 'general'}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>チャットルームが見つかりませんでした</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => {
+            setRetryCount(0);
+            loadChatRoom();
+          }}>
+            <Text style={styles.retryButtonText}>再試行</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       
       {/* 編集モーダル */}
       <Modal
@@ -541,5 +663,66 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 15,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EA4335',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#4285F4',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  loadingMoreContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
+  loadingMoreText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#4285F4',
+  },
+  inputContainer: {
+    padding: 16,
+  },
+  messageWrapper: {
+    marginVertical: 6,
+    flexDirection: 'row',
+  },
+  userMessage: {
+    justifyContent: 'flex-end',
+  },
+  aiMessage: {
+    justifyContent: 'flex-start',
+  },
+  userBubble: {
+    backgroundColor: '#4285F4',
+  },
+  aiBubble: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  userText: {
+    color: '#FFFFFF',
+  },
+  aiText: {
+    color: '#333333',
   },
 });

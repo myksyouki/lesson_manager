@@ -23,6 +23,7 @@ import { useTheme } from '../theme';
 import Animated, { FadeIn, SlideInRight, SlideInUp } from 'react-native-reanimated';
 import { RippleButton } from '../components/RippleButton';
 import { instrumentCategories } from '../services/userProfileService';
+import { auth } from '../config/firebase';
 
 // テーマの色を直接定義
 const colors = {
@@ -167,7 +168,15 @@ export default function AILessonScreen() {
       
       if (!user) {
         console.log('No user found');
-        setLoading(false);
+        // 少し待ってから再度確認
+        setTimeout(() => {
+          if (auth.currentUser) {
+            console.log('認証状態が復元されました。再度ロード試行');
+            loadChatRooms();
+          } else {
+            setLoading(false);
+          }
+        }, 3000);
         return;
       }
       
@@ -178,7 +187,16 @@ export default function AILessonScreen() {
     } catch (error) {
       console.error('チャットルーム一覧の取得に失敗しました:', error);
       setError('チャットルーム一覧の取得に失敗しました');
-      Alert.alert('エラー', 'チャットルーム一覧の取得に失敗しました。後でもう一度お試しください。');
+      Alert.alert('エラー', 'チャットルーム一覧の取得に失敗しました。再試行しますか？', [
+        {
+          text: 'キャンセル',
+          style: 'cancel'
+        },
+        {
+          text: '再試行',
+          onPress: () => loadChatRooms()
+        }
+      ]);
     } finally {
       setLoading(false);
       setRefreshing(false);

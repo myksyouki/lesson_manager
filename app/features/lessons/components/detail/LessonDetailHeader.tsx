@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { formatDate } from '../../../../utils/dateUtils';
+import { formatDate } from '@app/_ignore/utils/_dateUtils';
 import { useLessonStore } from '../../../../store/lessons';
 import { router } from 'expo-router';
 
