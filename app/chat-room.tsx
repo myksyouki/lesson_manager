@@ -16,14 +16,14 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { getChatRoomById, updateChatRoomMessages, updateChatRoom } from './services/chatRoomService';
+import { getChatRoomById, updateChatRoomMessages, updateChatRoom, ChatRoom, ChatMessage } from './services/chatRoomService';
 import { sendMessageToLessonAI, sendMessageToLessonAIHttp } from './services/lessonAIService';
-import { ChatRoom, ChatMessage } from './types/chatRoom';
 import { useAuthStore } from './store/auth';
 import { StatusBar } from 'expo-status-bar';
 import { Timestamp } from 'firebase/firestore';
 import ChatsHeader from './components/ui/ChatsHeader';
-import ChatInput from './features/chat/components/ChatInput';
+import { ChatInput } from './features/chat/components/ChatInput';
+import { useFocusEffect } from 'expo-router';
 
 // チャットルーム画面のメインコンポーネント
 export default function ChatRoomScreen() {
@@ -37,6 +37,8 @@ export default function ChatRoomScreen() {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const flatListRef = useRef<FlatList>(null);
   const [useHttpDirect, setUseHttpDirect] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   
   // 編集用の状態
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -44,38 +46,135 @@ export default function ChatRoomScreen() {
   const [newTopic, setNewTopic] = useState('');
   const [updating, setUpdating] = useState(false);
 
-  // チャットルームデータの読み込み
-  useEffect(() => {
-    const loadChatRoom = async () => {
-      if (!id || !user) {
-        setLoading(false);
-        return;
-      }
+  // チャットルームデータの読み込み関数
+  const loadChatRoom = async () => {
+    if (!id) {
+      setLoading(false);
+      setError('チャットルームIDが見つかりません');
+      return;
+    }
+
+    const roomId = Array.isArray(id) ? id[0] : id;
+    console.log('チャットルーム読み込み開始 - ID:', roomId);
+
+    if (!user) {
+      console.log('認証情報が確認できません。5秒後に再試行します');
+      setLoading(true);
+      setTimeout(() => {
+        setRetryCount(prev => prev + 1);
+        loadChatRoom();
+      }, 5000);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('チャットルームデータを読み込み中:', roomId, '試行回数:', retryCount + 1);
       
-      try {
-        const roomId = Array.isArray(id) ? id[0] : id;
-        const roomData = await getChatRoomById(roomId);
+      const roomData = await getChatRoomById(roomId);
+      
+      if (!roomData) {
+        console.error(`チャットルーム(ID: ${roomId})が見つかりません`);
+        setError('チャットルームが見つかりませんでした');
         
-        if (!roomData) {
-          Alert.alert('エラー', 'チャットルームが見つかりませんでした');
-          router.back();
+        if (retryCount < 3) {
+          console.log(`3秒後に再試行します (${retryCount + 1}/3)`);
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+            loadChatRoom();
+          }, 3000);
+          return;
+        } else {
+          Alert.alert(
+            'エラー', 
+            'チャットルームが見つかりませんでした。再試行しますか？',
+            [
+              {
+                text: 'キャンセル',
+                onPress: () => router.back(),
+                style: 'cancel'
+              },
+              {
+                text: '再試行',
+                onPress: () => {
+                  setRetryCount(0);
+                  loadChatRoom();
+                }
+              }
+            ]
+          );
           return;
         }
-        
-        setChatRoom(roomData);
-        // 編集用の初期値をセット
-        setNewTitle(roomData.title);
-        setNewTopic(roomData.topic);
-      } catch (error) {
-        console.error('チャットルーム読み込みエラー:', error);
-        Alert.alert('エラー', 'チャットルームの読み込みに失敗しました');
-      } finally {
-        setLoading(false);
       }
-    };
-    
+      
+      setChatRoom(roomData);
+      // 編集用の初期値をセット
+      setNewTitle(roomData.title);
+      setNewTopic(roomData.topic);
+      setRetryCount(0);
+      console.log('チャットルームデータの読み込みが完了しました', roomData.title);
+    } catch (error) {
+      console.error('チャットルーム読み込みエラー:', error);
+      setError('チャットルームの読み込みに失敗しました');
+      
+      if (retryCount < 3) {
+        console.log(`3秒後に再試行します (${retryCount + 1}/3)`);
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          loadChatRoom();
+        }, 3000);
+      } else {
+        Alert.alert(
+          'エラー', 
+          'チャットルームの読み込みに失敗しました。再試行しますか？',
+          [
+            {
+              text: 'キャンセル',
+              onPress: () => router.back(),
+              style: 'cancel'
+            },
+            {
+              text: '再試行',
+              onPress: () => {
+                setRetryCount(0);
+                loadChatRoom();
+              }
+            }
+          ]
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 初回マウント時にデータを読み込む
+  useEffect(() => {
+    console.log('初期読み込み: useEffectトリガー', { id, userId: user?.uid });
     loadChatRoom();
-  }, [id, user, router]);
+  }, [id, user?.uid, retryCount]);
+
+  // パラメータの取得（トップレベルで一度だけ実行）
+  const params = useLocalSearchParams();
+  const isNewlyCreated = params.isNewlyCreated === 'true';
+
+  // 画面がフォーカスされたときにデータを再読み込み
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('チャットルーム画面がフォーカスされました');
+      
+      if (isNewlyCreated || !chatRoom) {
+        console.log('チャットルームを再読み込みします', { isNewlyCreated, hasChatRoom: !!chatRoom });
+        loadChatRoom();
+      }
+      
+      return () => {
+        // クリーンアップ処理
+        console.log('チャットルーム画面のフォーカスが外れました');
+      };
+    }, [id, user?.uid, chatRoom, loadChatRoom, isNewlyCreated])
+  );
 
   // 編集モーダルを開く
   const handleOpenEditModal = () => {
@@ -141,19 +240,17 @@ export default function ChatRoomScreen() {
     }
   };
 
-  // メッセージ送信ハンドラ
-  const handleSend = async (text: string, httpDirect: boolean = false) => {
-    if (!text.trim() || sending || !chatRoom) return;
-    
-    setSending(true);
+  // メッセージを送信する
+  const handleSend = async () => {
+    if (!message.trim() || !chatRoom || !user || sending) return;
     
     try {
-      console.log('メッセージ送信開始:', text.substring(0, 20) + (text.length > 20 ? '...' : ''));
+      setSending(true);
       
       // ユーザーメッセージの作成
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
-        content: text,
+        content: message,
         sender: 'user',
         timestamp: Timestamp.now()
       };
@@ -165,176 +262,82 @@ export default function ChatRoomScreen() {
       ];
       
       // ローカルでの状態更新
-      setChatRoom(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          messages: updatedMessages
-        };
+      setChatRoom({
+        ...chatRoom,
+        messages: updatedMessages
       });
       
-      // HTTPダイレクト設定を更新
-      setUseHttpDirect(httpDirect);
+      // メッセージ入力をクリア
+      setMessage('');
       
       // メッセージを送信してAIの応答を取得
       console.log('AIにメッセージを送信:', {
-        message: text,
+        message: message.trim(),
         conversationId: chatRoom.conversationId || '(新規)',
         modelType: chatRoom.modelType || 'default',
         roomId: chatRoom.id,
         isTestMode: false,
-        useHttpDirect: httpDirect
+        useHttpDirect
       });
-
-      // キャッチできるようにtryブロックを追加
-      try {
-        let aiResponse;
-        
-        // isTestModeはfalseに設定
-        const isTestMode = false;
-        
-        if (httpDirect) {
-          console.log('HTTP直接呼び出し方式でメッセージを送信');
-          try {
-            aiResponse = await sendMessageToLessonAIHttp(
-              text, 
-              chatRoom.conversationId || '',
-              chatRoom.modelType || 'standard',
-              chatRoom.id,
-              isTestMode
-            );
-          } catch (httpError: any) {
-            console.error('HTTP直接呼び出しエラー詳細:', {
-              message: httpError.message,
-              code: httpError.code,
-              details: httpError.details,
-              stack: httpError.stack?.split('\n').slice(0, 3).join('\n')
-            });
-            throw httpError;
-          }
-        } else {
-          console.log('SDK経由でメッセージを送信');
-          try {
-            aiResponse = await sendMessageToLessonAI(
-              text, 
-              chatRoom.conversationId || '',
-              chatRoom.modelType || 'standard',
-              chatRoom.id,
-              isTestMode
-            );
-          } catch (sdkError: any) {
-            console.error('SDK呼び出しエラー詳細:', {
-              message: sdkError.message,
-              code: sdkError.code,
-              details: sdkError.details,
-              stack: sdkError.stack?.split('\n').slice(0, 3).join('\n')
-            });
-            throw sdkError;
-          }
-        }
-        
-        console.log('AI応答結果:', aiResponse);
-        
-        // AIからの応答があるか確認
-        if (!aiResponse || !aiResponse.answer) {
-          throw new Error('AIからの有効な応答がありませんでした');
-        }
       
-        // AIのメッセージを作成
-        const aiMessage: ChatMessage = {
-          id: `ai-${Date.now()}`,
-          content: aiResponse.answer,
-          sender: 'assistant',
-          timestamp: Timestamp.now()
-        };
-        
-        // 新しいメッセージ配列を作成（AIの応答を含む）
-        const messagesWithAiResponse = [
-          ...updatedMessages,
-          aiMessage
-        ];
-        
-        // Firestoreを更新
-        await updateChatRoomMessages(chatRoom.id, messagesWithAiResponse, aiResponse.conversationId);
-        
-        // 会話IDが返ってきた場合は保存
-        if (aiResponse.conversationId && aiResponse.conversationId !== chatRoom.conversationId) {
-          await updateChatRoom(chatRoom.id, {
-            conversationId: aiResponse.conversationId
-          });
-          
-          // ローカル状態も更新
-          setChatRoom(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              conversationId: aiResponse.conversationId,
-              messages: messagesWithAiResponse
-            };
-          });
-        } else {
-          // 会話IDの更新がない場合はメッセージだけ更新
-          setChatRoom(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              messages: messagesWithAiResponse
-            };
-          });
-        }
-      } catch (apiError: any) {
-        console.error('AI API呼び出しエラー:', apiError);
-        
-        // エラーメッセージをユーザーに表示
-        Alert.alert(
-          'エラー',
-          `メッセージの送信に失敗しました: ${apiError.message || '不明なエラー'}`,
-          [
-            { 
-              text: 'OK', 
-              style: 'cancel' 
-            },
-            {
-              text: 'ログを表示',
-              onPress: () => {
-                console.log('詳細エラー情報:', apiError);
-                Alert.alert(
-                  'デバッグ情報',
-                  `エラータイプ: ${apiError.code || 'なし'}\n` +
-                  `詳細: ${JSON.stringify(apiError.details || {})}\n` +
-                  `時刻: ${new Date().toLocaleTimeString()}`
-                );
-              }
-            }
-          ]
+      // HTTP直接呼び出しかFirebase Functions経由かを選択
+      let aiResponse;
+      if (useHttpDirect) {
+        aiResponse = await sendMessageToLessonAIHttp(
+          message.trim(), 
+          chatRoom.conversationId,
+          chatRoom.modelType,
+          chatRoom.id,
+          false  // isTestMode
         );
-        
-        // エラーメッセージをチャットに表示
-        const errorMessage: ChatMessage = {
-          id: `error-${Date.now()}`,
-          content: `エラー: ${apiError.message || 'AIからの応答を取得できませんでした'}`,
-          sender: 'system',
-          timestamp: Timestamp.now()
-        };
-        
-        // エラーメッセージを含む新しいメッセージ配列
-        const messagesWithError = [
-          ...updatedMessages,
-          errorMessage
-        ];
-        
-        // Firestoreを更新
-        await updateChatRoomMessages(chatRoom.id, messagesWithError);
-        
-        // ローカル状態も更新
-        setChatRoom(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            messages: messagesWithError
-          };
-        });
+      } else {
+        aiResponse = await sendMessageToLessonAI(
+          message.trim(), 
+          chatRoom.conversationId,
+          chatRoom.modelType,
+          chatRoom.id,
+          false  // isTestMode
+        );
       }
+      
+      console.log('AI応答結果:', aiResponse);
+      
+      if (!aiResponse || !aiResponse.success) {
+        console.error('AI応答エラー:', aiResponse);
+        throw new Error(aiResponse?.message || 'AIからの応答の取得に失敗しました');
+      }
+      
+      // AI応答メッセージの作成
+      const aiMessage: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        content: aiResponse.answer,
+        sender: 'ai',
+        timestamp: Timestamp.now()
+      };
+      
+      // 新しいメッセージ配列を作成
+      const finalMessages = [
+        ...updatedMessages,
+        aiMessage
+      ];
+      
+      // 会話ID更新
+      const updatedChatRoom = {
+        ...chatRoom,
+        messages: finalMessages,
+        conversationId: aiResponse.conversationId || chatRoom.conversationId
+      };
+      
+      // ローカルの状態を更新
+      setChatRoom(updatedChatRoom);
+      
+      // Firestoreに保存
+      await updateChatRoomMessages(chatRoom.id, [userMessage, aiMessage]);
+      
+      // 少し遅延させてからスクロールダウン
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
     } catch (error) {
       console.error('メッセージ送信エラー:', error);
       Alert.alert('エラー', 'メッセージの送信に失敗しました');
@@ -403,27 +406,44 @@ export default function ChatRoomScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <View style={styles.messagesContainer}>
-          {chatRoom?.messages?.length ? (
-            <FlatList
-              ref={flatListRef}
-              data={chatRoom.messages}
-              renderItem={renderItem}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.messagesContent}
-              onContentSizeChange={scrollToBottom}
-              onLayout={scrollToBottom}
-            />
-          ) : (
-            renderEmptyMessages()
-          )}
-        </View>
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity 
+              style={styles.retryButton} 
+              onPress={() => {
+                setRetryCount(0);
+                loadChatRoom();
+              }}
+            >
+              <Text style={styles.retryButtonText}>再試行</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.messagesContainer}>
+            {chatRoom?.messages?.length ? (
+              <FlatList
+                ref={flatListRef}
+                data={chatRoom.messages}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.messagesContent}
+                onContentSizeChange={scrollToBottom}
+                onLayout={scrollToBottom}
+              />
+            ) : (
+              renderEmptyMessages()
+            )}
+          </View>
+        )}
         
         <ChatInput
+          message={message}
+          onChangeMessage={setMessage}
           onSend={handleSend}
-          isLoading={sending}
-          disabled={false}
-          placeholder="メッセージを入力..."
+          sending={sending}
+          roomId={chatRoom?.id || ""}
+          instrument={chatRoom?.modelType || ""}
         />
       </KeyboardAvoidingView>
       
@@ -624,5 +644,66 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 15,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EA4335',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#4285F4',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  loadingMoreContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
+  loadingMoreText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#4285F4',
+  },
+  inputContainer: {
+    padding: 16,
+  },
+  messageWrapper: {
+    marginVertical: 6,
+    flexDirection: 'row',
+  },
+  userMessage: {
+    justifyContent: 'flex-end',
+  },
+  aiMessage: {
+    justifyContent: 'flex-start',
+  },
+  userBubble: {
+    backgroundColor: '#4285F4',
+  },
+  aiBubble: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  userText: {
+    color: '#FFFFFF',
+  },
+  aiText: {
+    color: '#333333',
   },
 });

@@ -15,7 +15,7 @@ import { TextField } from '../../../../components/ui/TextField';
 import { Button } from '../../../../components/ui/Button';
 import { Card, CardBody } from '../../../../components/ui/Card';
 import { useTheme } from '../../../../theme';
-import { formatDate } from '../../../../utils/dateUtils';
+import { formatDate } from '@app/_ignore/utils/_dateUtils';
 import PiecesList from './PiecesList';
 import TagSelector from './TagSelector';
 

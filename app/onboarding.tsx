@@ -75,6 +75,12 @@ export default function OnboardingScreen() {
   // カテゴリ選択の処理
   const handleCategorySelect = async (categoryId: string) => {
     try {
+      // 開発段階では管楽器のみ選択可能
+      if (categoryId !== 'woodwind') {
+        Alert.alert('開発中', 'このカテゴリは現在開発中です。管楽器を選択してください。');
+        return;
+      }
+      
       setIsLoading(true);
       setSelectedCategory(categoryId);
       await saveSelectedCategory(categoryId);
@@ -97,6 +103,12 @@ export default function OnboardingScreen() {
   // 楽器選択の処理
   const handleInstrumentSelect = async (instrumentId: string) => {
     try {
+      // 開発段階ではサクソフォンのみ選択可能
+      if (instrumentId !== 'saxophone') {
+        Alert.alert('開発中', 'この楽器は現在開発中です。サクソフォンを選択してください。');
+        return;
+      }
+      
       setIsLoading(true);
       setSelectedInstrument(instrumentId);
       
@@ -176,7 +188,7 @@ export default function OnboardingScreen() {
       
       // ホーム画面に移動
       // @ts-ignore - 型エラーを無視
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/home");
     } catch (error) {
       console.error('オンボーディング完了エラー:', error);
       Alert.alert('エラー', 'オンボーディングの完了に失敗しました。再度お試しください。');
@@ -274,27 +286,40 @@ export default function OnboardingScreen() {
             <Text style={styles.description}>
               演奏する楽器のカテゴリを選択してください。
               これに基づいてAIがアドバイスを提供します。
+              ※開発段階のため、管楽器のみ選択可能です
             </Text>
             
-            {instrumentCategories.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={[
-                  styles.instrumentItem,
-                  selectedCategory === category.id && styles.selectedInstrumentItem
-                ]}
-                onPress={() => handleCategorySelect(category.id)}
-                disabled={isLoading}
-              >
-                <View style={styles.instrumentRow}>
-                  {getCategoryIcon(category.id)}
-                  <Text style={styles.instrumentLabel}>{category.name}</Text>
-                </View>
-                {selectedCategory === category.id && (
-                  <MaterialIcons name="check" size={24} color="#007AFF" />
-                )}
-              </TouchableOpacity>
-            ))}
+            {instrumentCategories.map((category) => {
+              // 管楽器カテゴリ（woodwind）以外はグレーアウト
+              const isDisabled = category.id !== 'woodwind';
+              
+              return (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[
+                    styles.instrumentItem,
+                    selectedCategory === category.id && styles.selectedInstrumentItem,
+                    isDisabled && styles.disabledItem
+                  ]}
+                  onPress={() => !isDisabled && handleCategorySelect(category.id)}
+                  disabled={isLoading || isDisabled}
+                >
+                  <View style={styles.instrumentRow}>
+                    {getCategoryIcon(category.id)}
+                    <Text style={[
+                      styles.instrumentLabel,
+                      isDisabled && styles.disabledText
+                    ]}>
+                      {category.name}
+                      {isDisabled && ' (準備中)'}
+                    </Text>
+                  </View>
+                  {selectedCategory === category.id && (
+                    <MaterialIcons name="check" size={24} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
             
             {isLoading && (
               <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
@@ -309,27 +334,40 @@ export default function OnboardingScreen() {
             <Text style={styles.description}>
               演奏する楽器を選択してください。
               後から設定画面で変更することもできます。
+              ※開発段階のため、サクソフォンのみ選択可能です
             </Text>
             
-            {currentCategory?.instruments.map((instrument) => (
-              <TouchableOpacity
-                key={instrument.id}
-                style={[
-                  styles.instrumentItem,
-                  selectedInstrument === instrument.id && styles.selectedInstrumentItem
-                ]}
-                onPress={() => handleInstrumentSelect(instrument.id)}
-                disabled={isLoading}
-              >
-                <View style={styles.instrumentRow}>
-                  {getInstrumentIcon(instrument.id)}
-                  <Text style={styles.instrumentLabel}>{instrument.name}</Text>
-                </View>
-                {selectedInstrument === instrument.id && (
-                  <MaterialIcons name="check" size={24} color="#007AFF" />
-                )}
-              </TouchableOpacity>
-            ))}
+            {currentCategory?.instruments.map((instrument) => {
+              // サクソフォン以外はグレーアウト
+              const isDisabled = instrument.id !== 'saxophone';
+              
+              return (
+                <TouchableOpacity
+                  key={instrument.id}
+                  style={[
+                    styles.instrumentItem,
+                    selectedInstrument === instrument.id && styles.selectedInstrumentItem,
+                    isDisabled && styles.disabledItem
+                  ]}
+                  onPress={() => !isDisabled && handleInstrumentSelect(instrument.id)}
+                  disabled={isLoading || isDisabled}
+                >
+                  <View style={styles.instrumentRow}>
+                    {getInstrumentIcon(instrument.id)}
+                    <Text style={[
+                      styles.instrumentLabel,
+                      isDisabled && styles.disabledText
+                    ]}>
+                      {instrument.name}
+                      {isDisabled && ' (準備中)'}
+                    </Text>
+                  </View>
+                  {selectedInstrument === instrument.id && (
+                    <MaterialIcons name="check" size={24} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
             
             {isLoading && (
               <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
@@ -729,5 +767,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0D47A1',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  disabledItem: {
+    backgroundColor: '#E5E5EA',
+  },
+  disabledText: {
+    color: '#CCCCCC',
   },
 }); 

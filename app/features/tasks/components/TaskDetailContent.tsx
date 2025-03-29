@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, 
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Task } from '../../../types/task';
 import { useTaskStore } from '../../../store/tasks';
-import CalendarModal from '../../../features/lessons/components/form/CalendarModal';
+import { CalendarModal } from '../../../features/lessons/components/form/CalendarModal';
 import { useCalendar, DAYS } from '../../../hooks/useCalendar';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -137,19 +137,13 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
       </View>
       
       {/* カレンダーモーダル */}
-      {showCalendar && (
-        <CalendarModal
-          onClose={() => setShowCalendar(false)}
-          onSelectDate={handleDateSelect}
-          selectedDate={selectedDate}
-          currentMonth={currentMonth}
-          onChangeMonth={changeMonth}
-          generateCalendarDays={generateCalendarDays}
-          formatDate={formatDate}
-          days={DAYS}
-          daySize={DAY_SIZE}
-        />
-      )}
+      <CalendarModal
+        isVisible={showCalendar}
+        onClose={() => setShowCalendar(false)}
+        selectedDate={selectedDate}
+        onDateSelect={(date, formattedDate) => handleDateSelect(date)}
+        practiceDate={initialDate}
+      />
     </>
   );
 };

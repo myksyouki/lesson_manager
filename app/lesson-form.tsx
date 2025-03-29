@@ -309,7 +309,10 @@ export default function LessonForm() {
             // 数秒待機してから画面遷移
             setTimeout(() => {
               setIsProcessing(false);
-              router.push('/(tabs)/lessons');
+              router.push({
+                pathname: '/tabs/lessons',
+                params: { isNewlyCreated: 'true' }
+              });
             }, 2000);
           } else {
             console.error('ファイルアップロードエラー:', uploadResult.error);
@@ -335,7 +338,10 @@ export default function LessonForm() {
       // 成功後にレッスン一覧画面に移動
       setTimeout(() => {
         setIsProcessing(false);
-        router.push('/(tabs)/lessons');
+        router.push({
+          pathname: '/tabs/lessons',
+          params: { isNewlyCreated: 'true' }
+        });
       }, 500);
       
     } catch (error: unknown) {

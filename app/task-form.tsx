@@ -117,7 +117,10 @@ export default function PracticeMenuGenerator() {
         Alert.alert(
           '保存完了', 
           `${savedTasks.length}個の練習メニューをタスクとして保存しました`,
-          [{ text: 'OK', onPress: () => router.replace('/(tabs)/task' as any) }]
+          [{ text: 'OK', onPress: () => router.replace({
+            pathname: '/tabs/task',
+            params: { isNewlyCreated: 'true' }
+          }) }]
         );
       }, 500);
       

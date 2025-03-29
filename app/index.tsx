@@ -56,6 +56,6 @@ export default function Root() {
   if (isAuthenticated) {
     return <Redirect href="/tabs" />;
   } else {
-    return <Redirect href="/login" />;
+    return <Redirect href="/auth/login" />;
   }
 }

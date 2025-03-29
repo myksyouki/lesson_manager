@@ -101,7 +101,7 @@ export default function SettingsScreen() {
   
   // ユーザーが管理者かどうかをチェック
   // 開発目的で一時的にtrueに設定。本番環境では適切な管理者チェックに置き換える
-  const isAdmin = true; // 開発用：全てのユーザーに管理者機能を表示
+  const isAdmin = false; // 管理者機能を非表示
   
   // メニュー項目コンポーネント
   const MenuItem = ({ icon, text, onPress, iconColor = "#4A6572" }: MenuItemProps) => (
@@ -156,6 +156,13 @@ export default function SettingsScreen() {
             text="プロフィール設定" 
             onPress={() => router.push('/profile')}
           />
+          
+          <MenuItem 
+            icon="payments" 
+            text="サブスクリプション管理" 
+            onPress={() => router.push('/subscription')}
+            iconColor="#4caf50"
+          />
         </View>
 
         {/* アプリ設定セクション */}
@@ -203,27 +210,6 @@ export default function SettingsScreen() {
             onPress={openSupport}
           />
         </View>
-
-        {/* 管理者向けセクション */}
-        {isAdmin && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>管理者機能</Text>
-            
-            <MenuItem 
-              icon="psychology" 
-              text="楽器ナレッジベース管理" 
-              onPress={() => router.push('/admin/knowledge-management' as any)}
-              iconColor="#E53935"
-            />
-            
-            <MenuItem 
-              icon="storage" 
-              text="データベース管理" 
-              onPress={() => router.push('/admin/db-migration' as any)}
-              iconColor="#E53935"
-            />
-          </View>
-        )}
 
         {/* ログアウトセクション */}
         <View style={styles.section}>

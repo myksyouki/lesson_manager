@@ -9,7 +9,7 @@ import TaskCompletionAnimation from '../features/tasks/components/TaskCompletion
 import { useFocusEffect } from '@react-navigation/native';
 import { auth } from '../config/firebase';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 // タスクタブのテーマカラー
 const TASK_THEME_COLOR = '#4CAF50';
@@ -30,6 +30,9 @@ export default function TaskScreen() {
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [totalCompleted, setTotalCompleted] = useState(0);
   const [totalTasks, setTotalTasks] = useState(0);
+  
+  // パラメータを取得（トップレベルに移動）
+  const params = useLocalSearchParams();
   
   // タスク完了ポップアップの状態
   const [completionPopup, setCompletionPopup] = useState({
@@ -64,8 +67,16 @@ export default function TaskScreen() {
     useCallback(() => {
       const refreshTasksOnFocus = async () => {
         try {
-          const userId = auth.currentUser?.uid || 'guest-user';
-          await fetchTasks(userId);
+          // トップレベルで取得したパラメータを使用
+          const isNewlyCreated = params.isNewlyCreated === 'true';
+          
+          if (isNewlyCreated) {
+            console.log('タスクタブ: 新規作成されたタスクがあるため再取得します');
+            const userId = auth.currentUser?.uid || 'guest-user';
+            await fetchTasks(userId);
+          } else {
+            console.log('タスクタブ: フォーカス時の自動更新はスキップします');
+          }
         } catch (error) {
           console.error('タスク更新エラー:', error);
         }
@@ -74,9 +85,9 @@ export default function TaskScreen() {
       refreshTasksOnFocus();
       
       return () => {
-        // クリーンアップ関数（必要に応じて）
+        // クリーンアップ関数
       };
-    }, [fetchTasks])
+    }, [fetchTasks, params.isNewlyCreated])
   );
 
   // タスクデータが変更されたときにカテゴリ情報を更新

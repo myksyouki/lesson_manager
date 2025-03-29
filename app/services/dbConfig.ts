@@ -30,16 +30,22 @@ export const initializeDatabaseStructure = async (): Promise<void> => {
     
     console.log('データベース構造の初期化完了: ユーザーベース');
     
-    // データベース設定をFirestoreに保存
-    try {
-      await setDoc(doc(db, CONFIG_COLLECTION, DB_STRUCTURE_DOC), {
-        useUserBasedStructure: true,
-        userBasedIndexesReady: true,
-        updatedAt: new Date()
-      });
-      console.log('データベース構造設定をFirestoreに保存しました');
-    } catch (createError: unknown) {
-      console.warn('設定ドキュメントの保存に失敗しました:', createError);
+    // ユーザーがログインしている場合のみFirestoreにデータを保存
+    const user = auth.currentUser;
+    if (user) {
+      // データベース設定をFirestoreに保存
+      try {
+        await setDoc(doc(db, CONFIG_COLLECTION, DB_STRUCTURE_DOC), {
+          useUserBasedStructure: true,
+          userBasedIndexesReady: true,
+          updatedAt: new Date()
+        });
+        console.log('データベース構造設定をFirestoreに保存しました');
+      } catch (createError: unknown) {
+        console.warn('設定ドキュメントの保存に失敗しました:', createError);
+      }
+    } else {
+      console.log('ユーザーがログインしていないため、設定はローカルのみに保存します');
     }
   } catch (error: unknown) {
     // エラーの詳細情報を出力
@@ -64,9 +70,17 @@ export const changeDatabaseStructure = async (_useUserBasedStructure: boolean): 
     const user = auth.currentUser;
     
     if (!user) {
-      throw new Error('ユーザーがログインしていません');
+      console.log('ユーザーがログインしていないため、設定はローカルのみに保存します');
+      // グローバル設定を更新
+      setUseUserBasedStructure(true);
+      setUserBasedIndexesReady(true);
+      
+      // 各サービスの設定を更新
+      updateAllServicesConfig(true);
+      return;
     }
     
+    // ユーザーがログインしている場合はFirestoreにも保存
     // 常にユーザーベース構造を使用するように設定
     await setDoc(doc(db, CONFIG_COLLECTION, DB_STRUCTURE_DOC), {
       useUserBasedStructure: true,

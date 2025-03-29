@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Task } from '../types/task';
+import { Task } from '../_ignore/types/_task';
 
 interface TaskCardProps {
   task: Task;
@@ -42,7 +42,7 @@ export default function TaskCard({ task }: TaskCardProps) {
       <Text style={styles.taskDescription} numberOfLines={2} ellipsizeMode="tail">
         {task.description}
       </Text>
-      <Text style={styles.taskDueDate}>期日: {task.dueDate}</Text>
+      <Text style={styles.taskDueDate}>期日: {typeof task.dueDate === 'string' ? task.dueDate : ''}</Text>
     </TouchableOpacity>
   );
 }
