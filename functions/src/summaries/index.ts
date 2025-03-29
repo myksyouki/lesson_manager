@@ -78,7 +78,6 @@ export const processAudioOnUpload = onObjectFinalized({
 
     // 処理結果のログ出力
     logProcessingResult(result, normalizedLessonId);
-    
   } catch (error) {
     const errorDetails = handleError(error);
     logger.error("Storage Triggerでエラーが発生しました", errorDetails);
@@ -127,7 +126,7 @@ function extractIdsFromPath(filePath: string): {userId: string; lessonId: string
   const pathParts = filePath.split("/");
   return {
     userId: pathParts[1],
-    lessonId: pathParts[2]
+    lessonId: pathParts[2],
   };
 }
 

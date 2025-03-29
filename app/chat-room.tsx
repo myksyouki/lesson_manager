@@ -24,6 +24,7 @@ import { Timestamp } from 'firebase/firestore';
 import ChatsHeader from './components/ui/ChatsHeader';
 import { ChatInput } from './features/chat/components/ChatInput';
 import { useFocusEffect } from 'expo-router';
+import { createTaskFromChatUsingFunction } from './services/taskService';
 
 // チャットルーム画面のメインコンポーネント
 export default function ChatRoomScreen() {
@@ -45,6 +46,8 @@ export default function ChatRoomScreen() {
   const [newTitle, setNewTitle] = useState('');
   const [newTopic, setNewTopic] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
 
   // パラメータの取得（トップレベルで一度だけ実行）
   const params = useLocalSearchParams();
@@ -450,6 +453,52 @@ export default function ChatRoomScreen() {
     </View>
   );
   
+  // チャット内容からタスクを作成する関数
+  const handleCreateTask = async () => {
+    try {
+      setCreatingTask(true);
+      
+      if (!chatRoom || !chatRoom.messages || chatRoom.messages.length === 0) {
+        Alert.alert('エラー', '会話内容からタスクを作成できません。メッセージがありません。');
+        return;
+      }
+      
+      // チャットルームの全メッセージを使用
+      const allMessages = chatRoom.messages;
+      
+      // タスク作成APIを呼び出し（クラウド関数を使用）
+      const result = await createTaskFromChatUsingFunction(
+        allMessages,
+        chatRoom.title,
+        chatRoom.topic
+      );
+      
+      if (result.success) {
+        Alert.alert(
+          'タスク作成完了',
+          'チャット内容からタスクを作成しました。タスクタブで確認できます。',
+          [
+            {
+              text: 'OK',
+              onPress: () => { /* 何もしない */ }
+            },
+            {
+              text: 'タスクを確認',
+              onPress: () => router.push('/tabs/task')
+            }
+          ]
+        );
+      } else {
+        throw new Error(result.message || 'タスク作成に失敗しました');
+      }
+    } catch (error) {
+      console.error('タスク作成エラー:', error);
+      Alert.alert('エラー', 'タスクの作成に失敗しました。後でもう一度お試しください。');
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -469,6 +518,7 @@ export default function ChatRoomScreen() {
         title={chatRoom?.title || 'チャット'} 
         onBackPress={() => router.back()} 
         onEditPress={handleOpenEditModal}
+        onExportPress={handleCreateTask}
       />
       
       <KeyboardAvoidingView

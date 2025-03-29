@@ -16,7 +16,7 @@ import {
   DIFY_API_ENDPOINT, 
   DIFY_API_KEY_SECRET, 
   PROJECT_ID, 
-  DIFY_APP_ID_SECRET
+  DIFY_APP_ID_SECRET,
 } from "../config";
 
 // 定数
@@ -61,7 +61,7 @@ export async function summarizeText(
       textLength: text.length,
       instrument,
       hasUserPrompt: !!userPrompt,
-      hasPieces: !!pieces
+      hasPieces: !!pieces,
     });
 
     // 入力の検証
@@ -88,7 +88,7 @@ export async function summarizeText(
 
     logger.info("テキスト要約完了", {
       summaryLength: summary.length,
-      instrument
+      instrument,
     });
 
     return {
@@ -132,17 +132,17 @@ async function getDifyCredentials(): Promise<DifyCredentials> {
     // APIキーとアプリIDの並行取得
     const [apiKey, appId] = await Promise.all([
       getSecret(DIFY_API_KEY_SECRET),
-      getSecret(DIFY_APP_ID_SECRET)
+      getSecret(DIFY_APP_ID_SECRET),
     ]);
     
     logger.info("Dify API認証情報の取得に成功");
-    return { apiKey, appId };
+    return {apiKey, appId};
   } catch (error) {
     logger.error("Dify API認証情報の取得に失敗:", error);
     throw createError(
       ErrorType.INTERNAL,
       "Dify API認証情報の取得に失敗しました",
-      { errorDetails: error instanceof Error ? error.message : String(error) }
+      {errorDetails: error instanceof Error ? error.message : String(error)}
     );
   }
 }
@@ -222,7 +222,7 @@ async function callDifyWithRetry(requestData: any, apiKey: string): Promise<stri
         logger.warn(`Dify API呼び出し失敗、${delay}ms後に再試行 (${attempt}/${MAX_RETRY_COUNT})`, 
           {error: lastError.message});
         
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }

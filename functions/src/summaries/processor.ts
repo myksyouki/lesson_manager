@@ -30,7 +30,7 @@ const PROGRESS = {
   TRANSCRIBE_END: 70,
   SUMMARIZE: 80,
   TAGS: 90,
-  COMPLETE: 100
+  COMPLETE: 100,
 };
 
 /**

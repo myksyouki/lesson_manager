@@ -20,6 +20,7 @@ import { Lesson } from './store/lessons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getUserInstrumentInfo } from './services/userProfileService';
 
 export default function GenerateTasksScreen() {
   const { lessonIds } = useLocalSearchParams();
@@ -122,15 +123,21 @@ export default function GenerateTasksScreen() {
       // Firebase Functions経由でタスク生成
       const generateTasksFromLessonsFunction = httpsCallable(functions, 'generateTasksFromLessons');
       
-      // ユーザーの楽器情報を取得（将来的に実装）
-      const instrument = "ピアノ"; // 現状は固定値、将来的にはユーザープロファイルから取得
+      // ユーザーの楽器情報を取得
+      const instrumentInfo = await getUserInstrumentInfo();
+      console.log('取得した楽器情報:', instrumentInfo);
+      
+      // ユーザーの楽器情報を使用
+      const instrument = instrumentInfo?.instrumentName || "ピアノ"; // 取得できない場合はデフォルト値を使用
       
       // Cloud Functionsを呼び出し
+      // v2関数ではrequestパラメータの形式が変わるためdata値を調整
       const result = await generateTasksFromLessonsFunction({
         lessons: lessonsData,
         instrument: instrument
       });
       
+      // v2の場合、result.dataのデータ構造に変更がある可能性があるため、より堅牢に処理
       console.log('タスク生成結果:', result.data);
       
       // 生成されたデータ
@@ -158,7 +165,8 @@ export default function GenerateTasksScreen() {
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 1週間後
         isCompleted: false,
         userId: user.uid,
-        tags: ["練習メニュー"] // タグを追加
+        tags: ["練習メニュー"], // タグを追加
+        priority: "medium"  // 必須フィールドを追加
       });
       
       setGeneratedTaskId(taskId);

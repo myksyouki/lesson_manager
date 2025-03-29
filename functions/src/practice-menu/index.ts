@@ -2,11 +2,12 @@
  * 練習メニュー生成用のCloud Functions
  */
 
-import * as functions from "firebase-functions/v1";
+import {onCall} from "firebase-functions/v2/https";
 import axios from "axios";
 import {
   FUNCTION_REGION,
   INSTRUMENT_DIFY_CONFIGS,
+  DEFAULT_TIMEOUT,
 } from "../config";
 import {getSecret} from "../common/secret";
 import {ErrorType, createError} from "../common/errors";
@@ -15,17 +16,23 @@ import {ErrorType, createError} from "../common/errors";
  * レッスンデータからタスクを生成するためのCloud Function
  * レッスンの要約情報を元に練習タスクを生成します
  */
-export const generateTasksFromLessons = functions
-  .region(FUNCTION_REGION)
-  .https.onCall(async (data, context) => {
-    // 認証チェック
-    if (!context.auth) {
+export const generateTasksFromLessons = onCall(
+  {
+    region: FUNCTION_REGION,
+    memory: "4GiB",
+    timeoutSeconds: DEFAULT_TIMEOUT,
+    maxInstances: 10,
+  },
+  async (request) => {
+    // 認証チェック - v2では新しい方法で認証情報にアクセス
+    if (!request.auth) {
       throw createError(
         ErrorType.UNAUTHENTICATED,
         "この機能を使用するにはログインが必要です"
       );
     }
 
+    const data = request.data;
     // リクエストのバリデーション
     if (!data || !data.lessons || !Array.isArray(data.lessons) || data.lessons.length === 0) {
       throw createError(
@@ -68,7 +75,7 @@ export const generateTasksFromLessons = functions
           },
           query: prompt,
           response_mode: "blocking",
-          user: context.auth.uid, // 認証済みユーザーIDを使用
+          user: request.auth.uid, // 認証済みユーザーIDを使用
           app_id: appId, // アプリIDを追加
         },
         {

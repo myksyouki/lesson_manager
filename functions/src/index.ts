@@ -15,7 +15,6 @@ import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
 import axios from "axios";
 
 // プロジェクトモジュール
-import {processAudioOnUpload} from "./summaries";
 import {generateTasksFromLessons} from "./practice-menu";
 
 // Firebaseの初期化（まだ初期化されていない場合）
@@ -158,7 +157,6 @@ export const sendMessage = onCall(
 
       // Dify API呼び出し
       return await callDifyAPI(data, instrumentName, authUid);
-      
     } catch (error: any) {
       // エラー処理を一貫化
       logger.error("処理エラー:", error);
@@ -170,48 +168,142 @@ export const sendMessage = onCall(
       throw new HttpsError(
         "internal",
         error instanceof Error ? error.message : "メッセージの送信に失敗しました",
-        { original: String(error) }
+        {original: String(error)}
       );
     }
   },
 );
 
 /**
- * テストモードのレスポンスを処理
+ * レッスンからタスクを作成するCloud Function
  */
-async function handleTestModeResponse(data: any, userId: string): Promise<any> {
-  logger.info("テストモードでエコー応答を返します (isTestMode=true)");
+export const createTaskFromLesson = onCall(
+  {
+    enforceAppCheck: false,
+    cors: true,
+    memory: "256MiB",
+    invoker: "public",
+    region: "asia-northeast1",
+  },
+  async (request) => {
+    const data: any = request.data;
+    
+    try {
+      // パラメータをログに出力
+      logger.info("createTaskFromLesson関数が呼び出されました", {
+        lessonId: data.lessonId || "(なし)",
+        lessonSummary: data.summary ? "有り" : "(なし)",
+        instrument: data.instrument || "(なし)",
+        auth: request.auth ? "認証済み" : "未認証",
+      });
+
+      // 認証必須の処理
+      if (!request.auth) {
+        logger.error("認証されていないユーザーからのリクエストを拒否しました");
+        throw new HttpsError(
+          "unauthenticated",
+          "この機能を使用するには認証が必要です"
+        );
+      }
+
+      // 認証ユーザーのIDを記録
+      const authUid = request.auth.uid;
+      logger.info("認証ユーザーID:", authUid);
+      
+      // 必須パラメータの検証
+      if (!data.summary) {
+        throw new HttpsError(
+          "invalid-argument", 
+          "レッスンの要約が必要です"
+        );
+      }
+
+      // 楽器情報の取得
+      const instrumentName = await getInstrumentFromProfile(request.auth.uid, data.instrument);
+
+      // タスク作成のプロンプトを作成
+      const prompt = createTaskPromptFromLesson(data.summary, instrumentName, data.pieces, data.teacher);
+
+      // Dify API呼び出しの準備
+      const taskData = {
+        message: prompt,
+        conversationId: data.conversationId || "",
+      };
+
+      // Dify API呼び出し
+      const apiResponse = await callDifyAPI(taskData, instrumentName, authUid);
+      
+      // 成功レスポンスを返す
+      return {
+        success: true,
+        tasks: apiResponse.answer,
+        conversationId: apiResponse.conversationId || "",
+      };
+    } catch (error: any) {
+      // エラー処理を一貫化
+      logger.error("タスク作成中のエラー:", error);
+      
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      
+      throw new HttpsError(
+        "internal",
+        error instanceof Error ? error.message : "タスク作成に失敗しました",
+        {original: String(error)}
+      );
+    }
+  },
+);
+
+/**
+ * レッスンからタスク作成用のプロンプトを作成
+ */
+function createTaskPromptFromLesson(summary: string, instrument: string, pieces: string[] = [], teacher = ""): string {
+  // プロンプトを作成
+  let prompt = `以下のレッスン情報に基づいて、${instrument}の練習タスクを作成してください。\n\n`;
   
-  try {
-    // 少し待機してテスト処理をシミュレート
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    
-    // テスト用のレスポンスを構築
-    const testResponse = {
-      success: true,
-      answer: `テストレスポンス: ${data.message} (roomId: ${data.roomId}, instrument: ${data.instrument || "なし"})`,
-      conversationId: data.conversationId || "test-conversation-id",
-      testInfo: {
-        timestamp: new Date().toISOString(),
-        params: {
-          messageLength: data.message.length,
-          hasRoomId: !!data.roomId,
-          hasInstrument: !!data.instrument,
-          hasConversationId: !!data.conversationId,
-        },
-      },
-    };
-    
-    logger.info("テストモードレスポンス:", testResponse);
-    return testResponse;
-  } catch (testError) {
-    logger.error("テストモード処理エラー:", testError);
-    throw new HttpsError(
-      "internal",
-      `テストモード処理中にエラーが発生しました: ${testError instanceof Error ? testError.message : "不明なエラー"}`,
-      {testMode: true}
-    );
+  if (teacher) {
+    prompt += `講師: ${teacher}\n`;
   }
+  
+  if (pieces && pieces.length > 0) {
+    prompt += `曲目: ${pieces.join(", ")}\n`;
+  }
+  
+  prompt += `レッスン要約: ${summary}\n\n`;
+  
+  prompt += `上記のレッスン内容から、効果的な練習タスクを作成してください。
+各タスクは以下の形式でマークダウン形式で返してください：
+
+# タスク名1
+タスクの詳細な説明
+
+# タスク名2
+タスクの詳細な説明
+
+...
+
+タスクは3〜5個程度作成し、それぞれが具体的で実行可能なものにしてください。
+レッスンで指摘された問題点や練習すべきポイントに焦点を当ててください。`;
+
+  return prompt;
+}
+
+/**
+ * テストモード用のレスポンス
+ */
+async function handleTestModeResponse(data: any, /* Unused parameter */ _: string): Promise<any> {
+  logger.info("テストモードでリクエストを処理:", {
+    message: data.message.substring(0, 30) + "...",
+    conversationId: data.conversationId,
+  });
+
+  return {
+    success: true,
+    answer: `[テストモード] あなたのメッセージ「${data.message}」を受け取りました。これはテストレスポンスです。`,
+    conversationId: data.conversationId || "test-conversation-id",
+  };
 }
 
 /**
@@ -236,7 +328,7 @@ function validateMessageParams(data: any): void {
 /**
  * ユーザープロファイルから楽器情報を取得
  */
-async function getInstrumentFromProfile(userId: string, defaultInstrument: string = ""): Promise<string> {
+async function getInstrumentFromProfile(userId: string, defaultInstrument = ""): Promise<string> {
   let instrumentFromProfile = "";
   
   try {
@@ -285,7 +377,7 @@ async function callDifyAPI(data: any, instrumentName: string, userId: string): P
       apiKeyLength: apiKey.length, 
       apiKeyPrefix: apiKey.substring(0, 4), 
       appIdLength: appId.length, 
-      appIdPrefix: appId.substring(0, 4)
+      appIdPrefix: appId.substring(0, 4),
     });
     
     logger.info("Dify API呼び出しを開始します...");
@@ -407,7 +499,6 @@ async function callDifyChat(apiKey: string, appId: string, data: any, instrument
 }
 
 // Firebase Cloud Functions エクスポート
-export {processAudioOnUpload};
 export {generateTasksFromLessons};
 
 // 他のモジュールで必要な関数をエクスポート

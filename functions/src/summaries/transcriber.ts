@@ -55,7 +55,7 @@ export async function transcribeAudio(
   try {
     logger.info(`${filePaths.length}個のファイルの文字起こしを開始`, {
       fileCount: filePaths.length,
-      firstFile: filePaths.length > 0 ? path.basename(filePaths[0]) : "なし"
+      firstFile: filePaths.length > 0 ? path.basename(filePaths[0]) : "なし",
     });
 
     // 入力の検証
@@ -71,7 +71,7 @@ export async function transcribeAudio(
     const fullText = transcriptions.join("\n\n");
     logger.info("すべてのファイルの文字起こしが完了", {
       totalTextLength: fullText.length,
-      fileCount: filePaths.length
+      fileCount: filePaths.length,
     });
 
     return {
@@ -137,7 +137,7 @@ async function processAllFiles(
 
     logger.info(`ファイル ${i + 1}/${filePaths.length} の文字起こし完了`, {
       fileName: path.basename(filePaths[i]),
-      textLength: text.length
+      textLength: text.length,
     });
   }
 
@@ -175,7 +175,7 @@ async function transcribeWithRetry(filePath: string, apiKey: string): Promise<st
         logger.warn(`文字起こし失敗、${delay}ms後に再試行 (${attempt}/${MAX_RETRY_COUNT}): ${path.basename(filePath)}`, 
           {error: lastError.message});
         
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
@@ -193,7 +193,7 @@ async function transcribeSingleFile(
 ): Promise<string> {
   try {
     logger.info(`ファイルを文字起こし: ${path.basename(filePath)}`, {
-      fileSize: fs.statSync(filePath).size
+      fileSize: fs.statSync(filePath).size,
     });
 
     // FormDataを作成
@@ -250,7 +250,7 @@ function handleAxiosError(error: any, filePath: string): never {
   logger.error(`Whisper API エラー: ${status} - ${detail}`, {
     filePath: path.basename(filePath),
     status,
-    responseData: error.response?.data
+    responseData: error.response?.data,
   });
 
   // エラータイプの判定

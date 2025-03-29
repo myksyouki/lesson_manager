@@ -312,19 +312,91 @@ export default function LessonDetail() {
 
   // AIに相談画面へ遷移
   const handleChat = () => {
-    // AIチャットへ遷移時にレッスンIDとサマリー情報も一緒に渡す
-    setShowExportModal(false);
-    // モーダルが完全に閉じてから遷移するために少し遅延させる
-    setTimeout(() => {
+    if (currentLesson?.summary) {
       router.push({
-        pathname: '/consult-ai' as any,
-        params: { 
-          lessonIds: lessonId,
-          summaryContext: formData.summary ? encodeURIComponent(formData.summary) : '',
-          initialPrompt: encodeURIComponent(`このレッスンの内容について詳しく教えてください。特に「${formData.pieces?.join('、')}」の演奏のポイントについてアドバイスが欲しいです。`)
+        pathname: '/consult-ai',
+        params: {
+          lessonIds: JSON.stringify([lessonId]),
+          summaryContext: currentLesson.summary,
+          initialPrompt: `このレッスンについて質問があります。${currentLesson.pieces && currentLesson.pieces.length > 0 ? '曲目は ' + currentLesson.pieces.join(', ') + ' です。' : ''}`
         }
       });
-    }, 300); // 300ミリ秒の遅延
+    } else {
+      Alert.alert('エラー', 'このレッスンはAIチャットに使用できません。サマリーがありません。');
+    }
+  };
+  
+  /**
+   * AIでタスクを生成する
+   */
+  const handleGenerateTasks = async () => {
+    try {
+      // 認証確認
+      if (!auth.currentUser) {
+        Alert.alert('エラー', 'タスク生成にはログインが必要です');
+        return;
+      }
+      
+      // サマリーがあるか確認
+      if (!currentLesson?.summary) {
+        Alert.alert('エラー', 'タスク生成にはレッスンのサマリーが必要です');
+        return;
+      }
+      
+      // 確認ダイアログを表示
+      Alert.alert(
+        'タスクを生成',
+        'このレッスンからAIを使用して練習タスクを生成しますか？',
+        [
+          {
+            text: 'キャンセル',
+            style: 'cancel'
+          },
+          {
+            text: '生成する',
+            onPress: async () => {
+              try {
+                // ローディング表示
+                Alert.alert('処理中', 'タスクを生成しています...');
+                
+                // タスク生成サービスの呼び出し
+                const { createTaskFromLessonSummary } = require('../services/taskService');
+                
+                // レッスンデータ
+                const tasks = await createTaskFromLessonSummary(
+                  lessonId,
+                  currentLesson.summary || '',
+                  currentLesson.pieces || [],
+                  currentLesson.teacherName || ''
+                );
+                
+                // 成功アラート
+                Alert.alert(
+                  '生成完了',
+                  `${tasks.length}個のタスクを生成しました`,
+                  [
+                    {
+                      text: 'タスク一覧を見る',
+                      onPress: () => router.push('/tabs/task')
+                    },
+                    {
+                      text: 'OK',
+                      style: 'cancel'
+                    }
+                  ]
+                );
+              } catch (error) {
+                console.error('タスク生成エラー:', error);
+                Alert.alert('エラー', 'タスクの生成に失敗しました');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('タスク生成ボタン処理エラー:', error);
+      Alert.alert('エラー', 'タスク生成の準備に失敗しました');
+    }
   };
 
   const toggleArchive = async () => {

@@ -46,7 +46,7 @@ export async function generateTags(
     logger.info("タグ生成を開始", {
       textLength: text?.length || 0,
       summaryLength: summary?.length || 0,
-      instrument
+      instrument,
     });
 
     // 入力の検証
@@ -108,7 +108,7 @@ function prepareContent(text: string, summary: string): string {
   // 要約がない場合はテキストを使用（長すぎる場合は切り詰め）
   logger.info("テキストをタグ生成の入力として使用します", {
     originalLength: text.length,
-    truncatedLength: Math.min(text.length, MAX_TEXT_LENGTH)
+    truncatedLength: Math.min(text.length, MAX_TEXT_LENGTH),
   });
   
   return text.substring(0, Math.min(text.length, MAX_TEXT_LENGTH));
@@ -156,7 +156,7 @@ async function generateTagsWithRetry(prompt: string, apiKey: string): Promise<st
         logger.warn(`Gemini API呼び出し失敗、${delay}ms後に再試行 (${attempt}/${MAX_RETRY_COUNT})`, 
           {error: lastError.message});
         
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
@@ -181,7 +181,7 @@ async function callGeminiAPI(prompt: string, apiKey: string): Promise<string[]> 
     const responseText = response.text();
 
     logger.info("Gemini APIからの応答を受信", {
-      responseLength: responseText.length
+      responseLength: responseText.length,
     });
 
     // レスポンスからタグを抽出

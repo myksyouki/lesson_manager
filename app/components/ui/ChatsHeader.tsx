@@ -7,9 +7,10 @@ interface ChatsHeaderProps {
   title: string;
   onBackPress?: () => void;
   onEditPress?: () => void;
+  onExportPress?: () => void;
 }
 
-const ChatsHeader: React.FC<ChatsHeaderProps> = ({ title, onBackPress, onEditPress }) => {
+const ChatsHeader: React.FC<ChatsHeaderProps> = ({ title, onBackPress, onEditPress, onExportPress }) => {
   const router = useRouter();
 
   const handleBackPress = () => {
@@ -28,11 +29,18 @@ const ChatsHeader: React.FC<ChatsHeaderProps> = ({ title, onBackPress, onEditPre
       <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
         {title}
       </Text>
-      {onEditPress && (
-        <TouchableOpacity onPress={onEditPress} style={styles.editButton}>
-          <MaterialIcons name="edit" size={24} color="#007AFF" />
-        </TouchableOpacity>
-      )}
+      <View style={styles.buttonContainer}>
+        {onExportPress && (
+          <TouchableOpacity onPress={onExportPress} style={styles.actionButton}>
+            <Ionicons name="checkbox-outline" size={24} color="#007AFF" />
+          </TouchableOpacity>
+        )}
+        {onEditPress && (
+          <TouchableOpacity onPress={onEditPress} style={styles.actionButton}>
+            <MaterialIcons name="edit" size={24} color="#007AFF" />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 };
@@ -57,8 +65,12 @@ const styles = StyleSheet.create({
     color: '#000000',
     marginLeft: 8,
   },
-  editButton: {
+  buttonContainer: {
+    flexDirection: 'row',
+  },
+  actionButton: {
     padding: 8,
+    marginLeft: 4,
   },
 });
 

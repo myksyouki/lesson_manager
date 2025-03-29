@@ -1,6 +1,7 @@
+import { auth, db } from '../config/firebase';
 import { collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where, orderBy, serverTimestamp, Timestamp, deleteDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { Task } from '../types/_task';
+import { Task } from '../_ignore/types/_task';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // ユーザーベース構造を常に使用する
 let useNewStructure = true;
@@ -205,5 +206,370 @@ export const deleteTask = async (taskId: string, userId: string): Promise<void> 
   } catch (error) {
     console.error('タスク削除中にエラーが発生しました:', error);
     throw new Error('タスクの削除に失敗しました。後でもう一度お試しください。');
+  }
+};
+
+const functions = getFunctions();
+
+// レッスンからAIを使用してタスクを生成し保存する
+export const createTaskFromLessonSummary = async (
+  lessonId: string,
+  summary: string,
+  pieces: string[] = [],
+  teacher: string = ""
+): Promise<Task[]> => {
+  try {
+    console.log('レッスンからのタスク作成開始:', { lessonId, summary: summary.substring(0, 50) + '...' });
+    
+    // 現在のユーザーIDを取得
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      console.error('ユーザーが認証されていません');
+      throw new Error('認証が必要です。ログインしてください。');
+    }
+    
+    // Cloud Function呼び出し
+    const createTaskFunction = httpsCallable(functions, 'createTaskFromLesson');
+    
+    // Cloud Functionに送信するデータ
+    const functionData = {
+      lessonId,
+      summary,
+      pieces,
+      teacher
+    };
+    
+    // Cloud Function呼び出し
+    console.log('Cloud Function呼び出し準備:', functionData);
+    const result = await createTaskFunction(functionData);
+    console.log('Cloud Function応答:', result.data);
+    
+    // レスポンスデータの取得
+    const responseData = result.data as { 
+      success: boolean;
+      tasks: string;
+      conversationId: string;
+    };
+    
+    if (!responseData.success) {
+      throw new Error('タスク生成に失敗しました');
+    }
+    
+    // タスクテキストをパースして個別のタスクに分割
+    const taskTexts = parseTasksFromMarkdown(responseData.tasks);
+    console.log(`${taskTexts.length}個のタスクを検出しました`);
+    
+    // 各タスクをFirestoreに保存
+    const createdTasks: Task[] = [];
+    
+    for (const task of taskTexts) {
+      // タスクデータを作成
+      const taskData = {
+        title: task.title,
+        description: task.description,
+        dueDate: '',  // 期日は未設定
+        isCompleted: false,
+        userId,
+        lessonId, // 関連するレッスンID
+        tags: [], // タグは未設定
+        attachments: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        source: 'ai-lesson-task'
+      };
+      
+      // ユーザーベース構造でタスクを作成
+      const docRef = await addDoc(collection(db, `users/${userId}/tasks`), taskData);
+      
+      console.log('タスク保存成功:', docRef.id);
+      
+      // 作成したタスクを配列に追加
+      createdTasks.push({
+        id: docRef.id,
+        ...taskData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    
+    console.log(`${createdTasks.length}個のタスクを作成しました`);
+    return createdTasks;
+  } catch (error) {
+    console.error('レッスンからのタスク作成中にエラーが発生しました:', error);
+    throw error;
+  }
+};
+
+/**
+ * マークダウン形式のタスクテキストをパースして個別のタスクに分割する
+ */
+function parseTasksFromMarkdown(markdown: string): Array<{ title: string; description: string }> {
+  const tasks: Array<{ title: string; description: string }> = [];
+  
+  // # で始まる行でタスクを分割
+  const taskBlocks = markdown.split(/(?=^# )/gm);
+  
+  for (const block of taskBlocks) {
+    // 空のブロックをスキップ
+    if (!block.trim()) continue;
+    
+    // 各ブロックを行に分割
+    const lines = block.trim().split('\n');
+    
+    // 最初の行がタイトル (# から始まる)
+    let title = lines[0].replace(/^#+\s*/, '').trim();
+    
+    // 残りの行が説明
+    const description = lines.slice(1).join('\n').trim();
+    
+    // title が空の場合はスキップ
+    if (!title) continue;
+    
+    tasks.push({ title, description });
+  }
+  
+  return tasks;
+}
+
+// チャットからタスクを生成する
+export const createTaskFromChat = async (
+  messageContent: string,
+  chatTitle: string,
+  chatTopic: string
+): Promise<{ success: boolean; message?: string; taskIds?: string[] }> => {
+  try {
+    console.log('チャットからのタスク作成開始:', { 
+      messageContent: messageContent.substring(0, 50) + '...',
+      chatTitle,
+      chatTopic
+    });
+    
+    // 現在のユーザーIDを取得
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      console.error('ユーザーが認証されていません');
+      return { success: false, message: '認証が必要です。ログインしてください。' };
+    }
+    
+    // 内容からタスクに変換
+    const taskItems = parseTasksFromMessageContent(messageContent);
+    
+    if (taskItems.length === 0) {
+      return { success: false, message: 'メッセージからタスクを抽出できませんでした。' };
+    }
+    
+    // タスクを保存
+    const taskIds: string[] = [];
+    
+    for (const item of taskItems) {
+      const taskData = {
+        title: item.title,
+        description: item.description,
+        dueDate: '',
+        isCompleted: false,
+        userId,
+        tags: ['AI', 'チャット'],
+        source: 'chat',
+        chatTitle,
+        chatTopic,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      
+      // ユーザーベース構造でタスクを作成
+      const docRef = await addDoc(collection(db, `users/${userId}/tasks`), taskData);
+      taskIds.push(docRef.id);
+      
+      console.log('タスク保存成功:', docRef.id);
+    }
+    
+    console.log(`${taskIds.length}個のタスクを作成しました`);
+    return {
+      success: true,
+      taskIds,
+      message: `${taskIds.length}個のタスクを作成しました`
+    };
+  } catch (error) {
+    console.error('チャットからのタスク作成中にエラーが発生しました:', error);
+    return {
+      success: false,
+      message: 'タスク作成に失敗しました。後でもう一度お試しください。'
+    };
+  }
+};
+
+// AIメッセージ内容からタスクを抽出する
+function parseTasksFromMessageContent(messageContent: string): Array<{ title: string; description: string }> {
+  const tasks: Array<{ title: string; description: string }> = [];
+  
+  // 行ごとに分割
+  const lines = messageContent.split('\n');
+  
+  let currentTitle = '';
+  let currentDescription = '';
+  let inTaskSection = false;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // 空行は無視
+    if (line.length === 0) continue;
+    
+    // タスクのセクション/項目を示す可能性がある行を探す
+    if (line.match(/^([1-9][0-9]*\.|[-•*]|タスク|練習項目|課題|練習課題|次回までの課題)/i)) {
+      // 前のタスクがあれば保存
+      if (currentTitle) {
+        tasks.push({
+          title: currentTitle,
+          description: currentDescription.trim()
+        });
+      }
+      
+      // 新しいタスクのタイトル
+      // 番号/記号を削除してタイトルだけを取り出す
+      currentTitle = line.replace(/^([1-9][0-9]*\.|-|•|\*|タスク|練習項目|課題|練習課題|次回までの課題):?\s*/i, '');
+      currentDescription = '';
+      inTaskSection = true;
+    } 
+    // タスクセクション内の追加情報の行
+    else if (inTaskSection) {
+      // 次のタスク項目でなければ、現在のタスクの説明に追加
+      currentDescription += line + '\n';
+    }
+  }
+  
+  // 最後のタスクを追加
+  if (currentTitle) {
+    tasks.push({
+      title: currentTitle,
+      description: currentDescription.trim()
+    });
+  }
+  
+  // タスクが見つからなかった場合、メッセージ全体を単一のタスクとして扱う
+  if (tasks.length === 0 && messageContent.trim().length > 0) {
+    // 最初の行または「」を含む行をタイトルとして使用
+    const lines = messageContent.trim().split('\n');
+    let title = lines[0];
+    
+    // タイトルとして先頭行が長すぎる場合は切り詰める
+    if (title.length > 50) {
+      title = title.substring(0, 47) + '...';
+    }
+    
+    tasks.push({
+      title,
+      description: messageContent.trim()
+    });
+  }
+  
+  return tasks;
+}
+
+// チャットルームのメッセージからCloud Functionを使ってタスクを生成する
+export const createTaskFromChatUsingFunction = async (
+  messages: { sender: string; content: string; timestamp?: any }[],
+  chatTitle: string,
+  chatTopic: string
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    console.log('チャットからのタスク作成開始 (Cloud Function):', { 
+      messageCount: messages.length,
+      chatTitle,
+      chatTopic
+    });
+    
+    // 現在のユーザーIDを取得
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      console.error('ユーザーが認証されていません');
+      return { success: false, message: '認証が必要です。ログインしてください。' };
+    }
+
+    // チャット履歴をフォーマット
+    const formattedHistory = messages.map(msg => {
+      const role = msg.sender === 'user' ? 'ユーザー' : 'AI';
+      return `${role}: ${msg.content}`;
+    }).join('\n\n');
+
+    // Cloud Function呼び出し
+    const createTaskFunction = httpsCallable(functions, 'createTaskFromLesson');
+    
+    // Cloud Functionに送信するデータ
+    const functionData = {
+      summary: formattedHistory,
+      pieces: [],
+      chatTitle,
+      chatTopic,
+      isFromChat: true
+    };
+    
+    // Cloud Function呼び出し
+    console.log('Cloud Function呼び出し準備:', {
+      ...functionData,
+      summaryLength: functionData.summary.length
+    });
+    const result = await createTaskFunction(functionData);
+    console.log('Cloud Function応答:', result.data);
+    
+    // レスポンスデータの取得
+    const responseData = result.data as { 
+      success: boolean;
+      tasks: string;
+      conversationId: string;
+    };
+    
+    if (!responseData.success) {
+      return { success: false, message: 'タスク生成に失敗しました' };
+    }
+
+    // タスクテキストをパースして個別のタスクに分割
+    const taskTexts = parseTasksFromMarkdown(responseData.tasks);
+    console.log(`${taskTexts.length}個のタスクを検出しました`);
+    
+    // 各タスクをFirestoreに保存
+    const createdTasks: Task[] = [];
+    
+    for (const task of taskTexts) {
+      // タスクデータを作成
+      const taskData = {
+        title: task.title,
+        description: task.description,
+        dueDate: '',  // 期日は未設定
+        isCompleted: false,
+        userId,
+        chatTitle,
+        chatTopic,
+        tags: ['AI', 'チャット'],
+        attachments: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        source: 'ai-chat-task'
+      };
+      
+      // ユーザーベース構造でタスクを作成
+      const docRef = await addDoc(collection(db, `users/${userId}/tasks`), taskData);
+      
+      console.log('タスク保存成功:', docRef.id);
+      
+      // 作成したタスクを配列に追加
+      createdTasks.push({
+        id: docRef.id,
+        ...taskData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    
+    return { 
+      success: true, 
+      message: `${createdTasks.length}個のタスクを作成しました`
+    };
+  } catch (error) {
+    console.error('チャットからのタスク作成中にエラーが発生しました:', error);
+    return { 
+      success: false, 
+      message: 'タスク作成に失敗しました。後でもう一度お試しください。' 
+    };
   }
 };
