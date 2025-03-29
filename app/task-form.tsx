@@ -18,11 +18,6 @@ import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useTaskStore } from './store/tasks';
 import { useAuthStore } from './store/auth';
 import { Task } from './types/task';
-import { 
-  generatePracticeMenu, 
-  PracticeMenuRequest, 
-  PracticeMenuItem 
-} from './services/practiceMenuService';
 import { getCurrentUserProfile } from './services/userProfileService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -32,6 +27,22 @@ const SKILL_LEVELS = ['初心者', '中級者', '上級者'];
 
 // 練習メニュー生成のためのフォームデータの初期値
 const DEFAULT_PRACTICE_DURATION = 60; // デフォルトの練習時間（分）
+
+// 削除されたPracticeMenuServiceの型定義の代替
+interface PracticeMenuItem {
+  title: string;
+  description: string;
+  duration: number;
+  category?: string;
+}
+
+interface PracticeMenuRequest {
+  instrument: string;
+  skill_level: string;
+  practice_duration: number;
+  practice_content?: string;
+  specific_goals?: string;
+}
 
 export default function PracticeMenuGenerator() {
   const params = useLocalSearchParams<{ 
@@ -133,49 +144,12 @@ export default function PracticeMenuGenerator() {
 
   // 練習メニューの生成
   const handleGenerateMenu = async () => {
-    if (!formData.instrument) {
-      Alert.alert('エラー', '楽器情報が取得できません。楽器設定を確認してください');
-      return;
-    }
-    
-    if (!formData.practice_content || formData.practice_content.trim() === '') {
-      Alert.alert('エラー', '練習したい内容を入力してください');
-      return;
-    }
-
-    try {
-      setIsGenerating(true);
-      setGeneratedMenu([]);
-      setMenuSummary('');
-
-      console.log('練習メニュー生成開始:', formData);
-      
-      // APIを使用して練習メニューを生成
-      const response = await generatePracticeMenu(formData);
-      
-      console.log('練習メニュー生成成功:', response);
-      
-      setGeneratedMenu(response.practice_menu);
-      setMenuSummary(response.summary);
-      
-      setIsGenerating(false);
-    } catch (error: any) {
-      console.error('練習メニュー生成エラー:', error);
-      
-      // エラーメッセージを取得
-      const errorMessage = error.message || '練習メニューの生成に失敗しました';
-      
-      // FirebaseFunctionsError からのエラーコードを取得
-      const errorCode = error.code ? `(コード: ${error.code})` : '';
-      
-      Alert.alert(
-        'エラー', 
-        `${errorMessage} ${errorCode}\n\n開発者に問い合わせてください。`,
-        [{ text: 'OK' }]
-      );
-      
-      setIsGenerating(false);
-    }
+    // この機能は現在利用できないことを通知
+    Alert.alert(
+      '機能停止のお知らせ',
+      '申し訳ありませんが、練習メニュー生成機能は現在ご利用いただけません。開発者にお問い合わせください。',
+      [{ text: 'OK' }]
+    );
   };
 
   // スキルレベルを選択
@@ -198,135 +172,130 @@ export default function PracticeMenuGenerator() {
             <Ionicons name="arrow-back" size={26} color="#007AFF" />
           </TouchableOpacity>
           <Text style={styles.title}>練習メニュー作成</Text>
+          
+          {/* 削除機能：保存ボタンは維持 */}
+          {generatedMenu.length > 0 && (
+            <TouchableOpacity 
+              style={styles.saveButton}
+              onPress={handleSaveTasks}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.saveButtonText}>保存</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
 
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.loadingText}>タスクを保存中...</Text>
-          </View>
-        ) : (
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-            {!generatedMenu.length ? (
-              // 練習メニュー生成フォーム
-              <View style={styles.form}>
-                <View style={styles.formCard}>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>スキルレベル <Text style={styles.required}>*</Text></Text>
-                    <View style={styles.pillContainer}>
-                      {SKILL_LEVELS.map(level => (
-                        <TouchableOpacity
-                          key={level}
-                          style={[
-                            styles.pill,
-                            formData.skill_level === level && styles.pillSelected
-                          ]}
-                          onPress={() => selectSkillLevel(level)}
-                        >
-                          <Text style={[
-                            styles.pillText,
-                            formData.skill_level === level && styles.pillTextSelected
-                          ]}>
-                            {level}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>練習したい内容 <Text style={styles.required}>*</Text></Text>
-                    <TextInput
-                      style={styles.input}
-                      value={formData.practice_content}
-                      onChangeText={(text) => {
-                        const limitedText = text.slice(0, 20);
-                        setFormData({ ...formData, practice_content: limitedText });
-                      }}
-                      placeholder="例: 高音域の安定性、タンギング"
-                      maxLength={20}
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>具体的な目標（任意）</Text>
-                    <TextInput
-                      style={[styles.input, styles.textArea]}
-                      value={formData.specific_goals}
-                      onChangeText={(text) => setFormData({ ...formData, specific_goals: text })}
-                      placeholder="具体的な目標を入力（例: コンクールの準備、アンサンブルの練習など）"
-                      multiline
-                      numberOfLines={4}
-                      textAlignVertical="top"
-                    />
-                  </View>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {!generatedMenu.length ? (
+            // 練習メニュー生成フォーム
+            <View style={styles.form}>
+              <View style={styles.formCard}>
+                <View style={styles.noticeContainer}>
+                  <FontAwesome5 name="exclamation-triangle" size={24} color="#ff9500" />
+                  <Text style={styles.noticeText}>
+                    この機能は現在メンテナンス中です。申し訳ありませんが、しばらくお待ちください。
+                  </Text>
                 </View>
-
-                <TouchableOpacity 
-                  style={styles.generateButton}
-                  onPress={handleGenerateMenu}
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  ) : (
-                    <>
-                      <MaterialIcons name="auto-fix-high" size={24} color="#ffffff" />
-                      <Text style={styles.generateButtonText}>練習メニューを生成</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : (
-              // 生成された練習メニューの表示
-              <View style={styles.generatedMenuContainer}>
-                <View style={styles.summaryContainer}>
-                  <Text style={styles.summaryTitle}>練習メニューの概要</Text>
-                  <Text style={styles.summaryText}>{menuSummary}</Text>
-                </View>
-
-                <Text style={styles.menuSectionTitle}>練習メニュー項目</Text>
                 
-                {generatedMenu.map((item, index) => (
-                  <View key={index} style={styles.menuItem}>
-                    <View style={styles.menuItemHeader}>
-                      <Text style={styles.menuItemTitle}>{item.title}</Text>
-                      <View style={styles.menuItemMeta}>
-                        <Text style={styles.menuItemDuration}>{item.duration}分</Text>
-                        {item.category && (
-                          <View style={styles.categoryPill}>
-                            <Text style={styles.categoryText}>{item.category}</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                    <Text style={styles.menuItemDescription}>{item.description}</Text>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>スキルレベル <Text style={styles.required}>*</Text></Text>
+                  <View style={styles.pillContainer}>
+                    {SKILL_LEVELS.map(level => (
+                      <TouchableOpacity
+                        key={level}
+                        style={[
+                          styles.pill,
+                          formData.skill_level === level && styles.pillSelected
+                        ]}
+                        onPress={() => selectSkillLevel(level)}
+                      >
+                        <Text style={[
+                          styles.pillText,
+                          formData.skill_level === level && styles.pillTextSelected
+                        ]}>
+                          {level}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                ))}
+                </View>
 
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity
-                    style={styles.backToFormButton}
-                    onPress={() => {
-                      setGeneratedMenu([]);
-                      setMenuSummary('');
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>練習したい内容 <Text style={styles.required}>*</Text></Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.practice_content}
+                    onChangeText={(text) => {
+                      const limitedText = text.slice(0, 20);
+                      setFormData({ ...formData, practice_content: limitedText });
                     }}
-                  >
-                    <Text style={styles.backToFormButtonText}>やり直す</Text>
-                  </TouchableOpacity>
+                    placeholder="例: 高音域の安定性、タンギング"
+                    maxLength={20}
+                  />
+                </View>
 
-                  <TouchableOpacity
-                    style={styles.saveButton}
-                    onPress={handleSaveTasks}
-                  >
-                    <Text style={styles.saveButtonText}>タスクとして保存</Text>
-                    <MaterialIcons name="save" size={20} color="#FFFFFF" style={styles.buttonIcon} />
-                  </TouchableOpacity>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>具体的な目標（任意）</Text>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={formData.specific_goals}
+                    onChangeText={(text) => setFormData({ ...formData, specific_goals: text })}
+                    placeholder="具体的な目標を入力（例: コンクールの準備、アンサンブルの練習など）"
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                  />
                 </View>
               </View>
-            )}
-          </ScrollView>
-        )}
+
+              <TouchableOpacity 
+                style={[styles.generateButton, { opacity: 0.5 }]}
+                onPress={handleGenerateMenu}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <>
+                    <MaterialIcons name="auto-fix-high" size={24} color="#ffffff" />
+                    <Text style={styles.generateButtonText}>練習メニューを生成</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : 
+            // 生成された練習メニューの表示
+            <View style={styles.generatedMenuContainer}>
+              <View style={styles.summaryContainer}>
+                <Text style={styles.summaryTitle}>練習メニューの概要</Text>
+                <Text style={styles.summaryText}>{menuSummary}</Text>
+              </View>
+
+              <Text style={styles.menuSectionTitle}>練習メニュー項目</Text>
+              
+              {generatedMenu.map((item, index) => (
+                <View key={index} style={styles.menuItem}>
+                  <View style={styles.menuItemHeader}>
+                    <Text style={styles.menuItemTitle}>{item.title}</Text>
+                    <View style={styles.menuItemMeta}>
+                      <Text style={styles.menuItemDuration}>{item.duration}分</Text>
+                      {item.category && (
+                        <View style={styles.categoryPill}>
+                          <Text style={styles.categoryText}>{item.category}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  <Text style={styles.menuItemDescription}>{item.description}</Text>
+                </View>
+              ))}
+            </View>
+          }
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -608,5 +577,22 @@ const styles = StyleSheet.create({
   required: {
     color: '#FF3B30',
     fontWeight: '600',
+  },
+  noticeContainer: {
+    backgroundColor: '#fff8e1',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  noticeText: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 });

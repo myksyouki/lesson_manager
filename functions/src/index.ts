@@ -90,141 +90,6 @@ function normalizeInstrumentName(instrument: string): string {
   return instrument;
 }
 
-// Dify API接続テスト用関数
-export const testDifyConnection = onCall(
-  {
-    enforceAppCheck: false,
-    cors: true,
-    memory: "256MiB",
-    invoker: "public",
-    region: "asia-northeast1",
-  },
-  async () => {
-    try {
-      console.log("Dify API接続テストを開始します...");
-      
-      // シークレットの取得を試み、接続の最初のステップとして動作確認
-      const secrets = await getDifySecrets();
-      
-      console.log("Dify APIシークレット取得に成功:", {
-        apiKeyLength: secrets.apiKey.length,
-        apiKeyPrefix: secrets.apiKey.substring(0, 4),
-        appIdLength: secrets.appId.length,
-        appIdPrefix: secrets.appId.substring(0, 4),
-      });
-      
-      // 基本的なヘルスチェックのためのDify API呼び出し
-      console.log("Dify APIヘルスチェックを実行...");
-      
-      const pingResponse = await axios.get("https://api.dify.ai/v1", {
-        timeout: 5000,
-      });
-      
-      console.log("Dify APIヘルスチェック結果:", {
-        status: pingResponse.status,
-        statusText: pingResponse.statusText,
-        data: pingResponse.data,
-      });
-      
-      return {
-        success: true,
-        message: "Dify API接続テストに成功しました",
-        status: pingResponse.status,
-        timestamp: new Date().toISOString(),
-      };
-    } catch (error: any) {
-      console.error("Dify API接続テストエラー:", error);
-      
-      return {
-        success: false,
-        message: `Dify API接続テストに失敗しました: ${error.message || "不明なエラー"}`,
-        error: {
-          message: error.message,
-          code: error.code,
-          response: error.response?.data,
-        },
-        timestamp: new Date().toISOString(),
-      };
-    }
-  }
-);
-
-// Dify API直接接続テスト用関数
-export const testDifyDirectConnection = onCall(
-  {
-    enforceAppCheck: false,
-    cors: true,
-    memory: "256MiB",
-    invoker: "public",
-    region: "asia-northeast1",
-  },
-  async () => {
-    try {
-      console.log("Dify API直接接続テストを開始します...");
-      
-      // シークレットを取得
-      const {apiKey, appId} = await getDifySecrets();
-      
-      // Dify APIエンドポイント
-      const endpoint = "https://api.dify.ai/v1/chat-messages";
-      
-      console.log("Dify API直接リクエストを送信します...", {
-        endpoint,
-        appId: appId.substring(0, 4) + "...",
-      });
-      
-      // 固定パラメータで直接テスト呼び出し
-      const response = await axios.post(
-        endpoint,
-        {
-          inputs: {},
-          query: "テストメッセージ",
-          response_mode: "blocking",
-          conversation_id: "",
-          user: "test-user",
-        },
-        {
-          headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          timeout: 10000,
-        }
-      );
-      
-      console.log("Dify API直接呼び出し成功:", {
-        status: response.status,
-        statusText: response.statusText,
-        dataSize: JSON.stringify(response.data).length,
-      });
-      
-      return {
-        success: true,
-        message: "Dify API直接接続テストに成功しました",
-        status: response.status,
-        response: {
-          message_id: response.data.id,
-          conversation_id: response.data.conversation_id,
-        },
-        timestamp: new Date().toISOString(),
-      };
-    } catch (error: any) {
-      console.error("Dify API直接接続テストエラー:", error);
-      
-      return {
-        success: false,
-        message: `Dify API直接接続テストに失敗しました: ${error.message || "不明なエラー"}`,
-        error: {
-          message: error.message,
-          code: error.code,
-          response: error.response?.data,
-        },
-        timestamp: new Date().toISOString(),
-      };
-    }
-  }
-);
-
 // AIアシスタントにメッセージを送信するCloud Function
 export const sendMessage = onCall(
   {
@@ -548,9 +413,9 @@ export const sendMessage = onCall(
 console.log("Firebase Functions初期化完了");
 
 // 練習メニュー生成機能をインポート
-import {generatePracticeMenu, generateTasksFromLessons} from "./practice-menu";
+import {generateTasksFromLessons} from "./practice-menu";
 
 // 他のモジュールで必要な関数をエクスポート（必要に応じて）
 export * from "./summaries";
 export * from "./common/errors";
-export {generatePracticeMenu, generateTasksFromLessons};
+export {generateTasksFromLessons};
