@@ -33,8 +33,23 @@
     ],
     "rewrites": [
       {
+        "source": "**/_expo/**",
+        "destination": "/index.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|css|ttf|woff|woff2|eot|svg|png|jpg|jpeg|gif)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=31536000"
+          }
+        ]
       }
     ]
   }

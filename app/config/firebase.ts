@@ -6,22 +6,14 @@ import { getStorage } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
 import Constants from 'expo-constants';
 
-// 環境変数を取得する関数
-const getEnvVariable = (key: string) => {
-  return Constants.expoConfig?.extra?.[key] || 
-         process.env[key] || 
-         Constants.manifest?.extra?.[key] || 
-         '';
-};
-
-// Firebase の設定を公開
+// Firebase の設定を直接指定
 export const firebaseConfig = {
-  apiKey: getEnvVariable('EXPO_PUBLIC_FIREBASE_API_KEY'),
-  authDomain: getEnvVariable('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN'),
-  projectId: getEnvVariable('EXPO_PUBLIC_FIREBASE_PROJECT_ID'),
-  storageBucket: getEnvVariable('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: getEnvVariable('EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: getEnvVariable('EXPO_PUBLIC_FIREBASE_APP_ID')
+  apiKey: "AIzaSyA6GCKN48UZNnWQmU0LDIu7tn0jLRrJ4Ik",
+  authDomain: "lesson-manager-99ab9.firebaseapp.com",
+  projectId: "lesson-manager-99ab9",
+  storageBucket: "lesson-manager-99ab9.firebasestorage.app",
+  messagingSenderId: "21424871541",
+  appId: "1:21424871541:web:eab99b9421a3d0cfbac03c"
 };
 
 // Firebase アプリの初期化
