@@ -10,6 +10,12 @@ export interface ChatMessage {
   timestamp: Timestamp;
 }
 
+// チャットルームあたりの最大メッセージ数
+export const MAX_MESSAGES_PER_CHAT_ROOM = 100; // 一つのチャットルームあたり最大100メッセージまで
+
+// 警告表示するメッセージ数の閾値
+export const WARNING_MESSAGE_THRESHOLD = 90; // 90メッセージを超えたら警告を表示
+
 // 新しいデータ構造を使用するかどうかのフラグ
 let useNewStructure = true;
 
@@ -84,9 +90,9 @@ export const createChatRoom = async (
     // アクティブなチャットルーム数を取得
     const activeRoomsCount = await getUserActiveChatRoomsCount(currentUser.uid);
     
-    // チャットルーム数が5つ以上ならエラー
-    if (activeRoomsCount >= 5) {
-      throw new Error('チャットルームは最大5つまでしか作成できません。既存のチャットルームを削除してください。');
+    // チャットルーム数が10以上ならエラー
+    if (activeRoomsCount >= 10) {
+      throw new Error('チャットルームは最大10つまでしか作成できません。既存のチャットルームを削除してください。');
     }
 
     console.log('チャットルーム作成開始:', {
@@ -328,9 +334,17 @@ export const updateChatRoomMessages = async (roomId: string, messages: ChatMessa
     // パスを修正 - ユーザーのサブコレクションを使用
     const chatRoomRef = doc(db, `users/${currentUser.uid}/chatRooms`, roomId);
     
+    // メッセージ数が上限を超える場合、古いメッセージを削除
+    let updatedMessages = [...messages];
+    if (updatedMessages.length > MAX_MESSAGES_PER_CHAT_ROOM) {
+      console.log(`メッセージ数が上限(${MAX_MESSAGES_PER_CHAT_ROOM})を超えました。古いメッセージを削除します。`);
+      const excessCount = updatedMessages.length - MAX_MESSAGES_PER_CHAT_ROOM;
+      updatedMessages = updatedMessages.slice(excessCount); // 古いメッセージを削除
+    }
+    
     // 更新するデータ
     const updateData: any = {
-      messages,
+      messages: updatedMessages,
       updatedAt: serverTimestamp()
     };
     
@@ -392,7 +406,14 @@ export const addMessageToChatRoom = async (
     }
     
     const data = docSnap.data();
-    const messages = [...(data.messages || []), message];
+    let messages = [...(data.messages || []), message];
+    
+    // メッセージ数が上限を超える場合、古いメッセージを削除
+    if (messages.length > MAX_MESSAGES_PER_CHAT_ROOM) {
+      console.log(`メッセージ数が上限(${MAX_MESSAGES_PER_CHAT_ROOM})を超えました。古いメッセージを削除します。`);
+      const excessCount = messages.length - MAX_MESSAGES_PER_CHAT_ROOM;
+      messages = messages.slice(excessCount); // 古いメッセージを削除
+    }
     
     // conversationIdがundefinedの場合は、そのフィールドを更新しない
     const updateData: any = {

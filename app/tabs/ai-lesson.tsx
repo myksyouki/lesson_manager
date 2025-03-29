@@ -225,10 +225,10 @@ export default function AILessonScreen() {
       // アクティブなチャットルーム数をチェック
       const activeRoomsCount = await getUserActiveChatRoomsCount(user.uid);
       
-      if (activeRoomsCount >= 5) {
+      if (activeRoomsCount >= 10) {
         Alert.alert(
           'チャットルーム制限',
-          'チャットルームは最大5つまでしか作成できません。既存のチャットルームを削除してください。'
+          'チャットルームは最大10つまでしか作成できません。既存のチャットルームを削除してください。'
         );
         return;
       }

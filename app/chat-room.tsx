@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { getChatRoomById, updateChatRoomMessages, updateChatRoom, ChatRoom, ChatMessage } from './services/chatRoomService';
+import { getChatRoomById, updateChatRoomMessages, updateChatRoom, ChatRoom, ChatMessage, MAX_MESSAGES_PER_CHAT_ROOM, WARNING_MESSAGE_THRESHOLD } from './services/chatRoomService';
 import { sendMessageToLessonAI, sendMessageToLessonAIHttp } from './services/lessonAIService';
 import { useAuthStore } from './store/auth';
 import { StatusBar } from 'expo-status-bar';
@@ -45,6 +45,13 @@ export default function ChatRoomScreen() {
   const [newTitle, setNewTitle] = useState('');
   const [newTopic, setNewTopic] = useState('');
   const [updating, setUpdating] = useState(false);
+
+  // パラメータの取得（トップレベルで一度だけ実行）
+  const params = useLocalSearchParams();
+  const isNewlyCreated = params.isNewlyCreated === 'true';
+
+  // 新規作成フラグをトラッキングするための状態
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // チャットルームデータの読み込み関数
   const loadChatRoom = async () => {
@@ -151,21 +158,21 @@ export default function ChatRoomScreen() {
 
   // 初回マウント時にデータを読み込む
   useEffect(() => {
-    console.log('初期読み込み: useEffectトリガー', { id, userId: user?.uid });
-    loadChatRoom();
+    console.log('初期読み込み: useEffectトリガー', { id, userId: user?.uid, isNewlyCreated });
+    
+    if (!initialLoadDone) {
+      loadChatRoom();
+      setInitialLoadDone(true);
+    }
   }, [id, user?.uid, retryCount]);
-
-  // パラメータの取得（トップレベルで一度だけ実行）
-  const params = useLocalSearchParams();
-  const isNewlyCreated = params.isNewlyCreated === 'true';
 
   // 画面がフォーカスされたときにデータを再読み込み
   useFocusEffect(
     React.useCallback(() => {
       console.log('チャットルーム画面がフォーカスされました');
       
-      if (isNewlyCreated || !chatRoom) {
-        console.log('チャットルームを再読み込みします', { isNewlyCreated, hasChatRoom: !!chatRoom });
+      if (!chatRoom && initialLoadDone) {
+        console.log('チャットルームを再読み込みします', { hasChatRoom: !!chatRoom });
         loadChatRoom();
       }
       
@@ -173,7 +180,7 @@ export default function ChatRoomScreen() {
         // クリーンアップ処理
         console.log('チャットルーム画面のフォーカスが外れました');
       };
-    }, [id, user?.uid, chatRoom, loadChatRoom, isNewlyCreated])
+    }, [id, user?.uid, chatRoom, loadChatRoom, initialLoadDone])
   );
 
   // 編集モーダルを開く
@@ -243,6 +250,47 @@ export default function ChatRoomScreen() {
   // メッセージを送信する
   const handleSend = async () => {
     if (!message.trim() || !chatRoom || !user || sending) return;
+    
+    // メッセージ数が上限に達している場合は送信をブロック
+    if (chatRoom.messages.length >= MAX_MESSAGES_PER_CHAT_ROOM) {
+      Alert.alert(
+        'メッセージ数上限',
+        'このチャットルームのメッセージ数が上限に達しました。新しいチャットルームを作成してください。',
+        [
+          {
+            text: 'キャンセル',
+            style: 'cancel'
+          },
+          {
+            text: '新規チャットルーム作成',
+            onPress: () => {
+              router.push('/chat-room-form');
+            }
+          }
+        ]
+      );
+      return;
+    }
+    
+    // メッセージ数が警告閾値を超えた場合は警告を表示
+    if (chatRoom.messages.length >= WARNING_MESSAGE_THRESHOLD) {
+      Alert.alert(
+        'メッセージ数警告',
+        `メッセージ数が${WARNING_MESSAGE_THRESHOLD}を超えました。間もなく上限の${MAX_MESSAGES_PER_CHAT_ROOM}に達します。新しいチャットルームの作成をお勧めします。`,
+        [
+          {
+            text: 'このまま続ける',
+            style: 'cancel'
+          },
+          {
+            text: '新規チャットルーム作成',
+            onPress: () => {
+              router.push('/chat-room-form');
+            }
+          }
+        ]
+      );
+    }
     
     try {
       setSending(true);
@@ -332,7 +380,29 @@ export default function ChatRoomScreen() {
       setChatRoom(updatedChatRoom);
       
       // Firestoreに保存
-      await updateChatRoomMessages(chatRoom.id, [userMessage, aiMessage]);
+      await updateChatRoomMessages(chatRoom.id, finalMessages, updatedChatRoom.conversationId);
+      
+      // AIの応答後にメッセージ数が警告閾値を超えたか確認
+      if (finalMessages.length >= WARNING_MESSAGE_THRESHOLD && finalMessages.length < MAX_MESSAGES_PER_CHAT_ROOM) {
+        setTimeout(() => {
+          Alert.alert(
+            'メッセージ数警告',
+            `メッセージ数が${WARNING_MESSAGE_THRESHOLD}を超えました。間もなく上限の${MAX_MESSAGES_PER_CHAT_ROOM}に達します。新しいチャットルームの作成をお勧めします。`,
+            [
+              {
+                text: 'このまま続ける',
+                style: 'cancel'
+              },
+              {
+                text: '新規チャットルーム作成',
+                onPress: () => {
+                  router.push('/chat-room-form');
+                }
+              }
+            ]
+          );
+        }, 500);
+      }
       
       // 少し遅延させてからスクロールダウン
       setTimeout(() => {

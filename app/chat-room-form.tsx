@@ -14,8 +14,10 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from './store/auth';
-import { createChatRoom } from './services/chatRoomService';
+import { createChatRoom, addMessageToChatRoom, updateChatRoom } from './services/chatRoomService';
 import { getUserProfile } from './services/userProfileService';
+import { sendMessageToLessonAIHttp } from './services/lessonAIService';
+import { Timestamp } from 'firebase/firestore';
 
 const TOPICS = [
   'タンギング',
@@ -101,6 +103,53 @@ export default function ChatRoomFormScreen() {
 
       console.log('チャットルーム作成成功:', chatRoom.id);
 
+      // 初期メッセージがある場合、AIからの初期応答を生成
+      if (finalMessage) {
+        try {
+          console.log('AIに初期メッセージを送信して応答を取得します');
+          
+          // AIモデルからの応答を取得
+          const aiResponse = await sendMessageToLessonAIHttp(
+            finalMessage,
+            undefined,  // 新規会話なのでconversationIdはundefined
+            userModelType || 'standard',
+            chatRoom.id,
+            false  // isTestMode
+          );
+          
+          if (aiResponse && aiResponse.success) {
+            // AIからの応答をチャットルームに追加
+            const aiMessage = {
+              id: `ai-${Date.now()}`,
+              content: aiResponse.answer,
+              sender: 'ai' as 'user' | 'ai' | 'system',
+              timestamp: Timestamp.now(),
+            };
+            
+            // チャットルームの会話IDを更新
+            if (aiResponse.conversationId) {
+              await updateChatRoom(chatRoom.id, {
+                conversationId: aiResponse.conversationId
+              });
+            }
+            
+            // チャットルームにAIメッセージを追加
+            await addMessageToChatRoom(
+              chatRoom.id, 
+              aiMessage, 
+              aiResponse.conversationId
+            );
+            
+            console.log('AIの初期応答を追加しました:', aiResponse.answer.substring(0, 50) + '...');
+          } else {
+            console.error('AI応答取得エラー:', aiResponse);
+          }
+        } catch (error) {
+          console.error('AIの初期応答追加エラー:', error);
+          // エラーがあっても処理を続行
+        }
+      }
+
       Alert.alert(
         'チャットルーム作成',
         'チャットルームが作成されました',
@@ -112,8 +161,7 @@ export default function ChatRoomFormScreen() {
               router.replace({
                 pathname: '/chat-room',
                 params: { 
-                  id: chatRoom.id,
-                  isNewlyCreated: 'true'
+                  id: chatRoom.id
                 }
               });
             }
@@ -126,7 +174,7 @@ export default function ChatRoomFormScreen() {
       let errorMessage = 'チャットルームの作成に失敗しました。後でもう一度お試しください。';
       
       // チャットルーム制限に関するエラーメッセージを確認
-      if (error.message && error.message.includes('最大5つ')) {
+      if (error.message && error.message.includes('最大10つ')) {
         errorMessage = error.message;
       }
       

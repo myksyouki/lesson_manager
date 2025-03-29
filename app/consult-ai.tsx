@@ -19,8 +19,10 @@ import { useAuthStore } from './store/auth';
 import { Lesson } from './store/lessons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
-import { createChatRoom } from './services/chatRoomService';
+import { createChatRoom, addMessageToChatRoom, updateChatRoom } from './services/chatRoomService';
 import { getUserProfile, instrumentCategories } from './services/userProfileService';
+import { Timestamp } from 'firebase/firestore';
+import { sendMessageToLessonAI, sendMessageToLessonAIHttp } from './services/lessonAIService';
 
 // 楽器カテゴリごとのトピックマッピング
 const INSTRUMENT_TOPICS: Record<string, string[]> = {
@@ -53,7 +55,7 @@ const INSTRUMENT_TOPICS: Record<string, string[]> = {
 };
 
 export default function ConsultAIScreen() {
-  const { lessonIds } = useLocalSearchParams();
+  const { lessonIds, summaryContext, initialPrompt } = useLocalSearchParams();
   const [selectedLessons, setSelectedLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -61,10 +63,30 @@ export default function ConsultAIScreen() {
   const [selectedTopic, setSelectedTopic] = useState('');
   const [initialMessage, setInitialMessage] = useState('');
   const [userModelType, setUserModelType] = useState<string>('');
-  const [topics, setTopics] = useState<string[]>(INSTRUMENT_TOPICS['default']);
   const theme = useTheme();
   const { lessons } = useLessonStore();
   const { user } = useAuthStore();
+
+  // レッスン詳細画面から受け取ったデータがあれば設定
+  useEffect(() => {
+    if (initialPrompt) {
+      setInitialMessage(decodeURIComponent(initialPrompt as string));
+    }
+    
+    // プロンプトの内容に基づいてトピックの初期値を設定
+    if (initialPrompt && typeof initialPrompt === 'string') {
+      const decodedPrompt = decodeURIComponent(initialPrompt as string);
+      if (decodedPrompt.includes('演奏') || decodedPrompt.includes('表現')) {
+        setSelectedTopic('表現力');
+      } else if (decodedPrompt.includes('テクニック') || decodedPrompt.includes('技術')) {
+        setSelectedTopic('テクニック');
+      } else if (decodedPrompt.includes('リズム')) {
+        setSelectedTopic('リズム');
+      } else if (decodedPrompt.includes('音色')) {
+        setSelectedTopic('音色');
+      }
+    }
+  }, [initialPrompt]);
 
   // ユーザーのモデルタイプを取得
   useEffect(() => {
@@ -82,9 +104,6 @@ export default function ConsultAIScreen() {
           // 楽器ID・モデルIDを設定（AIリクエスト用）
           const modelTypeStr = `${category}-${instrument}-${model}`;
           setUserModelType(modelTypeStr);
-          
-          // 楽器に応じたトピックリストをセット
-          setTopics(INSTRUMENT_TOPICS[instrument] || INSTRUMENT_TOPICS['default']);
           
           // 楽器情報をコンソールに出力（デバッグ用）
           const categoryObj = instrumentCategories.find(c => c.id === category);
@@ -134,6 +153,7 @@ export default function ConsultAIScreen() {
                 audioUrl: data.audioUrl || data.audio_url || null,
                 transcription: data.transcription || '',
                 isFavorite: data.isFavorite || false,
+                priority: data.priority || 'low',
               });
             }
           }
@@ -141,14 +161,17 @@ export default function ConsultAIScreen() {
         
         // レッスンデータが取得できたら、タイトルを自動生成
         if (lessonsData.length > 0) {
-          const pieces = lessonsData.flatMap(lesson => lesson.pieces || []).filter(Boolean);
-          const uniquePieces = [...new Set(pieces)];
+          // 最新のレッスン日付を取得（日付でソート）
+          const sortedLessons = [...lessonsData].sort((a, b) => {
+            if (!a.date && !b.date) return 0;
+            if (!a.date) return 1;
+            if (!b.date) return -1;
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+          });
           
-          if (uniquePieces.length > 0) {
-            setTitle(`${uniquePieces[0]}についての相談`);
-          } else {
-            setTitle(`レッスン相談 (${lessonsData.length}件)`);
-          }
+          const latestLesson = sortedLessons[0];
+          const formattedDate = formatDate(latestLesson.date);
+          setTitle(`${formattedDate} レッスン相談`);
         }
         
         setSelectedLessons(lessonsData);
@@ -215,6 +238,7 @@ ${lessonsData.map((lesson, index) => `
 メモ: ${lesson.notes || '記録なし'}
 `).join('\n')}
 
+${summaryContext ? `前回のAIサマリー: ${decodeURIComponent(summaryContext as string)}\n\n` : ''}
 ${initialMessage}
 `;
 
@@ -226,8 +250,86 @@ ${initialMessage}
         userModelType || 'standard'
       );
       
+      // AIサマリー情報が含まれている場合、AIからの最初の応答を生成する
+      if (summaryContext) {
+        try {
+          // AIサマリーだけを取得
+          const aiSummary = decodeURIComponent(summaryContext as string);
+          
+          // AIモデルにサマリー内容を送信して応答を取得
+          console.log('AIにサマリー内容を送信して応答を取得します');
+          
+          // 初期メッセージを作成（AIへのプロンプト）
+          const initialPrompt = `以下のレッスンサマリーを確認してください。このサマリーに基づいて、レッスンについて質問や相談に応えてください。
+          
+サマリー:
+${aiSummary}
+
+あなたはこのレッスンの内容を理解した上で、生徒の質問や相談に応えるAIコーチです。`;
+
+          // AIモデルからの応答を取得
+          const aiResponse = await sendMessageToLessonAIHttp(
+            initialPrompt,
+            undefined,  // 新規会話なのでconversationIdはundefined
+            userModelType || 'standard',
+            chatRoom.id,
+            false  // isTestMode
+          );
+          
+          if (aiResponse && aiResponse.success) {
+            // AIからの応答をチャットルームに追加
+            const aiMessage = {
+              id: `ai-${Date.now()}`,
+              content: aiResponse.answer,
+              sender: 'ai' as 'user' | 'ai' | 'system',
+              timestamp: Timestamp.now(),
+            };
+            
+            // チャットルームの会話IDを更新
+            if (aiResponse.conversationId) {
+              await updateChatRoom(chatRoom.id, {
+                conversationId: aiResponse.conversationId
+              });
+            }
+            
+            // チャットルームにAIメッセージを追加
+            await addMessageToChatRoom(
+              chatRoom.id, 
+              aiMessage, 
+              aiResponse.conversationId
+            );
+            
+            console.log('AIの初期応答を追加しました:', aiResponse.answer.substring(0, 50) + '...');
+          } else {
+            console.error('AI応答取得エラー:', aiResponse);
+            // エラーの場合は固定メッセージを表示
+            const aiMessage = {
+              id: `ai-${Date.now()}`,
+              content: `今回のレッスンのサマリーを確認しました。どのような点について相談されたいですか？`,
+              sender: 'ai' as 'user' | 'ai' | 'system',
+              timestamp: Timestamp.now(),
+            };
+            
+            // チャットルームにAIメッセージを追加
+            await addMessageToChatRoom(chatRoom.id, aiMessage);
+          }
+        } catch (error) {
+          console.error('AIの初期応答追加エラー:', error);
+          // エラーの場合は固定メッセージを表示
+          const aiMessage = {
+            id: `ai-${Date.now()}`,
+            content: `今回のレッスンのサマリーを確認しました。どのような点について相談されたいですか？`,
+            sender: 'ai' as 'user' | 'ai' | 'system',
+            timestamp: Timestamp.now(),
+          };
+          
+          // チャットルームにAIメッセージを追加
+          await addMessageToChatRoom(chatRoom.id, aiMessage);
+        }
+      }
+      
       // 作成したチャットルームに遷移
-      router.push({
+      router.replace({
         pathname: '/chat-room' as any,
         params: { id: chatRoom.id }
       });
@@ -290,7 +392,7 @@ ${initialMessage}
       <View style={[styles.header, { backgroundColor: theme.colors.backgroundSecondary }]}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => router.replace('/tabs/ai-lesson')}
         >
           <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
@@ -372,33 +474,18 @@ ${initialMessage}
             />
 
             <Text style={[styles.label, { color: theme.colors.text }]}>トピック</Text>
-            <ScrollView
-              contentContainerStyle={styles.topicsContainer}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-            >
-              {topics.map((topic) => (
-                <TouchableOpacity
-                  key={topic}
-                  style={[
-                    styles.topicItem,
-                    selectedTopic === topic && {
-                      backgroundColor: theme.colors.primary,
-                    },
-                  ]}
-                  onPress={() => setSelectedTopic(topic)}
-                >
-                  <Text
-                    style={[
-                      styles.topicText,
-                      selectedTopic === topic && { color: 'white' },
-                    ]}
-                  >
-                    {topic}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.border,
+                color: theme.colors.text
+              }]}
+              value={selectedTopic}
+              onChangeText={setSelectedTopic}
+              placeholder="例: 音色、テクニック、表現力など"
+              placeholderTextColor={theme.colors.textTertiary}
+              maxLength={30}
+            />
 
             <Text style={[styles.label, { color: theme.colors.text }]}>AIへのメッセージ</Text>
             <TextInput
@@ -567,25 +654,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 20,
     borderWidth: 1,
-  },
-  topicsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
-    paddingVertical: 8,
-  },
-  topicItem: {
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
-    backgroundColor: '#F2F2F7',
-  },
-  topicText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4A4A4A',
   },
   messageInput: {
     borderRadius: 12,

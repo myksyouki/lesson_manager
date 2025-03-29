@@ -311,14 +311,20 @@ export default function LessonDetail() {
   };
 
   // AIに相談画面へ遷移
-  const navigateToConsultAI = () => {
+  const handleChat = () => {
+    // AIチャットへ遷移時にレッスンIDとサマリー情報も一緒に渡す
     setShowExportModal(false);
-    router.push({
-      pathname: '/consult-ai' as any,
-      params: { 
-        lessonIds: lessonId
-      }
-    });
+    // モーダルが完全に閉じてから遷移するために少し遅延させる
+    setTimeout(() => {
+      router.push({
+        pathname: '/consult-ai' as any,
+        params: { 
+          lessonIds: lessonId,
+          summaryContext: formData.summary ? encodeURIComponent(formData.summary) : '',
+          initialPrompt: encodeURIComponent(`このレッスンの内容について詳しく教えてください。特に「${formData.pieces?.join('、')}」の演奏のポイントについてアドバイスが欲しいです。`)
+        }
+      });
+    }, 300); // 300ミリ秒の遅延
   };
 
   const toggleArchive = async () => {
@@ -355,15 +361,6 @@ export default function LessonDetail() {
     // Implement share functionality
     router.push({
       pathname: '/generate-tasks' as any,
-      params: { 
-        lessonIds: lessonId
-      }
-    });
-  };
-
-  const handleChat = () => {
-    router.push({
-      pathname: '/consult-ai' as any,
       params: { 
         lessonIds: lessonId
       }
