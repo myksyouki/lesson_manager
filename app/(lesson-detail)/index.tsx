@@ -273,14 +273,21 @@ export default function LessonDetail() {
   };
 
   // AIに相談画面へ遷移
-  const navigateToConsultAI = () => {
-    setShowExportModal(false);
-    router.push({
-      pathname: '/consult-ai' as any,
-      params: { 
-        lessonIds: lessonId
-      }
-    });
+  const handleChat = () => {
+    setShowExportModal(false); // モーダルを閉じる
+    
+    if (currentLesson?.summary) {
+      router.push({
+        pathname: '/consult-ai',
+        params: {
+          lessonIds: JSON.stringify([lessonId]),
+          summaryContext: currentLesson.summary,
+          initialPrompt: `このレッスンについて質問があります。${currentLesson.pieces && currentLesson.pieces.length > 0 ? '曲目は ' + currentLesson.pieces.join(', ') + ' です。' : ''}`
+        }
+      });
+    } else {
+      Alert.alert('エラー', 'このレッスンはAIチャットに使用できません。サマリーがありません。');
+    }
   };
 
   const toggleArchive = async () => {
@@ -317,15 +324,6 @@ export default function LessonDetail() {
     // Implement share functionality
     router.push({
       pathname: '/generate-tasks' as any,
-      params: { 
-        lessonIds: lessonId
-      }
-    });
-  };
-
-  const handleChat = () => {
-    router.push({
-      pathname: '/consult-ai' as any,
       params: { 
         lessonIds: lessonId
       }

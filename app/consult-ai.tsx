@@ -120,13 +120,22 @@ export default function ConsultAIScreen() {
 
   // 選択されたレッスンを取得
   useEffect(() => {
-    const fetchSelectedLessons = async () => {
-      if (!lessonIds) {
-        Alert.alert('エラー', 'レッスンが選択されていません');
-        router.back();
-        return;
-      }
+    if (!lessonIds || lessonIds.length === 0) {
+      setIsLoading(false);
+      return;
+    }
 
+    // サマリーコンテキストが含まれている場合は、レッスンデータを取得せずに続行
+    if (summaryContext) {
+      console.log('サマリーコンテキストが含まれているため、レッスンデータを取得せずに続行します');
+      // サマリー情報からタイトルを設定
+      setTitle('AIレッスン相談');
+      setIsLoading(false);
+      return;
+    }
+
+    // 普通にレッスンデータを取得する処理（既存コード）
+    const fetchSelectedLessons = async () => {
       const ids = (lessonIds as string).split(',');
       
       try {
@@ -193,7 +202,8 @@ export default function ConsultAIScreen() {
       return;
     }
 
-    if (selectedLessons.length === 0) {
+    // サマリーコンテキストがある場合は、レッスンデータのチェックをスキップ
+    if (!summaryContext && selectedLessons.length === 0) {
       Alert.alert('エラー', 'レッスンが選択されていません');
       return;
     }
@@ -216,17 +226,30 @@ export default function ConsultAIScreen() {
     setIsCreating(true);
 
     try {
-      // レッスンデータを整形
-      const lessonsData = selectedLessons.map(lesson => ({
-        teacher: lesson.teacher,
-        date: formatDate(lesson.date),
-        pieces: lesson.pieces,
-        summary: lesson.summary,
-        notes: lesson.notes,
-      }));
+      // メッセージを準備
+      let formattedMessage = '';
+      
+      // サマリーコンテキストがある場合は、それを使用
+      if (summaryContext) {
+        formattedMessage = `
+以下のレッスンサマリーについて相談します：
 
-      // レッスンデータを含めた初期メッセージを作成
-      const formattedMessage = `
+${decodeURIComponent(summaryContext as string)}
+
+${initialMessage}
+`;
+      } else {
+        // レッスンデータを整形（既存コード）
+        const lessonsData = selectedLessons.map(lesson => ({
+          teacher: lesson.teacher,
+          date: formatDate(lesson.date),
+          pieces: lesson.pieces,
+          summary: lesson.summary,
+          notes: lesson.notes,
+        }));
+
+        // レッスンデータを含めた初期メッセージを作成
+        formattedMessage = `
 以下のレッスン記録について相談します：
 
 ${lessonsData.map((lesson, index) => `
@@ -238,9 +261,9 @@ ${lessonsData.map((lesson, index) => `
 メモ: ${lesson.notes || '記録なし'}
 `).join('\n')}
 
-${summaryContext ? `前回のAIサマリー: ${decodeURIComponent(summaryContext as string)}\n\n` : ''}
 ${initialMessage}
 `;
+      }
 
       // チャットルームを作成
       const chatRoom = await createChatRoom(
@@ -392,7 +415,22 @@ ${aiSummary}
       <View style={[styles.header, { backgroundColor: theme.colors.backgroundSecondary }]}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => router.replace('/tabs/ai-lesson')}
+          onPress={() => {
+            // レッスンIDが存在する場合はレッスン詳細画面に戻る
+            const ids = lessonIds ? 
+              (typeof lessonIds === 'string' ? JSON.parse(lessonIds)[0] : lessonIds) 
+              : null;
+              
+            if (ids) {
+              router.replace({
+                pathname: '/(lesson-detail)/[id]',
+                params: { id: ids }
+              });
+            } else {
+              // レッスンIDがない場合はAIレッスン画面に戻る
+              router.replace('/tabs/ai-lesson');
+            }
+          }}
         >
           <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>

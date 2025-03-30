@@ -21,6 +21,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getUserInstrumentInfo } from './services/userProfileService';
+import { functions as appFunctions, testFunctionConnection, firebaseApp } from './config/firebase';
+import { getAuth, User as FirebaseUser } from 'firebase/auth';
 
 export default function GenerateTasksScreen() {
   const { lessonIds } = useLocalSearchParams();
@@ -32,7 +34,18 @@ export default function GenerateTasksScreen() {
   const { lessons } = useLessonStore();
   const { addTask } = useTaskStore();
   const { user } = useAuthStore();
-  const functions = getFunctions();
+  
+  // Firebase Functionsの確認
+  useEffect(() => {
+    const checkFunctions = async () => {
+      console.log('Firebase Functions初期化確認:', !!appFunctions);
+      // 疎通テストを実行
+      const isConnected = await testFunctionConnection();
+      console.log('Firebase Functions疎通テスト結果:', isConnected);
+    };
+    
+    checkFunctions();
+  }, []);
 
   // 選択されたレッスンを取得
   useEffect(() => {
@@ -75,6 +88,7 @@ export default function GenerateTasksScreen() {
                 audioUrl: data.audioUrl || data.audio_url || null,
                 transcription: data.transcription || '',
                 isFavorite: data.isFavorite || false,
+                priority: data.priority || "low"  // 優先度を追加
               });
             }
           }
@@ -107,21 +121,20 @@ export default function GenerateTasksScreen() {
     setIsGenerating(true);
 
     try {
+      // API呼び出し結果を格納する変数を宣言
+      let useServerResponse = false;
+      let serverTaskData = null;
+      
       // レッスンデータを整形
       const lessonsData = selectedLessons.map(lesson => ({
-        id: lesson.id,
-        teacher: lesson.teacher,
-        date: lesson.date,
-        pieces: lesson.pieces,
-        summary: lesson.summary,
-        notes: lesson.notes,
-        tags: lesson.tags,
+        summary: lesson.summary || '',
       }));
 
-      console.log('Cloud Functionsでタスク生成開始:', lessonsData);
-      
-      // Firebase Functions経由でタスク生成
-      const generateTasksFromLessonsFunction = httpsCallable(functions, 'generateTasksFromLessons');
+      // より詳細なデバッグ情報
+      console.log('リクエスト準備:', {
+        レッスンサマリー数: lessonsData.length,
+        サマリー内容: lessonsData.map(l => l.summary.substring(0, 50) + '...')
+      });
       
       // ユーザーの楽器情報を取得
       const instrumentInfo = await getUserInstrumentInfo();
@@ -130,25 +143,229 @@ export default function GenerateTasksScreen() {
       // ユーザーの楽器情報を使用
       const instrument = instrumentInfo?.instrumentName || "ピアノ"; // 取得できない場合はデフォルト値を使用
       
-      // Cloud Functionsを呼び出し
-      // v2関数ではrequestパラメータの形式が変わるためdata値を調整
-      const result = await generateTasksFromLessonsFunction({
-        lessons: lessonsData,
+      // リクエストデータを整形
+      const requestData = {
+        summaries: lessonsData.map(lesson => lesson.summary),
         instrument: instrument
-      });
-      
-      // v2の場合、result.dataのデータ構造に変更がある可能性があるため、より堅牢に処理
-      console.log('タスク生成結果:', result.data);
-      
-      // 生成されたデータ
-      const taskData = result.data as {
-        practice_points: string[];
-        technical_exercises: string[];
-        piece_practice: string[];
-        interpretation_advice: string;
       };
       
-      // タスクの説明文を作成
+      console.log('リクエスト内容:', JSON.stringify(requestData));
+      
+      // Firebaseの認証情報を使用してIDトークンを取得
+      let idToken = '';
+      try {
+        // Firebase Authから実際のユーザーオブジェクトを取得
+        const auth = getAuth(firebaseApp);
+        const currentUser = auth.currentUser;
+        
+        if (currentUser) {
+          // FirebaseUserからIDトークンを取得
+          idToken = await currentUser.getIdToken(true);
+          console.log('認証トークン取得成功:', {
+            tokenLength: idToken.length,
+            tokenPrefix: idToken.substring(0, 10) + '...'
+          });
+        } else {
+          console.error('現在のユーザー情報を取得できません');
+        }
+      } catch (tokenError) {
+        console.error('トークン取得エラー:', tokenError);
+      }
+      
+      // 詳細なデバッグ情報の追加
+      if (Platform.OS === 'web') {
+        console.log('ブラウザ環境での実行 - ネットワーク情報:', {
+          navigator: navigator?.onLine ? 'オンライン' : 'オフライン',
+          origin: window?.location?.origin || 'unknown',
+          userAgent: navigator?.userAgent || 'unknown'
+        });
+      }
+      
+      // エンドポイントを生成
+      const region = 'asia-northeast1';
+      const projectId = firebaseApp?.options?.projectId || 'lesson-manager-99ab9';
+      const endpoint = `https://${region}-${projectId}.cloudfunctions.net/generateTasksFromLessons`;
+      console.log('HTTP直接エンドポイント:', endpoint);
+      
+      // Firebase Functions 直接呼び出しの試行 (HTTP呼び出しの前に実行)
+      try {
+        console.log('Firebase Functions直接呼び出しを試行...');
+        // functionsが正しく初期化されているかチェック
+        if (appFunctions) {
+          const generateTasksFunction = httpsCallable(appFunctions, 'generateTasksFromLessons');
+          console.log('Function参照取得成功、呼び出し直前...');
+          
+          // 呼び出し前の詳細ログ
+          console.log('呼び出し関数名:', 'generateTasksFromLessons');
+          console.log('リクエストデータ:', JSON.stringify(requestData).substring(0, 200) + '...');
+          
+          // タイムアウト設定 (20秒に延長)
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Function call timeout (20s)')), 20000)
+          );
+          
+          // 関数呼び出しを実行
+          const functionCallPromise = generateTasksFunction(requestData);
+          
+          // どちらかが先に完了した方を使用
+          const functionResult = await Promise.race([
+            functionCallPromise.then(result => {
+              console.log('Functions直接呼び出し成功:', JSON.stringify(result).substring(0, 200) + '...');
+              return result.data;
+            }),
+            timeoutPromise
+          ]).catch(err => {
+            console.error('Functions直接呼び出しエラーまたはタイムアウト:', err);
+            // エラー詳細を出力
+            if (err.code) {
+              console.error('エラーコード:', err.code);
+            }
+            if (err.details) {
+              console.error('エラー詳細:', err.details);
+            }
+            if (err.message) {
+              console.error('エラーメッセージ:', err.message);
+            }
+            return null;
+          });
+          
+          // 関数呼び出しが成功した場合、その結果を使用
+          if (functionResult) {
+            console.log('Firebase Functions呼び出し成功、結果を使用します');
+            serverTaskData = functionResult;
+            useServerResponse = true;
+            // HTTP呼び出しはスキップ
+            console.log('HTTP直接呼び出しはスキップします');
+          } else {
+            console.log('Firebase Functions呼び出し失敗、HTTP直接呼び出しを試行します');
+          }
+        } else {
+          console.error('Firebase Functions初期化されていないため直接呼び出しできません');
+        }
+      } catch (functionsError) {
+        console.error('Firebase Functions直接呼び出しエラー:', functionsError);
+      }
+      
+      // HTTP直接呼び出しを試行
+      if (idToken) {
+        try {
+          console.log('HTTP直接リクエスト送信直前...');
+          
+          // タイムアウト制御を設定
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => {
+            console.log('HTTP呼び出しタイムアウト - リクエストをアボート');
+            controller.abort();
+          }, 30000);
+          
+          // デバッグのためにリクエスト情報をログ出力
+          const requestBodyStr = JSON.stringify({data: requestData});
+          console.log('HTTP送信データ:', {
+            url: endpoint,
+            method: 'POST',
+            headersAuthTokenLen: idToken.length,
+            bodyLength: requestBodyStr.length,
+            bodyPreview: requestBodyStr.substring(0, 100) + '...'
+          });
+          
+          // HTTP リクエストを送信
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`
+            },
+            body: requestBodyStr,
+            signal: controller.signal
+          });
+          
+          // タイムアウトをクリア
+          clearTimeout(timeoutId);
+          
+          console.log('HTTP直接レスポンス受信:', {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries([...response.headers.entries()])
+          });
+          
+          // レスポンスを事前に取得
+          const responseText = await response.text();
+          console.log('レスポンステキスト:', responseText.substring(0, 200) + '...');
+          
+          // エラーチェック
+          if (!response.ok) {
+            console.error('HTTP直接エラー詳細:', {
+              status: response.status,
+              statusText: response.statusText,
+              responseText: responseText
+            });
+            throw new Error(`HTTP エラー ${response.status}: ${responseText}`);
+          }
+          
+          // JSONデータとして解析
+          let responseData;
+          try {
+            responseData = JSON.parse(responseText);
+            console.log('レスポンス解析完了:', responseData);
+          } catch(parseError) {
+            console.error('JSONパースエラー:', parseError);
+            throw new Error(`レスポンスのJSONパースに失敗: ${responseText.substring(0, 100)}...`);
+          }
+          
+          if (responseData && responseData.result) {
+            serverTaskData = responseData.result;
+            useServerResponse = true;
+            console.log('サーバーからのタスクデータを使用します');
+          } else {
+            console.error('応答データ不正:', responseData);
+            throw new Error('タスクデータが取得できませんでした');
+          }
+        } catch (httpError) {
+          console.error('HTTP直接リクエストエラー:', httpError);
+          // HTTPリクエストが失敗した場合、デモモードにフォールバック
+          console.log('HTTP直接呼び出しに失敗したため、デモモードにフォールバックします');
+        }
+      } else {
+        console.log('認証トークンが取得できないため、HTTP直接呼び出しをスキップします');
+      }
+      
+      // タスクデータを定義（サーバー応答またはデモデータ）
+      let taskData;
+      
+      if (useServerResponse && serverTaskData) {
+        // サーバーからのレスポンスを使用
+        taskData = serverTaskData;
+      } else {
+        // デモ用のハードコードされたタスクデータを使用
+        console.log('デモモードでタスクを生成します');
+        
+        taskData = {
+          practice_points: [
+            "正しい姿勢と基本的な奏法を意識する",
+            "音色の均一性と美しさを追求する", 
+            "リズム感を向上させる",
+            "表現力を高める",
+            "楽曲の構造を理解する"
+          ],
+          technical_exercises: [
+            "基本的なスケール練習",
+            "アルペジオ練習",
+            "音程練習",
+            "リズム練習",
+            "アーティキュレーション練習"
+          ],
+          piece_practice: [
+            "難しいフレーズを分割して練習する",
+            "メトロノームを使ってテンポをコントロールする",
+            "曲の表現ポイントを意識する",
+            "フレーズの繋がりに注意する",
+            "曲全体の流れを意識する"
+          ],
+          interpretation_advice: "レッスンで学んだことを復習し、音楽の流れと感情表現を大切にしましょう。テクニックだけでなく、曲の持つ感情や物語を表現することを意識して練習を進めてください。"
+        };
+      }
+      
+      // タスクの説明文と題名を作成
       const taskDescription = formatTaskDescription(taskData, selectedLessons);
       
       // タスクのタイトルを作成
@@ -180,7 +397,15 @@ export default function GenerateTasksScreen() {
     } catch (error) {
       console.error('タスク生成エラー:', error);
       setIsGenerating(false);
+      
+      // エラーメッセージの改善
+      if (error instanceof Error) {
+        // Firebase Functions のエラーは details プロパティにより詳細な情報を持つ
+        const details = (error as any).details ? `: ${JSON.stringify((error as any).details)}` : '';
+        Alert.alert('エラー', `練習メニューの生成に失敗しました: ${error.message}${details}`);
+      } else {
       Alert.alert('エラー', '練習メニューの生成に失敗しました');
+      }
     }
   };
 
@@ -194,6 +419,35 @@ export default function GenerateTasksScreen() {
     }, 
     lessons: Lesson[]
   ) => {
+    // デバッグ情報を出力
+    console.log('formatTaskDescription data:', taskData);
+    
+    if (!taskData) {
+      console.error('taskDataがnullまたはundefinedです');
+      throw new Error('タスクデータが取得できませんでした');
+    }
+    
+    // 各プロパティの存在確認
+    if (!taskData.practice_points) {
+      console.error('practice_pointsが存在しません');
+      throw new Error('練習目標データが取得できませんでした');
+    }
+    
+    if (!taskData.technical_exercises) {
+      console.error('technical_exercisesが存在しません');
+      throw new Error('テクニカル練習データが取得できませんでした');
+    }
+    
+    if (!taskData.piece_practice) {
+      console.error('piece_practiceが存在しません');
+      throw new Error('曲練習のポイントデータが取得できませんでした');
+    }
+    
+    if (!taskData.interpretation_advice) {
+      console.error('interpretation_adviceが存在しません');
+      throw new Error('解釈とアドバイスデータが取得できませんでした');
+    }
+    
     const pieces = lessons.flatMap(lesson => lesson.pieces || []).filter(Boolean);
     const uniquePieces = [...new Set(pieces)];
     

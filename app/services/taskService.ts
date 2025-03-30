@@ -486,19 +486,25 @@ export const createTaskFromChatUsingFunction = async (
       return { success: false, message: '認証が必要です。ログインしてください。' };
     }
 
-    // チャット履歴をフォーマット
-    const formattedHistory = messages.map(msg => {
-      const role = msg.sender === 'user' ? 'ユーザー' : 'AI';
-      return `${role}: ${msg.content}`;
-    }).join('\n\n');
+    // AI応答のみを使用（最後のAIメッセージ）
+    const lastAiMessage = [...messages].reverse().find(msg => msg.sender === 'ai');
+    
+    if (!lastAiMessage) {
+      return { success: false, message: 'AIからのメッセージが見つかりません。タスクを作成できません。' };
+    }
+
+    console.log('最後のAIメッセージを使用:', {
+      contentPreview: lastAiMessage.content.substring(0, 50) + '...'
+    });
 
     // Cloud Function呼び出し
     const createTaskFunction = httpsCallable(functions, 'createTaskFromLesson');
     
-    // Cloud Functionに送信するデータ
+    // Cloud Functionに送信するデータ（レッスンと同じパラメータフォーマットに合わせる）
     const functionData = {
-      summary: formattedHistory,
+      summary: lastAiMessage.content, // 最後のAIメッセージのみ使用
       pieces: [],
+      teacher: "",
       chatTitle,
       chatTopic,
       isFromChat: true
@@ -509,23 +515,70 @@ export const createTaskFromChatUsingFunction = async (
       ...functionData,
       summaryLength: functionData.summary.length
     });
-    const result = await createTaskFunction(functionData);
-    console.log('Cloud Function応答:', result.data);
+    
+    // リトライロジックを追加（最大3回）
+    let response = null;
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        console.log(`試行 ${attempts}/${maxAttempts} - Cloud Function呼び出し開始`);
+        const result = await createTaskFunction(functionData);
+        console.log(`試行 ${attempts}/${maxAttempts} - Cloud Function応答:`, result.data);
+        
+        // 応答があればループを抜ける
+        if (result.data && Object.keys(result.data).length > 0) {
+          response = result.data;
+          break;
+        } else {
+          // 空の応答の場合は一時停止してから再試行
+          console.log(`空の応答。${attempts < maxAttempts ? '再試行します...' : '最大試行回数に達しました。'}`);
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // 徐々に長くなる待機時間
+          }
+        }
+      } catch (error) {
+        console.error(`試行 ${attempts}/${maxAttempts} - エラー:`, error);
+        if (attempts >= maxAttempts) throw error;
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+      }
+    }
+    
+    if (!response) {
+      return { success: false, message: '応答がありませんでした。後で再試行してください。' };
+    }
     
     // レスポンスデータの取得
-    const responseData = result.data as { 
+    const responseData = response as { 
       success: boolean;
       tasks: string;
       conversationId: string;
     };
     
-    if (!responseData.success) {
+    if (!responseData.success || !responseData.tasks) {
+      console.error('Cloud Functionからの不正なレスポンス:', responseData);
       return { success: false, message: 'タスク生成に失敗しました' };
     }
+
+    console.log('レスポンスからタスクデータを取得:', {
+      success: responseData.success,
+      tasksPreview: responseData.tasks.substring(0, 50) + '...'
+    });
 
     // タスクテキストをパースして個別のタスクに分割
     const taskTexts = parseTasksFromMarkdown(responseData.tasks);
     console.log(`${taskTexts.length}個のタスクを検出しました`);
+    
+    if (taskTexts.length === 0) {
+      console.warn('パース可能なタスクが見つかりませんでした');
+      // タスクが見つからない場合でも、元のテキストを1つのタスクとして扱う
+      taskTexts.push({
+        title: 'AIからのタスク',
+        description: responseData.tasks
+      });
+    }
     
     // 各タスクをFirestoreに保存
     const createdTasks: Task[] = [];

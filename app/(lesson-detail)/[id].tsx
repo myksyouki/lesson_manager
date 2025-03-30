@@ -312,6 +312,8 @@ export default function LessonDetail() {
 
   // AIに相談画面へ遷移
   const handleChat = () => {
+    setShowExportModal(false); // モーダルを閉じる
+    
     if (currentLesson?.summary) {
       router.push({
         pathname: '/consult-ai',

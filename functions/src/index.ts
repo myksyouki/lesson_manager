@@ -184,6 +184,7 @@ export const createTaskFromLesson = onCall(
     memory: "256MiB",
     invoker: "public",
     region: "asia-northeast1",
+    maxInstances: 10,
   },
   async (request) => {
     const data: any = request.data;
@@ -192,8 +193,10 @@ export const createTaskFromLesson = onCall(
       // パラメータをログに出力
       logger.info("createTaskFromLesson関数が呼び出されました", {
         lessonId: data.lessonId || "(なし)",
-        lessonSummary: data.summary ? "有り" : "(なし)",
-        instrument: data.instrument || "(なし)",
+        summaryLength: data.summary ? data.summary.length : 0,
+        piecesCount: Array.isArray(data.pieces) ? data.pieces.length : 0,
+        teacher: data.teacher || "(なし)",
+        chatInfo: data.isFromChat ? "チャットから呼び出し" : "レッスンから呼び出し",
         auth: request.auth ? "認証済み" : "未認証",
       });
 
@@ -220,18 +223,30 @@ export const createTaskFromLesson = onCall(
 
       // 楽器情報の取得
       const instrumentName = await getInstrumentFromProfile(request.auth.uid, data.instrument);
+      logger.info(`使用する楽器: ${instrumentName}`);
 
       // タスク作成のプロンプトを作成
       const prompt = createTaskPromptFromLesson(data.summary, instrumentName, data.pieces, data.teacher);
+      logger.info(`生成されたプロンプト（先頭100文字）: ${prompt.substring(0, 100)}...`);
 
       // Dify API呼び出しの準備
       const taskData = {
         message: prompt,
         conversationId: data.conversationId || "",
+        roomId: data.chatTitle ? `task-${Date.now()}` : "lesson-task", // チャットからの場合は一意のroomIdを生成
       };
 
       // Dify API呼び出し
+      logger.info("Dify API呼び出しを開始します（タスク生成）...");
       const apiResponse = await callDifyAPI(taskData, instrumentName, authUid);
+      
+      // レスポンスチェック
+      if (!apiResponse || !apiResponse.answer) {
+        logger.error("Dify APIからの応答が不完全です", apiResponse);
+        throw new Error("タスク生成のレスポンスが不正です");
+      }
+      
+      logger.info(`APIレスポンス（先頭100文字）: ${apiResponse.answer.substring(0, 100)}...`);
       
       // 成功レスポンスを返す
       return {

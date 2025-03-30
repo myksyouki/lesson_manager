@@ -1,4 +1,5 @@
 import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
+import {PROJECT_ID} from "../config";
 
 const secretClient = new SecretManagerServiceClient();
 
@@ -8,7 +9,14 @@ const secretClient = new SecretManagerServiceClient();
  * @returns シークレットの値
  */
 export async function getSecret(secretName: string): Promise<string> {
-  const projectId = process.env.GOOGLE_CLOUD_PROJECT;
+  // 環境変数からプロジェクトIDを取得、ない場合は設定ファイルの値を使用
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT || PROJECT_ID;
+  console.log(`シークレット取得に使用するプロジェクトID: "${projectId}"`);
+  
+  if (!projectId) {
+    throw new Error("プロジェクトIDが設定されていません。環境変数GOOGLE_CLOUD_PROJECTを確認してください。");
+  }
+  
   const name = `projects/${projectId}/secrets/${secretName}/versions/latest`;
   
   try {

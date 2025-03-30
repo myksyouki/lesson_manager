@@ -35,7 +35,71 @@ const projectId = firebaseApp.options.projectId || 'lesson-manager-99ab9';
 console.log(`Firebase プロジェクトID: ${projectId}`);
 
 // Functionsインスタンスを定義
-let functions: any;
+let functions: any = null;
+
+// Functionsの初期化を強化
+try {
+  // 明示的にリージョンを指定して初期化
+  functions = getFunctions(firebaseApp, functionsRegion);
+  
+  // 確実に初期化が完了していることを確認
+  if (!functions) {
+    console.error('Firebase Functions初期化失敗: functions オブジェクトが null または undefined です');
+    // 再度初期化を試みる
+    functions = getFunctions(firebaseApp);
+    console.log('リージョン指定なしで再初期化を試みました:', !!functions);
+  }
+  
+  // __DEV__モードでエミュレーターに接続するオプション
+  // if (__DEV__) {
+  //   connectFunctionsEmulator(functions, 'localhost', 5001);
+  //   console.log('Firebase Functions エミュレーターに接続しました (localhost:5001)');
+  // }
+  
+  // デバッグ用に詳細情報をログ出力
+  console.log('Firebase Functions初期化診断:', {
+    projectId: firebaseApp.options.projectId,
+    region: functionsRegion,
+    appName: firebaseApp.name,
+    functionsInstance: !!functions,
+    functionsUrl: `https://${functionsRegion}-${projectId}.cloudfunctions.net`,
+    mode: __DEV__ ? 'development' : 'production'
+  });
+  
+  // 初期化の内部状態を検証
+  if (functions) {
+    const functionsType = typeof functions;
+    const functionsKeys = Object.keys(functions);
+    const hasCustomDomain = 'customDomain' in functions;
+    
+    console.log('Functions検証結果:', {
+      functionsType,
+      functionsKeys,
+      hasCustomDomain,
+      hasApp: 'app' in functions
+    });
+    
+    // 初期化が成功したことを確認
+    console.log('Firebase Functions初期化成功');
+  } else {
+    console.error('Firebase Functions初期化失敗: 再初期化してもnullです');
+    // 最後の手段としてデフォルト設定で初期化
+    functions = getFunctions();
+    console.log('デフォルト設定で再初期化:', !!functions);
+  }
+} catch (error) {
+  console.error('Firebase Functions初期化エラー:', error);
+  // エラー発生時も最後の手段として初期化を試みる
+  try {
+    functions = getFunctions();
+    console.log('エラー発生後のデフォルト設定で再初期化:', !!functions);
+  } catch (e) {
+    console.error('再初期化も失敗:', e);
+  }
+}
+
+// 初期化したfunctionsをエクスポート
+export { functions };
 
 // 簡易的な疎通テスト関数
 export const testFunctionConnection = async () => {
@@ -62,52 +126,5 @@ export const testFunctionConnection = async () => {
     return false;
   }
 };
-
-// Functionsの初期化を強化
-try {
-  // 明示的にリージョンを指定して初期化
-  functions = getFunctions(firebaseApp, functionsRegion);
-  
-  // 確実に初期化が完了していることを確認
-  if (!functions) {
-    console.error('Firebase Functions初期化失敗: functions オブジェクトが null または undefined です');
-  }
-  
-  // __DEV__モードでエミュレーターに接続するオプション
-  // if (__DEV__) {
-  //   connectFunctionsEmulator(functions, 'localhost', 5001);
-  //   console.log('Firebase Functions エミュレーターに接続しました (localhost:5001)');
-  // }
-  
-  // デバッグ用に詳細情報をログ出力
-  console.log('Firebase Functions初期化診断:', {
-    projectId: firebaseApp.options.projectId,
-    region: functionsRegion,
-    appName: firebaseApp.name,
-    functionsInstance: !!functions,
-    functionsUrl: `https://${functionsRegion}-${projectId}.cloudfunctions.net`,
-    mode: __DEV__ ? 'development' : 'production'
-  });
-  
-  // 初期化の内部状態を検証
-  const functionsType = typeof functions;
-  const functionsKeys = Object.keys(functions);
-  const hasCustomDomain = 'customDomain' in functions;
-  
-  console.log('Functions検証結果:', {
-    functionsType,
-    functionsKeys,
-    hasCustomDomain,
-    hasApp: 'app' in functions
-  });
-  
-  // 初期化が成功したことを確認
-  console.log('Firebase Functions初期化成功');
-} catch (error) {
-  console.error('Firebase Functions初期化エラー:', error);
-}
-
-// 初期化したfunctionsをエクスポート
-export { functions };
 
 export default firebaseApp;
