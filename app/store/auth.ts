@@ -60,12 +60,19 @@ export interface AppUser {
   photoURL: string | null;
 }
 
+// プレミアムステータスの型定義
+export interface PremiumStatus {
+  isPremium: boolean;
+  expiryDate?: Date | null;
+}
+
 export interface AuthState {
   user: AppUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
   isNewUser: boolean;
+  premiumStatus: PremiumStatus | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (promptAsync: () => Promise<any>) => Promise<void>;
@@ -76,6 +83,7 @@ export interface AuthState {
   setIsNewUser: (value: boolean) => void;
   setUser: (user: AppUser | null) => void;
   setLoading: (loading: boolean) => void;
+  setPremiumStatus: (status: PremiumStatus | null) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => {
@@ -86,6 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     isLoading: true,
     error: null,
     isNewUser: false,
+    premiumStatus: null,
   };
   
   // 起動時にonAuthStateChangedより先に実行されるチェック
@@ -167,6 +176,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     isLoading: true,
     error: null,
     isNewUser: false,
+    premiumStatus: null,
 
     login: async (email, password) => {
       try {
@@ -368,5 +378,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     setUser: (user) => set({ user, isAuthenticated: !!user, isLoading: false }),
 
     setLoading: (loading) => set({ isLoading: loading }),
+
+    setPremiumStatus: (status) => set({ premiumStatus: status }),
   };
 });

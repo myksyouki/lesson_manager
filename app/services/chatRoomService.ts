@@ -324,41 +324,48 @@ export const getChatRoomById = async (id: string): Promise<ChatRoom | null> => {
   }
 };
 
-// チャットルームのメッセージを更新する
-export const updateChatRoomMessages = async (roomId: string, messages: ChatMessage[], conversationId?: string): Promise<void> => {
+/**
+ * チャットルームのメッセージを更新する
+ * @param roomId チャットルームID
+ * @param messages メッセージ配列
+ * @param conversationId 会話ID（オプション）
+ * @param modelType モデルタイプ（オプション）
+ */
+export const updateChatRoomMessages = async (
+  roomId: string, 
+  messages: ChatMessage[], 
+  conversationId?: string,
+  modelType?: string
+): Promise<void> => {
   try {
-    console.log(`チャットルームメッセージ更新開始 (roomId: ${roomId}, メッセージ数: ${messages.length})`);
     const currentUser = auth.currentUser;
-    if (!currentUser) throw new Error('認証エラー: ユーザーがログインしていません');
-    
-    // パスを修正 - ユーザーのサブコレクションを使用
-    const chatRoomRef = doc(db, `users/${currentUser.uid}/chatRooms`, roomId);
-    
-    // メッセージ数が上限を超える場合、古いメッセージを削除
-    let updatedMessages = [...messages];
-    if (updatedMessages.length > MAX_MESSAGES_PER_CHAT_ROOM) {
-      console.log(`メッセージ数が上限(${MAX_MESSAGES_PER_CHAT_ROOM})を超えました。古いメッセージを削除します。`);
-      const excessCount = updatedMessages.length - MAX_MESSAGES_PER_CHAT_ROOM;
-      updatedMessages = updatedMessages.slice(excessCount); // 古いメッセージを削除
+    if (!currentUser) {
+      throw new Error('ユーザーがログインしていません');
     }
     
-    // 更新するデータ
+    const chatRoomRef = doc(db, `users/${currentUser.uid}/chatRooms`, roomId);
+    
+    // 更新データを作成
     const updateData: any = {
-      messages: updatedMessages,
+      messages,
       updatedAt: serverTimestamp()
     };
     
-    // 会話IDが指定されている場合は更新する
+    // conversationIdが存在する場合のみ、更新データに含める
     if (conversationId) {
-      console.log(`会話ID更新: ${conversationId}`);
       updateData.conversationId = conversationId;
     }
     
+    // modelTypeが存在する場合のみ、更新データに含める
+    if (modelType) {
+      updateData.modelType = modelType;
+    }
+    
     await updateDoc(chatRoomRef, updateData);
-    console.log(`チャットルームメッセージ更新完了 (roomId: ${roomId})`);
+    
   } catch (error) {
-    console.error('チャットルームメッセージ更新エラー:', error);
-    throw error;
+    console.error('メッセージ更新エラー:', error);
+    throw new Error('メッセージの更新に失敗しました');
   }
 };
 

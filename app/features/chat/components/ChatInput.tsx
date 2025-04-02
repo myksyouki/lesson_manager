@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Switch } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Text, KeyboardAvoidingView, Switch, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../theme';
 import { useAuthStore } from '../../../store/auth';
 
-interface ChatInputProps {
+export interface ChatInputProps {
   message: string;
-  onChangeMessage: (text: string) => void;
+  onChangeMessage: (message: string) => void;
   onSend: () => void;
   sending: boolean;
   roomId: string;
@@ -21,28 +21,15 @@ export function ChatInput({
   roomId,
   instrument,
 }: ChatInputProps) {
-  const [useHttpDirect, setUseHttpDirect] = useState(true);
   const theme = useTheme();
   const { user } = useAuthStore();
 
-  const toggleHttpDirect = () => {
-    setUseHttpDirect(!useHttpDirect);
-  };
-
   return (
-    <View style={styles.container}>
-      <View style={styles.switchContainer}>
-        <Text style={styles.switchLabel}>
-          HTTP直接呼び出し
-        </Text>
-        <Switch
-          value={useHttpDirect}
-          onValueChange={toggleHttpDirect}
-          trackColor={{ false: '#767577', true: '#4285F4' }}
-          thumbColor={useHttpDirect ? '#8BB4F7' : '#f4f3f4'}
-        />
-      </View>
-      
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      style={styles.container}
+    >
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -67,7 +54,7 @@ export function ChatInput({
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -79,18 +66,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#EEEEEE',
     backgroundColor: '#f7f8fc',
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 8,
-    marginBottom: 4,
-  },
-  switchLabel: {
-    fontSize: 12,
-    marginRight: 4,
-    color: '#666666',
   },
   inputContainer: {
     flexDirection: 'row',

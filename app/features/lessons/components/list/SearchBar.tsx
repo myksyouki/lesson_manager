@@ -22,6 +22,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onTagsVisibleChange,
   theme 
 }) => {
+  // キーボードのサブミットイベントを処理するハンドラー
+  const handleSubmitEditing = (e: any) => {
+    // デフォルトのサブミット動作を防止
+    e.preventDefault?.();
+    // フォーカスを外さない
+    return false;
+  };
+
   return (
     <View>
       <View style={[
@@ -46,6 +54,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           onChangeText={onSearchChange}
           numberOfLines={1}
           multiline={false}
+          onSubmitEditing={handleSubmitEditing}
+          returnKeyType="search"
+          blurOnSubmit={false}
         />
       </View>
       

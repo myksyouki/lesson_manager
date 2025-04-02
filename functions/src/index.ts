@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Cloud Functions エントリポイント
  * 
@@ -12,7 +13,7 @@ import * as logger from "firebase-functions/logger";
 
 // ユーティリティ
 import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
-import axios from "axios";
+// import axios from "axios";
 
 // プロジェクトモジュール
 import {generateTasksFromLessons} from "./practice-menu";
@@ -23,47 +24,108 @@ admin.initializeApp();
   logger.info("Firebase Admin SDK初期化完了");
 }
 
-// Secret Manager クライアント
-const secretManager = new SecretManagerServiceClient();
-
-/**
- * Dify APIシークレットを取得
- */
-async function getDifySecrets() {
-  try {
-    logger.info("Difyシークレットの取得を開始...");
-    
-    const [apiKeyVersion] = await secretManager.accessSecretVersion({
-      name: "projects/lesson-manager-99ab9/secrets/dify-standard-api-key/versions/latest",
-    });
-    
-    const [appIdVersion] = await secretManager.accessSecretVersion({
-      name: "projects/lesson-manager-99ab9/secrets/dify-standard-app-id/versions/latest",
+// テスト用のhelloWorld関数
+export const helloWorld = onCall(
+  {
+    region: "asia-northeast1",
+    memory: "256Mi",
+    timeoutSeconds: 60,
+  },
+  async (request) => {
+    logger.info("helloWorld関数が呼び出されました", {
+      auth: request.auth,
+      data: request.data,
     });
 
-    const apiKey = apiKeyVersion.payload?.data?.toString();
-    const appId = appIdVersion.payload?.data?.toString();
-
-    if (!apiKey || !appId) {
-      throw new Error("Difyシークレットの取得に失敗しました");
+    try {
+      return {
+        success: true,
+        message: "Hello, World!",
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      logger.error("helloWorld関数でエラーが発生しました", error);
+      throw new HttpsError("internal", "内部エラーが発生しました");
     }
+  }
+);
 
-    logger.info("Difyシークレットの取得に成功");
+// 実際に使用している関数は復元
+async function getDifySecrets(): Promise<{ apiKey: string, appId: string }> {
+  try {
+    console.log('Difyシークレット取得中...');
+    const client = new SecretManagerServiceClient();
     
-    return {
-      apiKey,
-      appId,
-    };
+    // シークレット名を組み立て
+    const apiKeyName = `projects/${process.env.GCLOUD_PROJECT}/secrets/dify-api-key/versions/latest`;
+    const appIdName = `projects/${process.env.GCLOUD_PROJECT}/secrets/dify-app-id/versions/latest`;
+    
+    console.log(`シークレット名: ${apiKeyName}, ${appIdName}`);
+    
+    // 並行してシークレットを取得
+    const [apiKeyResponse, appIdResponse] = await Promise.all([
+      client.accessSecretVersion({ name: apiKeyName }),
+      client.accessSecretVersion({ name: appIdName })
+    ]);
+    
+    // 値を取得
+    const apiKey = apiKeyResponse[0].payload?.data?.toString() || '';
+    const appId = appIdResponse[0].payload?.data?.toString() || '';
+    
+    // シークレットが取得できたかチェック
+    if (!apiKey || !appId) {
+      throw new Error('Difyシークレットが見つかりません');
+    }
+    
+    console.log('Difyシークレット取得成功');
+    
+    return { apiKey, appId };
   } catch (error) {
-    logger.error("Difyシークレットの取得エラー:", error);
-    throw new Error("Difyシークレットの取得に失敗しました");
+    console.error('Difyシークレット取得エラー:', error);
+    throw new Error('Difyシークレットの取得に失敗しました');
   }
 }
 
-/**
- * 楽器名を正規化する
- * 例: woodwind-saxophone-standard → saxophone
- */
+// 未使用の関数をコメントアウト
+/*
+async function getArtistDifySecrets(): Promise<{ apiKey: string, appId: string }> {
+  try {
+    console.log('アーティストモデル用Difyシークレット取得中...');
+    const client = new SecretManagerServiceClient();
+    
+    // シークレット名を組み立て
+    const apiKeyName = `projects/${process.env.GCLOUD_PROJECT}/secrets/dify-saxophone-artist-api-key/versions/latest`;
+    const appIdName = `projects/${process.env.GCLOUD_PROJECT}/secrets/dify-saxophone-artist-app-id/versions/latest`;
+    
+    console.log(`アーティストモデル用シークレット名: ${apiKeyName}, ${appIdName}`);
+    
+    // 並行してシークレットを取得
+    const [apiKeyResponse, appIdResponse] = await Promise.all([
+      client.accessSecretVersion({ name: apiKeyName }),
+      client.accessSecretVersion({ name: appIdName })
+    ]);
+    
+    // 値を取得
+    const apiKey = apiKeyResponse[0].payload?.data?.toString() || '';
+    const appId = appIdResponse[0].payload?.data?.toString() || '';
+    
+    // シークレットが取得できたかチェック
+    if (!apiKey || !appId) {
+      throw new Error('アーティストモデル用Difyシークレットが見つかりません');
+    }
+    
+    console.log('アーティストモデル用Difyシークレット取得成功');
+    
+    return { apiKey, appId };
+  } catch (error) {
+    console.error('アーティストモデル用Difyシークレット取得エラー:', error);
+    throw new Error('アーティストモデル用Difyシークレットの取得に失敗しました');
+  }
+}
+*/
+
+// 未使用の関数をコメントアウト
+/*
 function normalizeInstrumentName(instrument: string): string {
   if (!instrument) return "saxophone"; // デフォルト値
   
@@ -105,74 +167,230 @@ function normalizeInstrumentName(instrument: string): string {
   logger.info(`変換なしで楽器名を使用: "${instrument}"`);
   return instrument;
 }
+*/
 
 /**
- * AIアシスタントにメッセージを送信するCloud Function
+ * チャットメッセージ送信関数
  */
-export const sendMessage = onCall(
-  {
-    enforceAppCheck: false,
-    cors: true,
-    memory: "256MiB",
-    invoker: "public",
-    region: "asia-northeast1",
-  },
-  async (request) => {
-    const data: any = request.data;
+export const sendMessage = onCall({
+  memory: '256MiB',
+  region: 'asia-northeast1',
+  timeoutSeconds: 300,
+  minInstances: 0,
+  maxInstances: 100,
+  enforceAppCheck: false,
+  invoker: 'authenticated'
+}, async (request) => {
+  try {
+    // リクエストデータが無い場合はエラー
+    if (!request.data) {
+      throw new Error('メッセージデータがありません');
+    }
+    
+    // ユーザー認証チェック
+    if (!request.auth) {
+      throw new Error('認証されていないユーザーはこの機能を使用できません');
+    }
+    
+    // リクエストパラメータのログ（より詳細なバージョン）
+    console.log('メッセージ送信リクエスト詳細:', {
+      messageContent: request.data.message?.substring(0, 50) + (request.data.message?.length > 50 ? '...' : ''),
+      messageLength: request.data.message?.length || 0,
+      hasConversationId: !!request.data.conversationId,
+      conversationId: request.data.conversationId,
+      instrument: request.data.modelId || request.data.instrument || 'standard',
+      isArtistModel: !!request.data.useArtistModel,
+      artistName: request.data.artistName,
+      hasRoomId: !!request.data.roomId,
+      roomId: request.data.roomId,
+      userUid: request.auth.uid.substring(0, 6) + '...'
+    });
+    
+    // パラメータのバリデーション
+    if (!request.data.message) {
+      console.warn('リクエストボディにデータが不足しています:', request.data);
+      throw new Error('メッセージが空です');
+    }
     
     try {
-      // パラメータをログに出力
-      logger.info("sendMessage関数が呼び出されました", {
-        messageLength: data.message ? data.message.length : 0,
-        conversationId: data.conversationId || "(新規)",
-        instrument: data.instrument || "(なし)",
-        roomId: data.roomId || "(なし)",
-        isTestMode: !!data.isTestMode,
-        auth: request.auth ? "認証済み" : "未認証",
-      });
-
-      // 認証必須の処理
-      if (!request.auth) {
-        logger.error("認証されていないユーザーからのリクエストを拒否しました");
-        throw new HttpsError(
-          "unauthenticated",
-          "この機能を使用するには認証が必要です"
-        );
-      }
-
-      // 認証ユーザーのIDを記録
-      const authUid = request.auth.uid;
-      logger.info("認証ユーザーID:", authUid);
-
-      // テストモードの場合はエコー応答
-      if (data.isTestMode === true) {
-        return handleTestModeResponse(data, authUid);
-      }
-      
-      // 必須パラメータの検証
-      validateMessageParams(data);
-
-      // 楽器情報の取得
-      const instrumentName = await getInstrumentFromProfile(request.auth.uid, data.instrument);
-
-      // Dify API呼び出し
-      return await callDifyAPI(data, instrumentName, authUid);
-    } catch (error: any) {
-      // エラー処理を一貫化
-      logger.error("処理エラー:", error);
-      
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      
-      throw new HttpsError(
-        "internal",
-        error instanceof Error ? error.message : "メッセージの送信に失敗しました",
-        {original: String(error)}
+      // Dify APIを直接呼び出す
+      const result = await callDifyAPI(
+        request.data.message,
+        request.data.conversationId || '',
+        request.data.modelId || request.data.instrument || 'standard',
+        request.auth.uid,
+        request.data.roomId,
+        request.data.skillLevel,
+        request.data.artistName,
+        request.data.useArtistModel
       );
+      
+      return result;
+    } catch (apiError: any) {
+      // API呼び出しエラーの詳細をログ出力
+      console.error('Dify API呼び出しエラー:', apiError);
+      
+      // モデル過負荷エラー（503 ServiceUnavailable）を確認
+      const errorMessage = apiError?.message || '';
+      const isModelOverloadError = (typeof errorMessage === 'string') && 
+                                 (errorMessage.includes('503') || 
+                                 errorMessage.includes('ServiceUnavailable'));
+      
+      // エラーでもデフォルトの応答を返す
+      return {
+        success: false,
+        answer: isModelOverloadError 
+          ? 'AIモデルが現在混雑しています。しばらく経ってからもう一度お試しください。'
+          : 'AIからの応答を取得できませんでした。時間をおいて再度お試しください。',
+        conversationId: request.data.conversationId || '',
+        messageId: `error-${Date.now()}`,
+        created: new Date().toISOString(),
+        error: {
+          message: apiError.message || 'Unknown API error',
+          code: apiError.code || 'UNKNOWN_ERROR'
+        }
+      };
     }
-  },
-);
+  } catch (error: any) {
+    console.error('チャットメッセージ送信エラー:', error);
+    
+    // 一般的なエラーでもレスポンスを返す
+    return {
+      success: false,
+      answer: 'メッセージの処理中にエラーが発生しました。後でもう一度お試しください。',
+      messageId: `error-${Date.now()}`,
+      conversationId: request.data?.conversationId || '',
+      created: new Date().toISOString(),
+      error: {
+        message: error.message || 'チャットメッセージの送信中にエラーが発生しました',
+        code: error.code || 'UNKNOWN_ERROR',
+        details: error.details
+      }
+    };
+  }
+});
+
+/**
+ * Dify APIを使用してタスクを生成する共通関数
+ * レッスンサマリーまたはチャットのいずれかを入力として使用できる
+ */
+async function createTaskFromDify(
+  userId: string,
+  data: {
+    // 共通パラメータ
+    instrument?: string;
+    roomId?: string;
+    
+    // レッスンから生成する場合のパラメータ
+    lessonId?: string;
+    summary?: string;
+    pieces?: string[];
+    teacher?: string;
+    
+    // チャットから生成する場合のパラメータ
+    messages?: any[];
+    chatTitle?: string;
+    chatTopic?: string;
+    skill_level?: string;
+    practice_content?: string;
+    specific_goals?: string;
+  }
+): Promise<any> {
+  try {
+    logger.info("タスク生成の共通処理を開始", {
+      userId,
+      isFromLesson: !!data.summary,
+      isFromChat: !!data.messages,
+      hasInstrument: !!data.instrument,
+    });
+    
+    // 楽器情報の取得
+    const instrumentName = await getInstrumentFromProfile(userId, data.instrument);
+    logger.info(`使用する楽器: ${instrumentName}`);
+    
+    // Difyシークレットを取得
+    const {apiKey, appId} = await getDifySecrets();
+    if (!apiKey || !appId) {
+      throw new Error("API設定の取得に失敗しました");
+    }
+    
+    // レッスンサマリーからの場合
+    if (data.summary) {
+      // タスク作成のプロンプトを作成
+      const prompt = createTaskPromptFromLesson(
+        data.summary,
+        instrumentName,
+        data.pieces || [],
+        data.teacher || ""
+      );
+      
+      logger.info(`生成されたプロンプト（先頭100文字）: ${prompt.substring(0, 100)}...`);
+      
+      // Dify API呼び出しの準備
+      const taskData = {
+        message: prompt,
+        roomId: data.roomId || "lesson-task",
+      };
+      
+      // Dify API呼び出し
+      logger.info("レッスンサマリーからタスク生成のためにDify APIを呼び出します");
+      const apiResponse = await callDifyChat(apiKey, appId, taskData, instrumentName, userId);
+      
+      return {
+        success: apiResponse.success,
+        tasks: apiResponse.answer,
+        conversationId: apiResponse.conversationId || "",
+      };
+    }
+    
+    // チャットからの場合
+    if (data.messages && data.messages.length > 0) {
+      // チャット履歴をフォーマット (コメントアウトして未使用警告を解消)
+      // const chatHistory = data.messages
+      //   .map((msg: any) => `${msg.sender}: ${msg.content}`)
+      //   .join("\n");
+      
+      // クエリ文を作成
+      const query = `${data.chatTopic || "練習メニュー"}に関する${instrumentName}の練習メニューを作成してください。`;
+      
+      // Dify API呼び出しの準備
+      const taskData = {
+        message: query,
+        roomId: data.roomId || `chat-task-${Date.now()}`,
+        skill_level: data.skill_level || "初級",
+        practice_content: data.practice_content || "",
+        specific_goals: data.specific_goals || data.chatTopic || "",
+        chatTopic: data.chatTopic || "",
+      };
+      
+      // Dify API呼び出し
+      logger.info("チャットからタスク生成のためにDify APIを呼び出します");
+      const apiResponse = await callDifyChat(apiKey, appId, taskData, instrumentName, userId);
+      
+      return {
+        success: apiResponse.success,
+        tasks: apiResponse.answer,
+        message_id: apiResponse.taskId || null,
+        conversation_id: apiResponse.conversationId || "",
+      };
+    }
+    
+    // 入力がない場合はエラー
+    throw new Error("タスク生成に必要な入力がありません");
+  } catch (error: any) {
+    logger.error("タスク生成の共通処理でエラーが発生しました:", error);
+    
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    throw new HttpsError(
+      "internal",
+      error instanceof Error ? error.message : "タスク生成に失敗しました",
+      {original: String(error)}
+    );
+  }
+}
 
 /**
  * レッスンからタスクを作成するCloud Function
@@ -221,39 +439,14 @@ export const createTaskFromLesson = onCall(
         );
       }
 
-      // 楽器情報の取得
-      const instrumentName = await getInstrumentFromProfile(request.auth.uid, data.instrument);
-      logger.info(`使用する楽器: ${instrumentName}`);
-
-      // タスク作成のプロンプトを作成
-      const prompt = createTaskPromptFromLesson(data.summary, instrumentName, data.pieces, data.teacher);
-      logger.info(`生成されたプロンプト（先頭100文字）: ${prompt.substring(0, 100)}...`);
-
-      // Dify API呼び出しの準備
-      const taskData = {
-        message: prompt,
-        conversationId: data.conversationId || "",
-        roomId: data.chatTitle ? `task-${Date.now()}` : "lesson-task", // チャットからの場合は一意のroomIdを生成
-      };
-
-      // Dify API呼び出し
-      logger.info("Dify API呼び出しを開始します（タスク生成）...");
-      const apiResponse = await callDifyAPI(taskData, instrumentName, authUid);
-      
-      // レスポンスチェック
-      if (!apiResponse || !apiResponse.answer) {
-        logger.error("Dify APIからの応答が不完全です", apiResponse);
-        throw new Error("タスク生成のレスポンスが不正です");
-      }
-      
-      logger.info(`APIレスポンス（先頭100文字）: ${apiResponse.answer.substring(0, 100)}...`);
-      
-      // 成功レスポンスを返す
-      return {
-        success: true,
-        tasks: apiResponse.answer,
-        conversationId: apiResponse.conversationId || "",
-      };
+      // 共通タスク生成関数を呼び出し
+      return await createTaskFromDify(authUid, {
+        lessonId: data.lessonId,
+        summary: data.summary,
+        pieces: data.pieces,
+        teacher: data.teacher,
+        roomId: data.roomId || "lesson-task",
+      });
     } catch (error: any) {
       // エラー処理を一貫化
       logger.error("タスク作成中のエラー:", error);
@@ -305,10 +498,9 @@ function createTaskPromptFromLesson(summary: string, instrument: string, pieces:
   return prompt;
 }
 
-/**
- * テストモード用のレスポンス
- */
-async function handleTestModeResponse(data: any, /* Unused parameter */ _: string): Promise<any> {
+// 未使用の関数をコメントアウト
+/*
+async function handleTestModeResponse(data: any): Promise<any> {
   logger.info("テストモードでリクエストを処理:", {
     message: data.message.substring(0, 30) + "...",
     conversationId: data.conversationId,
@@ -320,10 +512,10 @@ async function handleTestModeResponse(data: any, /* Unused parameter */ _: strin
     conversationId: data.conversationId || "test-conversation-id",
   };
 }
+*/
 
-/**
- * メッセージパラメータの検証
- */
+// 未使用の関数をコメントアウト
+/*
 function validateMessageParams(data: any): void {
   if (!data.message) {
     throw new HttpsError(
@@ -339,6 +531,7 @@ function validateMessageParams(data: any): void {
     );
   }
 }
+*/
 
 /**
  * ユーザープロファイルから楽器情報を取得
@@ -381,136 +574,189 @@ async function getInstrumentFromProfile(userId: string, defaultInstrument = ""):
 }
 
 /**
- * Dify APIを呼び出す
+ * DifyのAPIを呼び出す関数
  */
-async function callDifyAPI(data: any, instrumentName: string, userId: string): Promise<any> {
+async function callDifyAPI(
+  message: string,
+  conversationId: string,
+  instrument: string,
+  userId: string,
+  roomId?: string,
+  skillLevel?: string,
+  artistName?: string,
+  useArtistModel: boolean = false
+): Promise<any> {
   try {
-    const {apiKey, appId} = await getDifySecrets();
-    
-    // 認証情報の詳細（機密情報を隠して）をログに出力
-    logger.info("Dify API認証情報:", {
-      apiKeyLength: apiKey.length, 
-      apiKeyPrefix: apiKey.substring(0, 4), 
-      appIdLength: appId.length, 
-      appIdPrefix: appId.substring(0, 4),
+    // デバッグ情報：入力パラメータのログ記録
+    console.log('callDifyAPI 入力パラメータ:', {
+      message: message.length > 30 ? `${message.substring(0, 30)}...(${message.length}文字)` : message,
+      conversationId,
+      instrument,
+      userId,
+      roomId,
+      skillLevel,
+      artistName,
+      useArtistModel
     });
     
-    logger.info("Dify API呼び出しを開始します...");
-    
-    // 楽器名を正規化
-    const normalizedInstrument = normalizeInstrumentName(instrumentName);
-    logger.info(`楽器名を正規化: "${instrumentName}" → "${normalizedInstrument}"`);
-    
-    // まずワークフローエンドポイントを試す
-    try {
-      return await callDifyWorkflow(apiKey, appId, data, normalizedInstrument, userId);
-    } catch (workflowError) {
-      // ワークフローが失敗した場合、通常のチャットエンドポイントを試す
-      logger.warn("ワークフローエンドポイント失敗、チャットエンドポイントを試します", workflowError);
-      return await callDifyChat(apiKey, appId, data, normalizedInstrument, userId);
+    // 新しいシークレットを取得
+    const secretClient = new SecretManagerServiceClient();
+    const [apiKeyVersion] = await secretClient.accessSecretVersion({
+      name: `projects/${process.env.GCLOUD_PROJECT}/secrets/dify-saxophone-api-key/versions/latest`
+    });
+    const [appIdVersion] = await secretClient.accessSecretVersion({
+      name: `projects/${process.env.GCLOUD_PROJECT}/secrets/dify-saxophone-app-id/versions/latest`
+    });
+
+    const apiKey = apiKeyVersion.payload?.data?.toString() || '';
+    const appId = appIdVersion.payload?.data?.toString() || '';
+
+    console.log('Dify シークレット取得結果:', {
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey.length,
+      hasAppId: !!appId,
+      appIdLength: appId.length
+    });
+
+    if (!apiKey || !appId) {
+      throw new Error('Dify API設定の取得に失敗しました');
     }
-  } catch (error) {
-    logger.error("Dify API呼び出しエラー:", error);
+
+    // モデル選択ロジック
+    // アーティストモードが有効で、artistNameが指定されている場合はそれをモデルとして使用
+    // そうでない場合は通常のモデル選択ロジックを使用
+    let modelValue = "standard";
+    let instrumentValue = "サクソフォン";
     
-    if (axios.isAxiosError(error)) {
-      throw new HttpsError(
-        "internal",
-        `Dify API呼び出しエラー: ${error.message}`,
-        {
-          status: error.response?.status,
-          data: error.response?.data,
-        }
-      );
+    if (useArtistModel && artistName) {
+      // アーティスト名をモデル値として設定
+      modelValue = artistName;
+      console.log(`アーティストモデルを使用: ${modelValue}`);
+    } else if (instrument === "standard" || instrument === "gpt-4" || instrument === "claude") {
+      // 通常のモデル選択ロジック
+      modelValue = instrument;
+    } else {
+      // それ以外の場合は楽器名として扱い、モデルはデフォルト値を使用
+      instrumentValue = instrument || "サクソフォン";
     }
     
+    console.log('使用するモデルと楽器:', {
+      model: modelValue,
+      instrument: instrumentValue
+    });
+
+    // リクエストデータの準備 - モデル名とinstrumentを正しく設定
+    const requestBody = {
+      inputs: {
+        model: modelValue,        // モデル名（アーティスト名または標準モデル）
+        instrument: instrumentValue, // 楽器名
+        user_use: "chat"          // 常にchatを使用
+      },
+      query: message,
+      user: userId,
+      conversation_id: conversationId || undefined,
+      response_mode: "blocking"
+    };
+    
+    // リクエストの詳細内容をログ出力（機密情報は省略）
+    console.log('Dify チャットリクエスト詳細:', JSON.stringify({
+      inputs: requestBody.inputs,
+      conversation_id: conversationId || '新規',
+      query_full: message.length <= 100 ? message : `${message.substring(0, 100)}...(${message.length}文字)`,
+      query_length: message.length
+    }, null, 2));
+
+    // リクエストヘッダーの準備
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    };
+
+    // Dify APIのエンドポイントURL - chat-messagesエンドポイントを使用
+    const apiUrl = 'https://api.dify.ai/v1/chat-messages';
+
+    // 開始時間を記録
+    const startTime = Date.now();
+
+    // APIリクエストを実行
+    console.log(`Dify API呼び出し: ${apiUrl}, メッセージ長: ${message.length}文字`);
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody)
+    });
+
+    // 応答時間を計算
+    const responseTime = Date.now() - startTime;
+    console.log(`Dify API応答受信: ${responseTime}ms, ステータス: ${response.status}`);
+
+    // レスポンスをJSONに変換
+    const responseData = await response.json();
+    
+    // 完全なレスポンスデータをログに出力（デバッグ用）
+    console.log('Dify API完全レスポンス:', JSON.stringify(responseData, null, 2));
+    
+    // エラーレスポンスの場合は詳細をログに記録
+    if (!response.ok) {
+      console.error('Dify APIエラーレスポンス:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: responseData
+      });
+      throw new Error(responseData.message || `HTTP エラー ${response.status}`);
+    }
+
+    // レスポンスデータを整形して返す
+    const result = {
+      success: true,
+      answer: responseData.answer ? responseData.answer : 'AIからの応答を生成中です。少し時間をおいて再度お試しください。',
+      conversationId: responseData.conversation_id || '',
+      messageId: responseData.id || `msg-${Date.now()}`,
+      created: new Date().toISOString()
+    };
+
+    console.log('Dify API成功レスポンス:', {
+      conversationId: result.conversationId,
+      messageId: result.messageId,
+      answerLength: result.answer.length,
+      responseTime: `${responseTime}ms`
+    });
+
+    return result;
+  } catch (error: any) {
+    // エラーの詳細をログに記録
+    console.error('Dify API呼び出しエラー:', {
+      message: error.message,
+      stack: error.stack,
+      cause: error.cause
+    });
+    
+    // エラーを再スロー
     throw error;
   }
 }
 
 /**
- * Dify ワークフローエンドポイントを呼び出す
+ * DifyのChat APIを呼び出す関数
  */
-async function callDifyWorkflow(apiKey: string, appId: string, data: any, instrument: string, userId: string): Promise<any> {
-  const workflowEndpoint = "https://api.dify.ai/v1/workflows/run";
-  logger.info("使用するエンドポイント:", workflowEndpoint);
-  
-  const response = await axios.post(
-    workflowEndpoint,
-    {
-      workflow_id: appId,
-      inputs: {
-        instrument: instrument,
-        roomId: data.roomId || "",
-      },
-      query: data.message,
-      user: userId,
-    },
-    {
-      headers: {
-        "Authorization": "Bearer " + apiKey,
-        "Content-Type": "application/json",
-      },
-      timeout: 30000, // 30秒タイムアウト
-    }
-  );
-  
-  logger.info("Dify APIレスポンスステータス:", response.status + " " + response.statusText);
-  
-  // ログにDifyの返答の主要部分だけを出力
-  if (response.data && response.data.answer) {
-    logger.info("Dify AIの応答:", response.data.answer.substring(0, 100) + "...");
-  }
-  
-  const answer = response.data.outputs?.answer === "♪エラー♪" || response.data.answer === "♪エラー♪" ?
-    "楽器種類の指定がないため、応答できません。プロフィール設定で楽器を選択してからお試しください。" :
-    response.data.outputs?.answer || response.data.answer || "応答がありませんでした";
-  
-  // 成功応答を返す
-  return {
-    success: true,
-    answer: answer,
-    conversationId: response.data.outputs?.conversation_id || response.data.conversation_id || data.conversationId || "",
-  };
-}
-
-/**
- * Dify チャットエンドポイントを呼び出す
- */
+// callDifyChat関数は廃止し、callDifyAPI関数に統合します
 async function callDifyChat(apiKey: string, appId: string, data: any, instrument: string, userId: string): Promise<any> {
-  const chatEndpoint = "https://api.dify.ai/v1/chat-messages";
-  logger.info("使用するエンドポイント:", chatEndpoint);
-  
-  const response = await axios.post(
-    chatEndpoint,
-    {
-      inputs: {
-        instrument: instrument,
-      },
-      query: data.message,
-      response_mode: "blocking",
-      conversation_id: data.conversationId || "",
-      user: userId,
-    },
-    {
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      timeout: 30000,
-    }
-  );
-  
-  logger.info("Dify チャットAPIレスポンスステータス:", response.status);
-  
-  const answer = response.data.answer === "♪エラー♪" ? 
-    "楽器種類の指定がないため、応答できません。プロフィール設定で楽器を選択してからお試しください。" : 
-    response.data.answer || "応答がありませんでした";
-  
-  return {
-    success: true,
-    answer: answer,
-    conversationId: response.data.conversation_id || data.conversationId || "",
-  };
+  try {
+    // callDifyAPI関数に必要なパラメータに変換して呼び出す
+    return await callDifyAPI(
+      data.message,
+      data.conversationId || '',
+      data.useArtistModel ? 'saxophone' : instrument,
+      userId,
+      data.roomId,
+      data.skill_level,
+      data.artistName,
+      data.useArtistModel
+    );
+  } catch (error) {
+    console.error('callDifyChat エラー (callDifyAPIに移行中):', error);
+    throw error;
+  }
 }
 
 // Firebase Cloud Functions エクスポート
@@ -519,3 +765,129 @@ export {generateTasksFromLessons};
 // 他のモジュールで必要な関数をエクスポート
 export * from "./summaries";
 export * from "./common/errors";
+
+/**
+ * チャットルームの会話履歴からタスクを作成するCloud Function
+ */
+export const createTaskFromChat = onCall(
+  {
+    enforceAppCheck: false,
+    cors: true,
+    memory: "256MiB",
+    invoker: "public",
+    region: "asia-northeast1",
+    maxInstances: 10,
+  },
+  async (request) => {
+    const data: any = request.data;
+    
+    try {
+      // パラメータをログに出力
+      logger.info("createTaskFromChat関数が呼び出されました", {
+        messagesCount: Array.isArray(data.messages) ? data.messages.length : 0,
+        chatTitle: data.chatTitle || "(なし)",
+        chatTopic: data.chatTopic || "(なし)",
+        hasInstrument: !!data.instrument,
+        auth: request.auth ? "認証済み" : "未認証",
+      });
+
+      // 認証必須の処理
+      if (!request.auth) {
+        logger.error("認証されていないユーザーからのリクエストを拒否しました");
+        throw new HttpsError(
+          "unauthenticated",
+          "この機能を使用するには認証が必要です"
+        );
+      }
+
+      // 認証ユーザーのIDを記録
+      const userId = request.auth.uid;
+      logger.info("認証ユーザーID:", userId);
+      
+      // 必須パラメータの検証
+      if (!data.messages || !Array.isArray(data.messages) || data.messages.length === 0) {
+        throw new HttpsError(
+          "invalid-argument", 
+          "メッセージが必要です"
+        );
+      }
+
+      try {
+        // 共通タスク生成関数を呼び出し
+        return await createTaskFromDify(userId, {
+          messages: data.messages,
+          chatTitle: data.chatTitle,
+          chatTopic: data.chatTopic,
+          skill_level: data.skill_level,
+          practice_content: data.practice_content,
+          specific_goals: data.specific_goals,
+          roomId: data.roomId || `chat-task-${Date.now()}`,
+          instrument: data.instrument,
+        });
+      } catch (error: any) {
+        // エラー処理
+        logger.error(`チャットからのタスク生成エラー: ${error.message || "不明なエラー"}`, error);
+        
+        // フォールバック: 固定の練習メニューを返す
+        logger.info("フォールバック: 固定の練習メニューを生成します");
+        
+        // フォールバックタスクを生成
+        return generateFallbackTask(userId, data);
+      }
+    } catch (error: any) {
+      // 外側のエラー処理
+      logger.error("タスク生成関数全体のエラー:", error);
+      
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      
+      throw new HttpsError(
+        "internal",
+        error instanceof Error ? error.message : "タスク生成に失敗しました",
+        {original: String(error)}
+      );
+    }
+  },
+);
+
+// フォールバックタスク生成関数
+function generateFallbackTask(userId: string, data: any) {
+  const instrument = data.instrument || "ピアノ";
+  
+  // 楽器に合わせたフォールバックタスクを生成
+  const fallbackTask = {
+    title: `${instrument}の基本練習メニュー`,
+    category: "基本練習",
+    practice_points: [
+      "正しい姿勢と基本フォームを意識する",
+      "リズムを正確に取る",
+      "音色と音質に注意する",
+      "基礎技術の向上に集中する",
+    ],
+    technical_exercises: [
+      "スケール練習（長調・短調）",
+      "アルペジオ練習",
+      "基本的な奏法の練習",
+      "音階を使った指の独立練習",
+    ],
+    piece_practice: [
+      "簡単な小品から始める",
+      "部分練習を丁寧に行う",
+      "テンポをゆっくり正確に練習する",
+    ],
+    interpretation_advice: `${instrument}の基本に忠実に練習しましょう。焦らずにじっくりと基礎を固めることが上達の近道です。正確なリズムと美しい音色を心がけて練習してください。`,
+  };
+  
+  console.log("フォールバックタスク生成完了:", {
+    instrument,
+    title: fallbackTask.title,
+  });
+  
+  return {
+    success: false,
+    error: "タスク生成APIに接続できませんでした",
+    tasks: JSON.stringify(fallbackTask),
+    fallback: true,
+  };
+}

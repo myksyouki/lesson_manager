@@ -523,83 +523,79 @@ export default function LessonsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={{ flex: 1 }}>
-        {/* 検索バーとタグフィルター - アクティブタブでレッスンがある場合、または他のタブの場合に表示 */}
-        {(activeTab !== 'active' || (activeTab === 'active' && filteredLessons.length > 0) || isLoading) && (
-          <View style={styles.searchHeaderContainer}>
-            <View style={styles.searchCard}>
-              <SearchBar
-                searchText={searchText}
-                onSearchChange={handleSearchChange}
-                isDetailedSearch={isDetailedSearch}
-                onDetailedSearchChange={handleDetailedSearchChange}
-                isTagsVisible={isTagsVisible}
-                onTagsVisibleChange={handleTagsVisibleChange}
+        {/* 検索バーとタグフィルター - 常に表示 */}
+        <View style={styles.searchHeaderContainer}>
+          <View style={styles.searchCard}>
+            <SearchBar
+              searchText={searchText}
+              onSearchChange={handleSearchChange}
+              isDetailedSearch={isDetailedSearch}
+              onDetailedSearchChange={handleDetailedSearchChange}
+              isTagsVisible={isTagsVisible}
+              onTagsVisibleChange={handleTagsVisibleChange}
+              theme={theme}
+            />
+            {filteredLessons.length > 0 && activeTab === 'active' && isTagsVisible && (
+              <TagFilter
+                availableTags={uniqueTags}
+                selectedTags={selectedTags}
+                onTagPress={handleTagPress}
                 theme={theme}
               />
-              {filteredLessons.length > 0 && activeTab === 'active' && isTagsVisible && (
-                <TagFilter
-                  availableTags={uniqueTags}
-                  selectedTags={selectedTags}
-                  onTagPress={handleTagPress}
-                  theme={theme}
-                />
-              )}
-            </View>
+            )}
           </View>
-        )}
+        </View>
 
-        {/* タブナビゲーション - アクティブタブでレッスンがある場合、または他のタブの場合に表示 */}
-        {(activeTab !== 'active' || (activeTab === 'active' && filteredLessons.length > 0) || isLoading) && (
-          <View style={styles.segmentedControlContainer}>
-            <View style={styles.segmentedControl}>
-              <TouchableOpacity
+        {/* タブナビゲーション - 常に表示 */}
+        <View style={styles.segmentedControlContainer}>
+          <View style={styles.segmentedControl}>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                activeTab === 'active' && styles.segmentButtonActive
+              ]}
+              onPress={() => handleTabChange('active')}
+            >
+              <MaterialIcons 
+                name="list" 
+                size={18} 
+                color={activeTab === 'active' ? '#FFFFFF' : '#8E8E93'} 
+                style={styles.segmentIcon}
+              />
+              <Text
                 style={[
-                  styles.segmentButton,
-                  activeTab === 'active' && styles.segmentButtonActive
+                  styles.segmentButtonText,
+                  activeTab === 'active' && styles.segmentButtonTextActive
                 ]}
-                onPress={() => handleTabChange('active')}
               >
-                <MaterialIcons 
-                  name="list" 
-                  size={18} 
-                  color={activeTab === 'active' ? '#FFFFFF' : '#8E8E93'} 
-                  style={styles.segmentIcon}
-                />
-                <Text
-                  style={[
-                    styles.segmentButtonText,
-                    activeTab === 'active' && styles.segmentButtonTextActive
-                  ]}
-                >
-                  レッスン
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
+                レッスン
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                activeTab === 'archive' && styles.segmentButtonActive
+              ]}
+              onPress={() => handleTabChange('archive')}
+            >
+              <MaterialIcons 
+                name="archive" 
+                size={18} 
+                color={activeTab === 'archive' ? '#FFFFFF' : '#8E8E93'} 
+                style={styles.segmentIcon}
+              />
+              <Text
                 style={[
-                  styles.segmentButton,
-                  activeTab === 'archive' && styles.segmentButtonActive
+                  styles.segmentButtonText,
+                  activeTab === 'archive' && styles.segmentButtonTextActive
                 ]}
-                onPress={() => handleTabChange('archive')}
               >
-                <MaterialIcons 
-                  name="archive" 
-                  size={18} 
-                  color={activeTab === 'archive' ? '#FFFFFF' : '#8E8E93'} 
-                  style={styles.segmentIcon}
-                />
-                <Text
-                  style={[
-                    styles.segmentButtonText,
-                    activeTab === 'archive' && styles.segmentButtonTextActive
-                  ]}
-                >
-                  アーカイブ
-                </Text>
-              </TouchableOpacity>
-            </View>
+                アーカイブ
+              </Text>
+            </TouchableOpacity>
           </View>
-        )}
+        </View>
 
         <View style={[styles.content, { minHeight: contentHeight }]}>
           {isSelectionMode && (

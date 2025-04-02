@@ -34,96 +34,66 @@ console.log(`Firebase Functions初期化開始 (リージョン: ${functionsRegi
 const projectId = firebaseApp.options.projectId || 'lesson-manager-99ab9';
 console.log(`Firebase プロジェクトID: ${projectId}`);
 
-// Functionsインスタンスを定義
-let functions: any = null;
+// 重要: functions変数をletからconstに変更し、より確実な初期化を行う
+const functions = getFunctions(firebaseApp, functionsRegion);
 
-// Functionsの初期化を強化
+// 明示的にリージョンを設定（バージョン互換性のため冗長に設定）
 try {
-  // 明示的にリージョンを指定して初期化
-  functions = getFunctions(firebaseApp, functionsRegion);
+  console.log('🔧 Firebase Functions初期化およびリージョン設定...');
   
-  // 確実に初期化が完了していることを確認
-  if (!functions) {
-    console.error('Firebase Functions初期化失敗: functions オブジェクトが null または undefined です');
-    // 再度初期化を試みる
-    functions = getFunctions(firebaseApp);
-    console.log('リージョン指定なしで再初期化を試みました:', !!functions);
-  }
+  // _delegateプロパティは最新のFirebase SDKでは異なる構造になっているため
+  // カスタムドメイン設定は行わず、リージョン指定のみに依存する
   
-  // __DEV__モードでエミュレーターに接続するオプション
-  // if (__DEV__) {
-  //   connectFunctionsEmulator(functions, 'localhost', 5001);
-  //   console.log('Firebase Functions エミュレーターに接続しました (localhost:5001)');
-  // }
-  
-  // デバッグ用に詳細情報をログ出力
-  console.log('Firebase Functions初期化診断:', {
+  console.log('📊 Firebase Functions診断:', {
+    functionsExists: !!functions,
     projectId: firebaseApp.options.projectId,
-    region: functionsRegion,
     appName: firebaseApp.name,
-    functionsInstance: !!functions,
-    functionsUrl: `https://${functionsRegion}-${projectId}.cloudfunctions.net`,
+    functionsRegion: functionsRegion,
     mode: __DEV__ ? 'development' : 'production'
   });
   
-  // 初期化の内部状態を検証
-  if (functions) {
-    const functionsType = typeof functions;
-    const functionsKeys = Object.keys(functions);
-    const hasCustomDomain = 'customDomain' in functions;
-    
-    console.log('Functions検証結果:', {
-      functionsType,
-      functionsKeys,
-      hasCustomDomain,
-      hasApp: 'app' in functions
+  // 初期化テスト - 関数参照の取得を試す
+  try {
+    const testFunc = httpsCallable(functions, 'sendMessage');
+    console.log('✅ sendMessage関数参照テスト:', {
+      functionExists: !!testFunc,
+      functionType: typeof testFunc
     });
-    
-    // 初期化が成功したことを確認
-    console.log('Firebase Functions初期化成功');
-  } else {
-    console.error('Firebase Functions初期化失敗: 再初期化してもnullです');
-    // 最後の手段としてデフォルト設定で初期化
-    functions = getFunctions();
-    console.log('デフォルト設定で再初期化:', !!functions);
+  } catch (refError) {
+    console.error('❌ 関数参照テストエラー:', refError);
   }
 } catch (error) {
-  console.error('Firebase Functions初期化エラー:', error);
-  // エラー発生時も最後の手段として初期化を試みる
-  try {
-    functions = getFunctions();
-    console.log('エラー発生後のデフォルト設定で再初期化:', !!functions);
-  } catch (e) {
-    console.error('再初期化も失敗:', e);
-  }
+  console.error('Firebase Functions設定エラー:', error);
 }
 
 // 初期化したfunctionsをエクスポート
 export { functions };
 
-// 簡易的な疎通テスト関数
+// Firebase Functions 接続テスト関数
 export const testFunctionConnection = async () => {
   try {
-    const testURL = `https://${functionsRegion}-${projectId}.cloudfunctions.net/testDifyConnection`;
-    console.log(`疎通テスト URL: ${testURL}`);
+    console.log('Firebase Functions接続テスト開始...');
+    const functions = getFunctions(firebaseApp, 'asia-northeast1');
     
-    // 直接HTTPでテスト
-    const response = await fetch(testURL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: { timestamp: new Date().toISOString() } })
-    });
-    
-    if (response.ok) {
-      console.log('Firebase Functions HTTP疎通テスト成功');
-      return true;
-    } else {
-      console.error('Firebase Functions HTTP疎通テスト失敗:', response.status, response.statusText);
-      return false;
+    // 簡単なhelloWorld関数を呼び出す（存在する場合）
+    try {
+      const helloWorld = httpsCallable(functions, 'helloWorld');
+      const result = await helloWorld({});
+      return { success: true, result: result.data };
+    } catch (innerError) {
+      // helloWorldが存在しない場合、sendMessageを試す
+      try {
+        const sendMessage = httpsCallable(functions, 'sendMessage');
+        const testResult = await sendMessage({ test: true });
+        return { success: true, result: testResult.data };
+      } catch (sendMessageError) {
+        console.error('Functions呼び出しエラー:', sendMessageError);
+        return { success: false, error: sendMessageError };
+      }
     }
   } catch (error) {
-    console.error('Firebase Functions疎通テストエラー:', error);
-    return false;
+    console.error('Firebase Functions接続テストエラー:', error);
+    return { success: false, error };
   }
 };
 

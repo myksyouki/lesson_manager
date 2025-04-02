@@ -291,7 +291,7 @@ ${aiSummary}
 あなたはこのレッスンの内容を理解した上で、生徒の質問や相談に応えるAIコーチです。`;
 
           // AIモデルからの応答を取得
-          const aiResponse = await sendMessageToLessonAIHttp(
+          const aiResponse = await sendMessageToLessonAI(
             initialPrompt,
             undefined,  // 新規会話なのでconversationIdはundefined
             userModelType || 'standard',

@@ -53,6 +53,8 @@ export interface InstrumentInfo {
   modelId: string;
   modelName: string;
   isArtistModel: boolean;
+  // 利用可能なモデル一覧
+  models: InstrumentModel[];
 }
 
 // データベース構造フラグ
@@ -230,25 +232,38 @@ export const instrumentCategories: InstrumentCategory[] = [
           {
             id: 'standard',
             name: 'スタンダードモデル',
-            isArtist: false
+            isArtist: false,
+            description: '基本的なサックスの練習に適したモデルです。'
           },
           {
             id: 'ueno',
-            name: '上野耕平モデル(BETA)',
+            name: '上野耕平モデル',
             isArtist: true,
-            description: '上野耕平氏監修の特別モデルです。クラシックサックスの専門家によるアドバイスが得られます。'
+            description: '上野耕平氏によるサックス演奏のアドバイスを提供します。'
           },
           {
-            id: 'tsuzuki',
-            name: '都築惇モデル(BETA)',
+            id: 'saito',
+            name: '齊藤健太モデル',
             isArtist: true,
-            description: '都築惇氏監修の特別モデルです。ジャズサックスの専門家によるアドバイスが得られます。'
+            description: '齊藤健太氏によるサックス演奏のアドバイスを提供します。'
+          },
+          {
+            id: 'sumiya',
+            name: '住谷美帆モデル',
+            isArtist: true,
+            description: '住谷美帆氏によるサックス演奏のアドバイスを提供します。'
           },
           {
             id: 'tanaka',
-            name: '田中奏一朗モデル(BETA)',
+            name: '田中奏一朗モデル',
             isArtist: true,
-            description: '田中奏一朗氏監修の特別モデルです。ポップスサックスの専門家によるアドバイスが得られます。'
+            description: '田中奏一朗氏によるサックス演奏のアドバイスを提供します。'
+          },
+          {
+            id: 'tsuzuki',
+            name: '都築惇モデル',
+            isArtist: true,
+            description: '都築惇氏によるサックス演奏のアドバイスを提供します。'
           }
         ],
         difyAppId: process.env.EXPO_PUBLIC_DIFY_SAXOPHONE_APP_ID || '',
@@ -328,7 +343,7 @@ export const createUserProfile = async (user: User) => {
     selectedCategory: DEFAULT_CATEGORY,
     selectedInstrument: DEFAULT_INSTRUMENT,
     selectedModel: DEFAULT_MODEL,
-    isPremium: false,
+    isPremium: true, // 開発段階のため常にプレミアム権限を持つように設定
     isOnboardingCompleted: false,
     createdAt: new Date(),
     updatedAt: new Date()
@@ -369,7 +384,7 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
       selectedCategory: data.selectedCategory || DEFAULT_CATEGORY,
       selectedInstrument: data.selectedInstrument || DEFAULT_INSTRUMENT,
       selectedModel: data.selectedModel || DEFAULT_MODEL,
-      isPremium: !!data.isPremium,
+      isPremium: true, // 開発段階のため常にプレミアム権限を持つように設定
       isOnboardingCompleted: !!data.isOnboardingCompleted,
       createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000) : new Date(),
       updatedAt: data.updatedAt ? new Date(data.updatedAt.seconds * 1000) : new Date(),
@@ -546,118 +561,49 @@ export const getDifyApiInfo = async (): Promise<{appId: string; apiKey: string}>
  */
 export const getUserInstrumentInfo = async (forceRefresh: boolean = false): Promise<InstrumentInfo | null> => {
   try {
-    console.log(`=== getUserInstrumentInfo 開始 (forceRefresh: ${forceRefresh}) ===`);
-    
-    // 強制リフレッシュの場合はキャッシュをクリア
-    if (forceRefresh) {
-      console.log('キャッシュをクリアしています');
-      cachedInstrumentInfo = null;
-    }
-    
-    // キャッシュがある場合はキャッシュを返す
-    if (cachedInstrumentInfo) {
-      console.log('キャッシュから楽器情報を返します', cachedInstrumentInfo);
+    // キャッシュされている場合はそれを返す
+    if (cachedInstrumentInfo && !forceRefresh) {
       return cachedInstrumentInfo;
     }
     
+    // 現在のユーザープロファイルを取得
     const profile = await getCurrentUserProfile();
-    console.log('取得したユーザープロファイル:', profile);
-    
     if (!profile) {
-      console.log('プロファイルが取得できませんでした');
       return null;
     }
     
-    // デフォルト値を設定
+    // 対応するカテゴリを取得
+    const category = instrumentCategories.find(c => c.id === profile.selectedCategory);
+    if (!category) {
+      return null;
+    }
+    
+    // 対応する楽器を取得
+    const instrument = category.instruments.find(i => i.id === profile.selectedInstrument);
+    if (!instrument) {
+      return null;
+    }
+    
+    // 結果の初期値（使用できるモデルがない場合）
     const result: InstrumentInfo = {
-      categoryId: profile.selectedCategory || DEFAULT_CATEGORY,
-      categoryName: '不明なカテゴリ',
-      instrumentId: profile.selectedInstrument || DEFAULT_INSTRUMENT,
-      instrumentName: '不明な楽器',
+      categoryId: category.id,
+      categoryName: category.name,
+      instrumentId: instrument.id,
+      instrumentName: instrument.name,
       modelId: profile.selectedModel || DEFAULT_MODEL,
       modelName: 'スタンダードモデル',
-      isArtistModel: false
+      isArtistModel: false,
+      models: instrument.models // モデル一覧を追加
     };
     
-    console.log('プロファイルから取得した楽器ID:', {
-      categoryId: result.categoryId,
-      instrumentId: result.instrumentId,
-      modelId: result.modelId
-    });
-    
-    // 楽器IDから正しいカテゴリを見つける（カテゴリと楽器の整合性を確保）
-    let instrumentFound = false;
-    let correctCategory = null;
-    
-    // すべてのカテゴリから指定された楽器IDを検索
-    for (const category of instrumentCategories) {
-      const instrument = category.instruments.find(i => i.id === result.instrumentId);
-      if (instrument) {
-        // 楽器が見つかった場合、そのカテゴリが正しい
-        correctCategory = category;
-        result.categoryId = category.id;
-        result.categoryName = category.name;
-        result.instrumentName = instrument.name;
-        instrumentFound = true;
-        
-        // モデル情報を取得
-        const model = instrument.models.find(m => m.id === result.modelId);
-        if (model) {
-          result.modelName = model.name;
-          result.isArtistModel = model.isArtist;
-        }
-        break;
-      }
+    // モデル情報を取得
+    const model = instrument.models.find(m => m.id === result.modelId);
+    if (model) {
+      result.modelName = model.name;
+      result.isArtistModel = model.isArtist;
     }
     
-    if (!instrumentFound) {
-      // 楽器が見つからない場合は、プロファイルのカテゴリで探す
-      const category = instrumentCategories.find(c => c.id === result.categoryId);
-      console.log('見つかったカテゴリ:', category ? category.name : '見つかりませんでした');
-      
-      if (category) {
-        result.categoryName = category.name;
-        
-        // 楽器情報を取得
-        const instrument = category.instruments.find(i => i.id === result.instrumentId);
-        console.log('見つかった楽器:', instrument ? instrument.name : '見つかりませんでした');
-        
-        if (instrument) {
-          result.instrumentName = instrument.name;
-          
-          // モデル情報を取得
-          const model = instrument.models.find(m => m.id === result.modelId);
-          console.log('見つかったモデル:', model ? model.name : '見つかりませんでした');
-          
-          if (model) {
-            result.modelName = model.name;
-            result.isArtistModel = model.isArtist;
-          }
-        }
-      }
-    } else {
-      console.log('正しいカテゴリで楽器を見つけました:', correctCategory?.name);
-    }
-    
-    // プロファイルを自動修正（カテゴリと楽器の整合性を維持）
-    if (instrumentFound && profile.selectedCategory !== result.categoryId) {
-      console.log('プロファイルのカテゴリを修正します:', {
-        old: profile.selectedCategory,
-        new: result.categoryId
-      });
-      
-      // 非同期で更新（結果を待たない）
-      const user = auth.currentUser;
-      if (user) {
-        updateDoc(doc(db, `users/${user.uid}/profile`, 'main'), {
-          selectedCategory: result.categoryId,
-          updatedAt: new Date()
-        }).catch(err => console.error('プロファイル自動更新エラー:', err));
-      }
-    }
-    
-    // 結果をキャッシュする
-    console.log('最終的な楽器情報:', result);
+    // キャッシュを更新
     cachedInstrumentInfo = result;
     
     return result;

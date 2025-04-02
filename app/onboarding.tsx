@@ -150,18 +150,14 @@ export default function OnboardingScreen() {
         throw new Error('カテゴリまたは楽器が選択されていません');
       }
       
-      // アーティストモデルかプレミアムでないか確認
-      const model = currentInstrument?.models.find(m => m.id === modelId);
-      if (model?.isArtist) {
-        Alert.alert(
-          'プレミアム会員限定',
-          'アーティストモデルは現在ベータ版です。一般公開までお待ちください。',
-          [{ text: 'OK' }]
-        );
-        // スタンダードモデルを選択して次に進む
-        setSelectedModel('standard');
-        await saveSelectedModel(selectedCategory, selectedInstrument, 'standard');
+      // プロフェッショナルモデル選択時の処理
+      if (modelId !== 'standard') {
+        // プロフェッショナルモデルはueno（デフォルト）を使用
+        const professionalModelId = 'ueno';
+        setSelectedModel(professionalModelId);
+        await saveSelectedModel(selectedCategory, selectedInstrument, professionalModelId);
       } else {
+        // スタンダードモデルの場合
         setSelectedModel(modelId);
         await saveSelectedModel(selectedCategory, selectedInstrument, modelId);
       }
@@ -392,30 +388,45 @@ export default function OnboardingScreen() {
               後から設定画面で変更することもできます。
             </Text>
             
-            {currentInstrument?.models.map((model) => (
-              <TouchableOpacity
-                key={model.id}
-                style={[
-                  styles.instrumentItem,
-                  selectedModel === model.id && styles.selectedInstrumentItem,
-                  model.isArtist && styles.artistModelItem
-                ]}
-                onPress={() => handleModelSelect(model.id)}
-                disabled={isLoading}
-              >
-                <View style={styles.instrumentRow}>
-                  <Text style={styles.instrumentLabel}>{model.name}</Text>
-                  {model.isArtist && (
-                    <View style={styles.betaBadge}>
-                      <Text style={styles.betaBadgeText}>BETA</Text>
-                    </View>
-                  )}
+            {/* スタンダードモデル */}
+            <TouchableOpacity
+              key="standard"
+              style={[
+                styles.instrumentItem,
+                selectedModel === 'standard' && styles.selectedInstrumentItem
+              ]}
+              onPress={() => handleModelSelect('standard')}
+              disabled={isLoading}
+            >
+              <View style={styles.instrumentRow}>
+                <Text style={styles.instrumentLabel}>スタンダードモデル</Text>
+              </View>
+              {selectedModel === 'standard' && (
+                <MaterialIcons name="check" size={24} color="#007AFF" />
+              )}
+            </TouchableOpacity>
+
+            {/* プロフェッショナルモデル */}
+            <TouchableOpacity
+              key="professional"
+              style={[
+                styles.instrumentItem,
+                selectedModel !== 'standard' && styles.selectedInstrumentItem,
+                styles.artistModelItem
+              ]}
+              onPress={() => handleModelSelect('professional')}
+              disabled={isLoading}
+            >
+              <View style={styles.instrumentRow}>
+                <Text style={styles.instrumentLabel}>プロフェッショナルモデル</Text>
+                <View style={styles.betaBadge}>
+                  <Text style={styles.betaBadgeText}>BETA</Text>
                 </View>
-                {selectedModel === model.id && (
-                  <MaterialIcons name="check" size={24} color="#007AFF" />
-                )}
-              </TouchableOpacity>
-            ))}
+              </View>
+              {selectedModel !== 'standard' && (
+                <MaterialIcons name="check" size={24} color="#007AFF" />
+              )}
+            </TouchableOpacity>
             
             {isLoading && (
               <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />

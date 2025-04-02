@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Platform, ScrollView, TouchableOpacity, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTaskStore } from './store/tasks';
-import { Task } from './types/task';
+import { Task } from './_ignore/types/_task';
 import { getChatRoom } from './services/chatRoomService';
 import TaskDetailHeader from './features/tasks/components/TaskDetailHeader';
 import TaskDetailContent from './features/tasks/components/TaskDetailContent';
@@ -38,7 +38,7 @@ export default function TaskDetail() {
         // チャットルーム情報を取得（AIレッスンの場合）
         if (foundTask.attachments && foundTask.attachments.length > 0) {
           const chatRoomAttachment = foundTask.attachments.find(
-            att => att.type === 'text' && att.url.startsWith('/chatRooms/')
+            (att: {type: string; url: string}) => att.type === 'text' && att.url.startsWith('/chatRooms/')
           );
           
           if (chatRoomAttachment) {
@@ -70,7 +70,7 @@ export default function TaskDetail() {
   };
 
   const handleBack = () => {
-    router.back();
+    router.push('/tabs/task');
   };
 
   const handleToggleComplete = () => {

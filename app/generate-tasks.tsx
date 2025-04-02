@@ -524,7 +524,7 @@ ${taskData.interpretation_advice}
       <View style={[styles.header, { backgroundColor: theme.colors.backgroundSecondary }]}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => router.push('/tabs/task')}
         >
           <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>

@@ -13,6 +13,7 @@ import {
   FlatList,
   Modal,
   TextInput,
+  Keyboard,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -24,20 +25,23 @@ import { Timestamp } from 'firebase/firestore';
 import ChatsHeader from './components/ui/ChatsHeader';
 import { ChatInput } from './features/chat/components/ChatInput';
 import { useFocusEffect } from 'expo-router';
-import { createTaskFromChatUsingFunction } from './services/taskService';
+import { getUserInstrumentInfo, InstrumentModel } from './services/userProfileService';
+
+// 定数定義の追加
+const MAX_MESSAGE_LENGTH = 2000; // メッセージの最大文字数
 
 // チャットルーム画面のメインコンポーネント
 export default function ChatRoomScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, premiumStatus } = useAuthStore();
   const [chatRoom, setChatRoom] = useState<ChatRoom | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const flatListRef = useRef<FlatList>(null);
-  const [useHttpDirect, setUseHttpDirect] = useState(true);
+  const [useHttpDirect] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   
@@ -46,8 +50,12 @@ export default function ChatRoomScreen() {
   const [newTitle, setNewTitle] = useState('');
   const [newTopic, setNewTopic] = useState('');
   const [updating, setUpdating] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [creatingTask, setCreatingTask] = useState(false);
+
+  // モデル選択用の状態
+  const [availableModels, setAvailableModels] = useState<InstrumentModel[]>([]);
+  const [selectedChatModel, setSelectedChatModel] = useState<string>('standard');
+  const [isModelModalVisible, setIsModelModalVisible] = useState(false);
+  const isPremium = premiumStatus?.isPremium || false;
 
   // パラメータの取得（トップレベルで一度だけ実行）
   const params = useLocalSearchParams();
@@ -56,6 +64,44 @@ export default function ChatRoomScreen() {
   // 新規作成フラグをトラッキングするための状態
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
+  // 初回マウント時にデータを読み込み、ユーザーの楽器情報を取得
+  useEffect(() => {
+    console.log('初期読み込み: useEffectトリガー', { id, userId: user?.uid, isNewlyCreated });
+    
+    if (!initialLoadDone) {
+      loadChatRoom();
+      loadUserInstrument();
+      setInitialLoadDone(true);
+    }
+  }, [id, user?.uid, retryCount]);
+
+  // ユーザーの楽器情報を取得
+  const loadUserInstrument = async () => {
+    try {
+      const instrumentInfo = await getUserInstrumentInfo();
+      if (instrumentInfo) {
+        console.log('ユーザー楽器情報を取得:', instrumentInfo.instrumentName);
+        
+        // サクソフォンの場合、利用可能なモデルを設定
+        if (instrumentInfo.instrumentId === 'saxophone') {
+          // 楽器情報から利用可能なモデル一覧を取得
+          setAvailableModels(instrumentInfo.models || []);
+          
+          // 現在選択されているモデルをデフォルトに設定
+          if (chatRoom?.modelType) {
+            setSelectedChatModel(chatRoom.modelType);
+          } else {
+            setSelectedChatModel('standard');
+          }
+        }
+      } else {
+        console.log('楽器情報が見つかりません、デフォルト値を使用します');
+      }
+    } catch (error) {
+      console.error('楽器情報取得エラー:', error);
+    }
+  };
+  
   // チャットルームデータの読み込み関数
   const loadChatRoom = async () => {
     if (!id) {
@@ -159,16 +205,6 @@ export default function ChatRoomScreen() {
     }
   };
 
-  // 初回マウント時にデータを読み込む
-  useEffect(() => {
-    console.log('初期読み込み: useEffectトリガー', { id, userId: user?.uid, isNewlyCreated });
-    
-    if (!initialLoadDone) {
-      loadChatRoom();
-      setInitialLoadDone(true);
-    }
-  }, [id, user?.uid, retryCount]);
-
   // 画面がフォーカスされたときにデータを再読み込み
   useFocusEffect(
     React.useCallback(() => {
@@ -250,50 +286,193 @@ export default function ChatRoomScreen() {
     }
   };
 
-  // メッセージを送信する
-  const handleSend = async () => {
-    if (!message.trim() || !chatRoom || !user || sending) return;
+  // モデル選択を適用
+  const handleModelSelect = (modelId: string) => {
+    // 選択したモデルを取得
+    const model = availableModels.find(m => m.id === modelId);
     
-    // メッセージ数が上限に達している場合は送信をブロック
-    if (chatRoom.messages.length >= MAX_MESSAGES_PER_CHAT_ROOM) {
+    // テスト段階のため、プレミアム制限を一時的に無効化
+    /*
+    // プロフェッショナルモデルかつプレミアムでない場合は処理を中断
+    if (model?.isArtist && !isPremium) {
       Alert.alert(
-        'メッセージ数上限',
-        'このチャットルームのメッセージ数が上限に達しました。新しいチャットルームを作成してください。',
+        'プレミアム会員限定',
+        'プロフェッショナルモデルを使用するにはプレミアム会員への登録が必要です。',
         [
-          {
-            text: 'キャンセル',
-            style: 'cancel'
-          },
-          {
-            text: '新規チャットルーム作成',
-            onPress: () => {
-              router.push('/chat-room-form');
-            }
+          { text: 'キャンセル', style: 'cancel' },
+          { 
+            text: 'プレミアムに登録', 
+            onPress: () => router.push('/settings')
           }
         ]
       );
       return;
     }
+    */
     
-    // メッセージ数が警告閾値を超えた場合は警告を表示
-    if (chatRoom.messages.length >= WARNING_MESSAGE_THRESHOLD) {
-      Alert.alert(
-        'メッセージ数警告',
-        `メッセージ数が${WARNING_MESSAGE_THRESHOLD}を超えました。間もなく上限の${MAX_MESSAGES_PER_CHAT_ROOM}に達します。新しいチャットルームの作成をお勧めします。`,
-        [
-          {
-            text: 'このまま続ける',
-            style: 'cancel'
-          },
-          {
-            text: '新規チャットルーム作成',
-            onPress: () => {
-              router.push('/chat-room-form');
-            }
-          }
-        ]
-      );
+    setSelectedChatModel(modelId);
+    setIsModelModalVisible(false);
+    
+    // 選択したモデルがアーティストモデルかどうかを確認
+    const isArtistModel = model?.isArtist || false;
+    
+    // アーティストモデルの場合はHTTP直接モード、スタンダードモデルの場合はSDK経由モードを設定
+    // setUseHttpDirect(isArtistModel);
+    
+    // 次のメッセージ送信時にこのモデルが使用される
+    if (chatRoom) {
+      setChatRoom({
+        ...chatRoom,
+        modelType: modelId
+      });
     }
+  };
+
+  // モデル選択モーダルを描画
+  const renderModelSelectionModal = () => {
+    return (
+      <Modal
+        visible={isModelModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsModelModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>チャットモデルを選択</Text>
+            
+            {availableModels.map((model) => {
+              const isProModel = model.isArtist;
+              // テスト段階のため、プレミアムロック表示を無効化
+              const needsPremium = false; // 常にfalseに設定
+              
+              return (
+                <TouchableOpacity
+                  key={model.id}
+                  style={[
+                    styles.modelItem,
+                    selectedChatModel === model.id && styles.selectedModelItem,
+                    isProModel && styles.proModelItem,
+                    needsPremium && styles.premiumLockedModelItem
+                  ]}
+                  onPress={() => handleModelSelect(model.id)}
+                >
+                  <View style={styles.modelHeaderRow}>
+                    <Text style={styles.modelName}>{model.name}</Text>
+                    {isProModel && (
+                      <View style={styles.proBadge}>
+                        <Text style={styles.proBadgeText}>プロフェッショナル</Text>
+                      </View>
+                    )}
+                    {/* テスト段階のため、プレミアムバッジを非表示
+                    {needsPremium && (
+                      <View style={styles.premiumBadge}>
+                        <MaterialIcons name="lock" size={14} color="#FFCC00" />
+                        <Text style={styles.premiumBadgeText}>プレミアム</Text>
+                      </View>
+                    )}
+                    */}
+                  </View>
+                  
+                  {model.description && (
+                    <Text style={styles.modelDescription}>{model.description}</Text>
+                  )}
+                  
+                  {selectedChatModel === model.id && (
+                    <MaterialIcons name="check" size={24} color="#007AFF" style={styles.checkIcon} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+            
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setIsModelModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>キャンセル</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  // メッセージ送信
+  const handleSend = async () => {
+    if (!message.trim() || sending) return;
+    
+    try {
+      setSending(true);
+      setError(null);
+      
+      // Firebase Functions接続テスト - 削除
+      // 診断用にAPI直接接続テストを実行
+      console.log('メッセージ送信処理を開始...');
+      
+      // 新しいメッセージを作成
+      const newMessage = {
+        id: `local-${Date.now()}`,
+        createdAt: new Date(),
+        text: message,
+        user: {
+          _id: user?.uid || 'unknown',
+          name: user?.displayName || 'ユーザー',
+        },
+        pending: true
+      };
+      
+      // メッセージが非常に長い場合は警告
+      if (message.length > MAX_MESSAGE_LENGTH) {
+        Alert.alert(
+          'メッセージが長すぎます',
+          `メッセージは${MAX_MESSAGE_LENGTH}文字以内に収めてください。現在: ${message.length}文字`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      // チャットルームが存在しない場合はエラー
+      if (!chatRoom) {
+        Alert.alert('エラー', 'チャットルームが見つかりません');
+        return;
+      }
+      
+      // メッセージ数が上限に達していないかチェック
+      if (chatRoom.messages && chatRoom.messages.length >= MAX_MESSAGES_PER_CHAT_ROOM) {
+        Alert.alert(
+          'メッセージ数の上限に達しました',
+          `1つのチャットルームで送信できるメッセージは最大${MAX_MESSAGES_PER_CHAT_ROOM}件です。新しいチャットルームを作成してください。`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      // 警告閾値を超えたメッセージ数の場合は警告
+      if (chatRoom.messages && chatRoom.messages.length >= WARNING_MESSAGE_THRESHOLD) {
+        Alert.alert(
+          'メッセージ数が多くなっています',
+          `このチャットルームのメッセージ数が${WARNING_MESSAGE_THRESHOLD}件を超えました。上限の${MAX_MESSAGES_PER_CHAT_ROOM}件に近づいています。`,
+          [
+            { text: 'キャンセル', style: 'cancel' },
+            { text: 'このまま送信', onPress: () => performSend() }
+          ]
+        );
+        return;
+      }
+      
+      // 通常の送信処理
+      await performSend();
+    } catch (error) {
+      console.error('メッセージ送信エラー:', error);
+      Alert.alert('エラー', 'メッセージの送信に失敗しました');
+    } finally {
+      setSending(false);
+    }
+  };
+  
+  // 実際のメッセージ送信処理
+  const performSend = async () => {
+    if (!chatRoom) return; // chatRoomがnullの場合は処理を中断
     
     try {
       setSending(true);
@@ -321,35 +500,26 @@ export default function ChatRoomScreen() {
       // メッセージ入力をクリア
       setMessage('');
       
+      // 選択中のモデルIDを取得
+      const currentModelId = selectedChatModel || 'standard';
+      
       // メッセージを送信してAIの応答を取得
       console.log('AIにメッセージを送信:', {
         message: message.trim(),
         conversationId: chatRoom.conversationId || '(新規)',
-        modelType: chatRoom.modelType || 'default',
+        modelType: currentModelId,
         roomId: chatRoom.id,
-        isTestMode: false,
-        useHttpDirect
+        isTestMode: false
       });
       
-      // HTTP直接呼び出しかFirebase Functions経由かを選択
-      let aiResponse;
-      if (useHttpDirect) {
-        aiResponse = await sendMessageToLessonAIHttp(
-          message.trim(), 
-          chatRoom.conversationId,
-          chatRoom.modelType,
-          chatRoom.id,
-          false  // isTestMode
-        );
-      } else {
-        aiResponse = await sendMessageToLessonAI(
-          message.trim(), 
-          chatRoom.conversationId,
-          chatRoom.modelType,
-          chatRoom.id,
-          false  // isTestMode
-        );
-      }
+      // AIの応答を取得
+      const aiResponse = await sendMessageToLessonAI(
+        message.trim(), 
+        chatRoom.conversationId || '',
+        currentModelId,
+        chatRoom.id,
+        false // isTestMode
+      );
       
       console.log('AI応答結果:', aiResponse);
       
@@ -358,59 +528,38 @@ export default function ChatRoomScreen() {
         throw new Error(aiResponse?.message || 'AIからの応答の取得に失敗しました');
       }
       
-      // AI応答メッセージの作成
+      // AIの応答メッセージを作成
       const aiMessage: ChatMessage = {
-        id: `ai-${Date.now()}`,
+        id: aiResponse.messageId || `ai-${Date.now()}`,
         content: aiResponse.answer,
         sender: 'ai',
         timestamp: Timestamp.now()
       };
       
-      // 新しいメッセージ配列を作成
-      const finalMessages = [
-        ...updatedMessages,
-        aiMessage
-      ];
+      // 会話IDを保存
+      const conversationId = aiResponse.conversationId || '';
       
-      // 会話ID更新
-      const updatedChatRoom = {
+      // 更新されたメッセージリストとconversationIdを含むチャットルームの新しい状態
+      const updatedChatRoom: ChatRoom = {
         ...chatRoom,
-        messages: finalMessages,
-        conversationId: aiResponse.conversationId || chatRoom.conversationId
+        messages: [...updatedMessages, aiMessage],
+        conversationId: conversationId,
+        updatedAt: Timestamp.now()
       };
       
-      // ローカルの状態を更新
+      // ローカル状態を更新
       setChatRoom(updatedChatRoom);
       
-      // Firestoreに保存
-      await updateChatRoomMessages(chatRoom.id, finalMessages, updatedChatRoom.conversationId);
+      // Firestoreデータを更新
+      await updateChatRoomMessages(updatedChatRoom.id, updatedChatRoom.messages, conversationId);
       
-      // AIの応答後にメッセージ数が警告閾値を超えたか確認
-      if (finalMessages.length >= WARNING_MESSAGE_THRESHOLD && finalMessages.length < MAX_MESSAGES_PER_CHAT_ROOM) {
-        setTimeout(() => {
-          Alert.alert(
-            'メッセージ数警告',
-            `メッセージ数が${WARNING_MESSAGE_THRESHOLD}を超えました。間もなく上限の${MAX_MESSAGES_PER_CHAT_ROOM}に達します。新しいチャットルームの作成をお勧めします。`,
-            [
-              {
-                text: 'このまま続ける',
-                style: 'cancel'
-              },
-              {
-                text: '新規チャットルーム作成',
-                onPress: () => {
-                  router.push('/chat-room-form');
-                }
-              }
-            ]
-          );
-        }, 500);
-      }
-      
-      // 少し遅延させてからスクロールダウン
+      // 最新のメッセージにスクロール
       setTimeout(() => {
-        scrollToBottom();
+        if (flatListRef.current) {
+          flatListRef.current.scrollToEnd({ animated: true });
+        }
       }, 100);
+      
     } catch (error) {
       console.error('メッセージ送信エラー:', error);
       Alert.alert('エラー', 'メッセージの送信に失敗しました');
@@ -452,85 +601,86 @@ export default function ChatRoomScreen() {
       </Text>
     </View>
   );
-  
-  // チャット内容からタスクを作成する関数
-  const handleCreateTask = async () => {
-    try {
-      setCreatingTask(true);
-      
-      if (!chatRoom || !chatRoom.messages || chatRoom.messages.length === 0) {
-        Alert.alert('エラー', '会話内容からタスクを作成できません。メッセージがありません。');
-        return;
-      }
-      
-      // チャットルームの全メッセージを使用
-      const allMessages = chatRoom.messages;
-      
-      // タスク作成APIを呼び出し（クラウド関数を使用）
-      const result = await createTaskFromChatUsingFunction(
-        allMessages,
-        chatRoom.title,
-        chatRoom.topic
-      );
-      
-      if (result.success) {
-        Alert.alert(
-          'タスク作成完了',
-          'チャット内容からタスクを作成しました。タスクタブで確認できます。',
-          [
-            {
-              text: 'OK',
-              onPress: () => { /* 何もしない */ }
-            },
-            {
-              text: 'タスクを確認',
-              onPress: () => router.push('/tabs/task')
-            }
-          ]
-        );
-      } else {
-        throw new Error(result.message || 'タスク作成に失敗しました');
-      }
-    } catch (error) {
-      console.error('タスク作成エラー:', error);
-      Alert.alert('エラー', 'タスクの作成に失敗しました。後でもう一度お試しください。');
-    } finally {
-      setCreatingTask(false);
-    }
+
+  // モデル選択モーダルを開く
+  const handleOpenModelModal = () => {
+    setIsModelModalVisible(true);
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4285F4" />
-          <Text style={styles.loadingText}>チャットルームを読み込み中...</Text>
-        </View>
-      </SafeAreaView>
+      <>
+        <StatusBar style="dark" />
+        <SafeAreaView style={styles.safeArea}>
+          <Stack.Screen
+            options={{
+              headerShown: true,
+              headerTitle: chatRoom?.title || 'チャット',
+              headerStyle: {
+                backgroundColor: '#FFFFFF',
+              },
+              headerTitleStyle: {
+                fontWeight: '600',
+              },
+              headerShadowVisible: true,
+              headerLeft: () => (
+                <TouchableOpacity onPress={() => router.back()} style={{padding: 10}}>
+                  <Ionicons name="arrow-back" size={24} color="#007AFF" />
+                </TouchableOpacity>
+              ),
+            }}
+          />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.loadingText}>チャット読み込み中...</Text>
+          </View>
+        </SafeAreaView>
+      </>
     );
   }
   
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <>
       <StatusBar style="dark" />
-      
-      <ChatsHeader 
-        title={chatRoom?.title || 'チャット'} 
-        onBackPress={() => router.back()} 
-        onEditPress={handleOpenEditModal}
-        onExportPress={handleCreateTask}
-      />
-      
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
+      <SafeAreaView style={styles.safeArea}>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            headerTitle: chatRoom?.title || 'チャット',
+            headerStyle: {
+              backgroundColor: '#FFFFFF',
+            },
+            headerTitleStyle: {
+              fontWeight: '600',
+            },
+            headerShadowVisible: true,
+            headerLeft: () => (
+              <TouchableOpacity onPress={() => router.back()} style={{padding: 10}}>
+                <Ionicons name="arrow-back" size={24} color="#007AFF" />
+              </TouchableOpacity>
+            ),
+            headerRight: () => (
+              <View style={{flexDirection: 'row'}}>
+                {availableModels.length > 0 && (
+                  <TouchableOpacity onPress={handleOpenModelModal} style={{padding: 10}}>
+                    <MaterialIcons name="switch-access-shortcut" size={24} color="#007AFF" />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={handleOpenEditModal} style={{padding: 10}}>
+                  <MaterialIcons name="edit" size={24} color="#007AFF" />
+                </TouchableOpacity>
+              </View>
+            ),
+          }}
+        />
+        
         {error ? (
           <View style={styles.errorContainer}>
+            <MaterialIcons name="error-outline" size={48} color="#FF3B30" />
+            <Text style={styles.errorTitle}>エラーが発生しました</Text>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity 
-              style={styles.retryButton} 
+            <TouchableOpacity
+              style={styles.retryButton}
               onPress={() => {
                 setRetryCount(0);
                 loadChatRoom();
@@ -540,84 +690,112 @@ export default function ChatRoomScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={styles.messagesContainer}>
-            {chatRoom?.messages?.length ? (
+          <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+          >
+            {chatRoom && chatRoom.messages && chatRoom.messages.length > 0 ? (
               <FlatList
                 ref={flatListRef}
                 data={chatRoom.messages}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.messagesContent}
-                onContentSizeChange={scrollToBottom}
-                onLayout={scrollToBottom}
+                onLayout={() => {
+                  if (flatListRef.current) {
+                    flatListRef.current.scrollToEnd({ animated: false });
+                  }
+                }}
               />
             ) : (
               renderEmptyMessages()
             )}
-          </View>
+            
+            {availableModels.length > 0 && (
+              <TouchableOpacity 
+                style={styles.modelIndicator}
+                onPress={handleOpenModelModal}
+              >
+                <View style={styles.modelIndicatorContent}>
+                  <MaterialIcons name="model-training" size={14} color="#1C1C1E" />
+                  <Text style={styles.modelIndicatorText}>
+                    {availableModels.find(m => m.id === selectedChatModel)?.name || 'スタンダード'}
+                  </Text>
+                  <MaterialIcons name="keyboard-arrow-down" size={14} color="#1C1C1E" />
+                </View>
+              </TouchableOpacity>
+            )}
+            
+            <ChatInput
+              message={message}
+              onChangeMessage={setMessage}
+              onSend={handleSend}
+              sending={sending}
+              roomId={chatRoom?.id || ""}
+              instrument={selectedChatModel || "standard"}
+            />
+          </KeyboardAvoidingView>
         )}
-        
-        <ChatInput
-          message={message}
-          onChangeMessage={setMessage}
-          onSend={handleSend}
-          sending={sending}
-          roomId={chatRoom?.id || ""}
-          instrument={chatRoom?.modelType || ""}
-        />
-      </KeyboardAvoidingView>
+      </SafeAreaView>
       
-      {/* 編集モーダル */}
+      {/* チャットルーム情報編集モーダル */}
       <Modal
         visible={isEditModalVisible}
-        transparent={true}
-        animationType="fade"
+        transparent
+        animationType="slide"
         onRequestClose={() => setIsEditModalVisible(false)}
       >
-        <View style={styles.modalBackground}>
-          <View style={styles.modalContainer}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>チャットルーム情報の編集</Text>
             
             <Text style={styles.inputLabel}>タイトル</Text>
             <TextInput
-              style={styles.input}
+              style={styles.textInput}
               value={newTitle}
               onChangeText={setNewTitle}
               placeholder="チャットルームのタイトル"
-              placeholderTextColor="#9AA0A6"
-              maxLength={50}
+              placeholderTextColor="#C7C7CC"
             />
             
             <Text style={styles.inputLabel}>トピック</Text>
             <TextInput
-              style={styles.input}
+              style={styles.textInput}
               value={newTopic}
               onChangeText={setNewTopic}
               placeholder="チャットのトピック"
-              placeholderTextColor="#9AA0A6"
-              maxLength={30}
+              placeholderTextColor="#C7C7CC"
             />
             
-            <View style={styles.modalButtonContainer}>
+            <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelModalButton]}
+                style={styles.cancelButton}
                 onPress={() => setIsEditModalVisible(false)}
+                disabled={updating}
               >
-                <Text style={styles.cancelModalButtonText}>キャンセル</Text>
+                <Text style={styles.cancelButtonText}>キャンセル</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
-                style={[styles.modalButton, styles.confirmModalButton]}
+                style={styles.saveButton}
                 onPress={handleUpdateRoom}
                 disabled={updating || !newTitle.trim() || !newTopic.trim()}
               >
-                <Text style={styles.confirmModalButtonText}>更新</Text>
+                {updating ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.saveButtonText}>保存</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      
+      {/* モデル選択モーダル */}
+      {renderModelSelectionModal()}
+    </>
   );
 }
 
@@ -651,6 +829,7 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     padding: 16,
+    paddingBottom: 20,
   },
   messageContainer: {
     marginVertical: 6,
@@ -690,30 +869,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
-  modalBackground: {
+  modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContainer: {
+  modalContent: {
     width: '85%',
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    elevation: 5,
+    borderRadius: 12,
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+    elevation: 5,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#202124',
-    marginBottom: 24,
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 20,
     textAlign: 'center',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    color: '#1C1C1E',
   },
   inputLabel: {
     fontSize: 14,
@@ -722,7 +900,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  input: {
+  textInput: {
     width: '100%',
     height: 50,
     borderWidth: 1,
@@ -734,32 +912,35 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  modalButtonContainer: {
+  modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
     marginTop: 16,
   },
-  modalButton: {
+  cancelButton: {
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
     minWidth: 100,
     alignItems: 'center',
-  },
-  cancelModalButton: {
     backgroundColor: '#F1F3F4',
   },
-  confirmModalButton: {
+  saveButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
     backgroundColor: '#4285F4',
   },
-  cancelModalButtonText: {
+  cancelButtonText: {
     color: '#5F6368',
     fontWeight: '600',
     fontSize: 15,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  confirmModalButtonText: {
+  saveButtonText: {
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 15,
@@ -825,5 +1006,108 @@ const styles = StyleSheet.create({
   },
   aiText: {
     color: '#333333',
+  },
+  modelIndicator: {
+    backgroundColor: '#E5E5EA',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    alignSelf: 'center',
+    marginVertical: 8,
+  },
+  modelIndicatorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modelIndicatorText: {
+    fontSize: 14,
+    color: '#1C1C1E',
+    marginHorizontal: 4,
+  },
+  modelItem: {
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  selectedModelItem: {
+    borderColor: '#007AFF',
+    borderWidth: 2,
+  },
+  proModelItem: {
+    backgroundColor: '#F8F9FA',
+    borderColor: '#FFCC00',
+    borderWidth: 1,
+  },
+  premiumLockedModelItem: {
+    opacity: 0.7,
+  },
+  modelHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  modelName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1C1C1E',
+    marginRight: 8,
+  },
+  proBadge: {
+    backgroundColor: '#FFCC00',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  proBadgeText: {
+    color: '#1C1C1E',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  premiumBadge: {
+    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  premiumBadgeText: {
+    color: '#1C1C1E',
+    fontSize: 10,
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  modelDescription: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 4,
+  },
+  checkIcon: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+  },
+  closeButton: {
+    padding: 15,
+    borderRadius: 8,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  closeButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 10,
+    color: '#EA4335',
   },
 });
