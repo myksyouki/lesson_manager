@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { DAYS, useCalendar } from '../../../../hooks/useCalendar';
+import { DAYS, useCalendar } from '../../../../../hooks/useCalendar';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CALENDAR_WIDTH = Math.min(SCREEN_WIDTH - 40, 400);
@@ -55,7 +55,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
     generateCalendarDays,
     handleDateSelect,
     formatDate
-  } = useCalendar(validInitialDate, (date, formattedDateISO) => {
+  } = useCalendar(validInitialDate, (date: Date, formattedDateISO: string) => {
     try {
       // ここでformatDate関数を使って表示用の日付文字列を生成
       const formattedDisplayDate = formatDate(date);
@@ -131,7 +131,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
 
           {/* 曜日ヘッダー */}
           <View style={styles.daysHeader}>
-            {DAYS.map((day, index) => (
+            {DAYS.map((day: string, index: number) => (
               <Text 
                 key={index} 
                 style={[
@@ -149,7 +149,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
           <View style={styles.calendarGrid}>
             {weeks.map((week, weekIndex) => (
               <View key={`week-${weekIndex}`} style={styles.weekRow}>
-                {week.map((dayItem, dayIndex) => {
+                {week.map((dayItem: CalendarDay, dayIndex: number) => {
                   const isSelected = 
                     selectedDate && 
                     dayItem.date.getDate() === selectedDate.getDate() &&
@@ -346,3 +346,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
   },
 });
+
+// 既存の名前付きエクスポートはそのままに、デフォルトエクスポートも追加
+export default CalendarModal;

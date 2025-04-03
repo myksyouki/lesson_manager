@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
-import { ThemeType } from '../../../../theme/index';
+import { ThemeType } from '../../../../../theme/index';
 
 interface TagFilterProps {
   availableTags: string[];

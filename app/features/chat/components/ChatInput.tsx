@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Text, KeyboardAvoidingView, Switch, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../../theme';
-import { useAuthStore } from '../../../store/auth';
+import { useTheme } from '../../../../theme';
+import { useAuthStore } from '../../../../store/auth';
 
 export interface ChatInputProps {
   message: string;
@@ -100,3 +100,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
+
+// デフォルトエクスポートを追加
+export default ChatInput;

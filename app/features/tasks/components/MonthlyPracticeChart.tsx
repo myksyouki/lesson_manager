@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView, Platform } from 'react-native';
 import { BarChart } from 'react-native-chart-kit';
-import { useTaskStore } from '../../../store/tasks';
+import { useTaskStore } from '../../../../store/tasks';
 
 interface MonthlyPracticeChartProps {
   themeColor?: string;

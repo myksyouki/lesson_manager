@@ -4,10 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import SummaryDisplay from '../SummaryDisplay';
 import TagSelector from '../form/TagSelector';
-import { useTheme } from '../../../../theme';
+import { useTheme } from '../../../../../theme';
 import PiecesList from '../form/PiecesList';
 import { CalendarModal } from '../form/CalendarModal';
-import { useCalendar } from '../../../../hooks/useCalendar';
+import { useCalendar } from '../../../../../hooks/useCalendar';
 
 interface LessonFormData {
   id: string;

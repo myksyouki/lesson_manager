@@ -10,9 +10,9 @@ import {
 } from 'react-native';
 import { BarChart } from 'react-native-chart-kit';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTaskStore } from '../../../store/tasks';
-import { useLessonStore } from '../../../store/lessons';
-import { useTheme } from '../../../theme';
+import { useTaskStore } from '../../../../store/tasks';
+import { useLessonStore } from '../../../../store/lessons';
+import { useTheme } from '../../../../theme';
 
 // 月を取得するユーティリティ関数
 const getMonthLabels = (count = 6) => {

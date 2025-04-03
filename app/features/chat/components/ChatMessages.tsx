@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { ChatMessage } from '../../../services/difyService';
+import { ChatMessage } from '../../../../services/difyService';
 
 interface ChatMessagesProps {
   messages: ChatMessage[];

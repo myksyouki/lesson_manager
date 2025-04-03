@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { PracticeMenu } from '../../../services/difyService';
+import { PracticeMenu } from '../../../../services/difyService';
 
 interface PracticeMenuModalProps {
   visible: boolean;

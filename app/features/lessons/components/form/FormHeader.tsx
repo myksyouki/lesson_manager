@@ -8,8 +8,8 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button } from '../../../../components/ui/Button';
-import { useTheme } from '../../../../theme';
+import { Button } from '../../../../../components/ui/Button';
+import { useTheme } from '../../../../../theme';
 
 interface FormHeaderProps {
   onSave: () => void;

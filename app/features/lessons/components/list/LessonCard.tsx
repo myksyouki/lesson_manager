@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useLessonStore, Lesson } from '../../../../store/lessons';
-import { useTheme } from '../../../../theme/index';
+import { useLessonStore, Lesson } from '../../../../../store/lessons';
+import { useTheme } from '../../../../../theme/index';
 
 interface LessonCardProps {
   id?: string;

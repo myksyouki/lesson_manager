@@ -22,7 +22,7 @@ import {
   Instrument,
   InstrumentModel,
   clearInstrumentInfoCache
-} from './services/userProfileService';
+} from '../services/userProfileService';
 
 // 設定ステップを表す型
 type SettingsStep = 'category' | 'instrument' | 'model';

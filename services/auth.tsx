@@ -8,7 +8,7 @@ import {
   signOut as firebaseSignOut,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { auth, db } from '../config/firebase';
+import { auth, db } from '../app/config/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useAuthStore } from '../store/auth';
 

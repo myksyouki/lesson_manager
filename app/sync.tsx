@@ -9,7 +9,7 @@ import {
   SafeAreaView,
   TouchableOpacity
 } from 'react-native';
-import { useSettingsStore } from './store/settings';
+import { useSettingsStore } from '../store/settings';
 import { useTheme } from '@react-navigation/native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';

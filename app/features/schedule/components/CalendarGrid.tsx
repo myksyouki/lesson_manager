@@ -8,7 +8,7 @@ import Animated, {
   runOnJS,
   Easing,
 } from 'react-native-reanimated';
-import { Lesson } from '../../../store/lessons';
+import { Lesson } from '../../../../store/lessons';
 import { Task } from '../../../types/task';
 import { Ionicons } from '@expo/vector-icons';
 

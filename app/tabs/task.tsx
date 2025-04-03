@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { StyleSheet, View, Text, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTaskStore } from '../store/tasks';
+import { useTaskStore } from '../../store/tasks';
 import TaskHeader from '../features/tasks/components/list/TaskHeader';
 import TaskList from '../features/tasks/components/TaskList';
 import TaskCategorySummaryMini from '../features/tasks/components/TaskCategorySummaryMini';
 import TaskCompletionAnimation from '../features/tasks/components/TaskCompletionAnimation';
 import { useFocusEffect } from '@react-navigation/native';
-import { auth } from '../config/firebase';
+import { auth } from '../../config/firebase';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 

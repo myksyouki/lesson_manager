@@ -148,3 +148,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
 });
+
+// コンポーネントをまとめたオブジェクトを作成
+const CardComponents = {
+  Card,
+  Header: CardHeader,
+  Body: CardBody, 
+  Footer: CardFooter
+};
+
+// デフォルトエクスポートとしてCardを設定し、関連コンポーネントもプロパティとして提供
+export default CardComponents;

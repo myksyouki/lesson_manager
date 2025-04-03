@@ -10,7 +10,7 @@ import {
 import { MaterialIcons, Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import TaskProgressBar from './TaskProgressBar';
 import TaskAchievementBadge from './TaskAchievementBadge';
-import { useTaskStore } from '../../../store/tasks';
+import { useTaskStore } from '../../../../store/tasks';
 
 interface CategorySummary {
   name: string;

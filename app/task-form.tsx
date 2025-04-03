@@ -15,10 +15,10 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useTaskStore } from './store/tasks';
-import { useAuthStore } from './store/auth';
+import { useTaskStore } from '../store/tasks';
+import { useAuthStore } from '../store/auth';
 import { Task } from './types/task';
-import { getCurrentUserProfile } from './services/userProfileService';
+import { getCurrentUserProfile } from '../services/userProfileService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 

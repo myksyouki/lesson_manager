@@ -2,7 +2,7 @@ import { apiService } from './apiService';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc, updateDoc, getDoc, collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { Lesson } from '../../_ignore/types/_lesson';
+import { Lesson } from '../../app/_ignore/types/_lesson';
 
 /**
  * レッスン関連のAPI操作を行うサービスクラス

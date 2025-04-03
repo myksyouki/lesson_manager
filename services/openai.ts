@@ -1,8 +1,8 @@
 import OpenAI from 'openai';
-import { db } from '../config/firebase';
+import { db } from '../app/config/firebase';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../config/firebase';
+import { functions } from '../app/config/firebase';
 
 // 注意: クライアントサイドではOpenAI APIキーを使用しません
 // OpenAI APIキーはFirebase Functions側で安全に管理されます

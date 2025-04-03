@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Platform, ScrollView, TouchableOpacity, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useTaskStore } from './store/tasks';
+import { useTaskStore } from '../store/tasks';
 import { Task } from './_ignore/types/_task';
-import { getChatRoom } from './services/chatRoomService';
+import { getChatRoom } from '../services/chatRoomService';
 import TaskDetailHeader from './features/tasks/components/TaskDetailHeader';
 import TaskDetailContent from './features/tasks/components/TaskDetailContent';
 import TaskCompletionSwipeButton from './features/tasks/components/TaskCompletionSwipeButton';

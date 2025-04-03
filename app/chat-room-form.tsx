@@ -13,10 +13,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useAuthStore } from './store/auth';
-import { createChatRoom, addMessageToChatRoom, updateChatRoom } from './services/chatRoomService';
-import { getUserProfile } from './services/userProfileService';
-import { sendMessageToLessonAIHttp } from './services/lessonAIService';
+import { useAuthStore } from '../store/auth';
+import { createChatRoom, addMessageToChatRoom, updateChatRoom } from '../services/chatRoomService';
+import { getUserProfile } from '../services/userProfileService';
+import { sendMessageToLessonAIHttp } from '../services/lessonAIService';
 import { Timestamp } from 'firebase/firestore';
 
 const TOPICS = [

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../../../../theme';
+import { useTheme } from '../../../../../theme';
 
 // 定義済みのタグリスト
 const PREDEFINED_TAGS = [

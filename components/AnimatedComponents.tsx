@@ -615,3 +615,19 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
 });
+
+// すべてのアニメーションコンポーネントをオブジェクトとしてエクスポート
+const AnimatedComponents = {
+  FadeIn,
+  SlideIn,
+  Scale,
+  AnimatedCard,
+  StaggeredList,
+  AnimatedButton,
+  AnimatedLoader,
+  AnimatedHeader,
+  RippleButton
+};
+
+// デフォルトエクスポートを追加
+export default AnimatedComponents;

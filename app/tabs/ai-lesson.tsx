@@ -17,13 +17,13 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAuthStore } from '../store/auth';
-import { getUserChatRooms, ChatRoom, deleteChatRoom, getUserActiveChatRoomsCount } from '../services/chatRoomService';
-import { useTheme } from '../theme';
+import { useAuthStore } from '../../store/auth';
+import { getUserChatRooms, ChatRoom, deleteChatRoom, getUserActiveChatRoomsCount } from '../../services/chatRoomService';
+import { useTheme } from '../../theme';
 import Animated, { FadeIn, SlideInRight, SlideInUp } from 'react-native-reanimated';
-import { RippleButton } from '../components/RippleButton';
-import { instrumentCategories } from '../services/userProfileService';
-import { auth } from '../config/firebase';
+import { RippleButton } from '../../components/RippleButton';
+import { instrumentCategories } from '../../services/userProfileService';
+import { auth } from '../../config/firebase';
 
 // テーマの色を直接定義
 const colors = {

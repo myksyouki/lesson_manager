@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Lesson } from '../../../store/lessons';
+import { Lesson } from '../../../../store/lessons';
 
 interface LessonDetailsProps {
   selectedDate: Date;

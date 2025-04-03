@@ -13,17 +13,17 @@ import {
   Dimensions,
 } from 'react-native';
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
-import { db, auth } from '../config/firebase';
+import { db, auth } from '../../config/firebase';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SearchBar from '../features/lessons/components/list/SearchBar';
 import TagFilter from '../features/lessons/components/list/TagFilter';
 import LessonCard from '../features/lessons/components/list/LessonCard';
-import { Lesson } from '../store/lessons';
-import { useTheme } from '../theme/index';
+import { Lesson } from '../../store/lessons';
+import { useTheme } from '../../theme';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useLessonStore } from '../store/lessons';
+import { useLessonStore } from '../../store/lessons';
 import Collapsible from 'react-native-collapsible';
 
 // レッスンタブのテーマカラー

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, SafeAreaView, ScrollView } from 'react-native';
-import { useSettingsStore } from './store/settings';
+import { useSettingsStore } from '../store/settings';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '@react-navigation/native';
 import { useRouter } from 'expo-router';

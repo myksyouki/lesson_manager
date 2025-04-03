@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Switch, Platform, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
-import { useNotificationStore } from './store/notifications';
-import type { NotificationSettings } from './store/notifications';
+import { useNotificationStore } from '../store/notifications';
+import type { NotificationSettings } from '../store/notifications';
 import { useTheme } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';

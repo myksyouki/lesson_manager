@@ -24,8 +24,8 @@ import {
   InstrumentCategory,
   Instrument,
   InstrumentModel
-} from './services/userProfileService';
-import { useAuthStore } from './store/auth';
+} from '../services/userProfileService';
+import { useAuthStore } from '../store/auth';
 
 const { width } = Dimensions.get('window');
 

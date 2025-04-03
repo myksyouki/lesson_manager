@@ -178,4 +178,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
-}); 
+});
+
+// デフォルトエクスポートを追加
+export default TextField; 

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Dimensions } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { Task } from '../../../types/task';
-import { useTaskStore } from '../../../store/tasks';
+import { Task } from '../../../../types/_task';
+import { useTaskStore } from '../../../../store/tasks';
 import { CalendarModal } from '../../../features/lessons/components/form/CalendarModal';
-import { useCalendar, DAYS } from '../../../hooks/useCalendar';
+import { useCalendar, DAYS } from '../../../../hooks/useCalendar';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CALENDAR_WIDTH = Math.min(SCREEN_WIDTH - 40, 600);

@@ -282,5 +282,5 @@ export const useTheme = (): ThemeType => {
   return themeType === 'dark' ? darkTheme : lightTheme;
 };
 
-// デフォルトエクスポート
-export default theme;
+// デフォルトエクスポートを追加
+export default { useTheme, lightTheme, darkTheme, ANIMATION };

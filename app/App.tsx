@@ -2,7 +2,7 @@ import { LogBox } from 'react-native';
 import Constants from 'expo-constants';
 
 // Firebaseの設定情報とサービスをconfig/firebase.tsから再利用
-import firebaseApp, { auth, db, functions } from './config/firebase';
+import firebaseApp, { auth, db, functions } from '../config/firebase';
 
 // デバッグログ
 console.log('[FIREBASE] Firebase initialized:', firebaseApp.name);

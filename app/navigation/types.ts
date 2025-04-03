@@ -13,3 +13,6 @@ export type RootStackParamList = {
   'task-detail': { id: string };
   '+not-found': undefined;
 };
+
+// ダミーのデフォルトエクスポートを追加してRouteの警告を解消
+export default {};

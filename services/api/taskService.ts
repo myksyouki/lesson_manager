@@ -1,5 +1,5 @@
 import { doc, setDoc, updateDoc, getDoc, collection, query, where, orderBy, getDocs, deleteDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { db } from '../../app/config/firebase';
 import { Task } from '../../types/task';
 
 /**

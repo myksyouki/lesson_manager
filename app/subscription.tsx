@@ -3,8 +3,8 @@ import { StyleSheet, View, Text, ScrollView, SafeAreaView, StatusBar } from 'rea
 import { Stack } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 
-import SubscriptionButton from './components/SubscriptionButton';
-import SubscriptionStatus from './components/SubscriptionStatus';
+import SubscriptionButton from '../components/SubscriptionButton';
+import SubscriptionStatus from '../components/SubscriptionStatus';
 
 export default function SubscriptionScreen() {
   const auth = getAuth();

@@ -7,7 +7,7 @@ import {
   Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../../../../theme';
+import { useTheme } from '../../../../../theme';
 
 interface AudioUploaderProps {
   selectedFile: { uri: string; name: string } | null;

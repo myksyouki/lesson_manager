@@ -3,11 +3,11 @@ import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
-import { handleSharedAudioFile, copySharedFileToTemp } from '../../services/sharingService';
-import { useLessonStore } from '../../store/lessons';
-import { useAuthStore } from '../../store/auth';
-import { Button } from '../../components/ui/Button';
-import { auth } from '../../config/firebase';
+import { handleSharedAudioFile, copySharedFileToTemp } from '../../../services/sharingService';
+import { useLessonStore } from '../../../store/lessons';
+import { useAuthStore } from '../../../store/auth';
+import { Button } from '../../../components/ui/Button';
+import { auth } from '../../../config/firebase';
 
 interface SharedAudioReceiverProps {
   uri: string;
@@ -103,7 +103,7 @@ export const SharedAudioReceiver: React.FC<SharedAudioReceiverProps> = ({ uri, f
   const handleGoToLesson = () => {
     if (lessonId) {
       router.push({
-        pathname: '/lesson-detail',
+        pathname: '/(lesson-detail)/[id]',
         params: { id: lessonId }
       });
     } else {
@@ -200,3 +200,6 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
 });
+
+// デフォルトエクスポートを追加
+export default SharedAudioReceiver;

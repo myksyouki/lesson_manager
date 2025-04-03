@@ -95,3 +95,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+
+// デフォルトエクスポートを追加
+export default TextInput;

@@ -7,10 +7,10 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { useTaskStore } from '../../../store/tasks';
-import { useLessonStore } from '../../../store/lessons';
+import { useTaskStore } from '../../../../store/tasks';
+import { useLessonStore } from '../../../../store/lessons';
 import { LineChart, PieChart } from 'react-native-chart-kit';
-import { useTheme } from '../../../theme';
+import { useTheme } from '../../../../theme';
 
 export const DetailedReport = () => {
   const { tasks, taskCompletionHistory } = useTaskStore();

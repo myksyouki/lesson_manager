@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { LessonFormData } from '../../../../services/lessonService';
-import { TextField } from '../../../../components/ui/TextField';
-import { Button } from '../../../../components/ui/Button';
-import { Card, CardBody } from '../../../../components/ui/Card';
-import { useTheme } from '../../../../theme';
+import { LessonFormData } from '../../../../../services/lessonService';
+import { TextField } from '../../../../../components/ui/TextField';
+import { Button } from '../../../../../components/ui/Button';
+import { Card, CardBody } from '../../../../../components/ui/Card';
+import { useTheme } from '../../../../../theme';
 import { formatDate } from '@app/_ignore/utils/_dateUtils';
 import PiecesList from './PiecesList';
 import TagSelector from './TagSelector';

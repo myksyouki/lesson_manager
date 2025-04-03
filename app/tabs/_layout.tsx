@@ -2,9 +2,9 @@ import { Tabs } from 'expo-router';
 import { Platform, Dimensions, useWindowDimensions } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { TouchableOpacity, Text, StyleSheet, Animated, View } from 'react-native';
-import { useAuthStore } from '../store/auth';
-import { useSettingsStore } from '../store/settings';
-import { useTheme } from '../theme/index';
+import { useAuthStore } from '../../store/auth';
+import { useSettingsStore } from '../../store/settings';
+import { useTheme } from '../../theme';
 import { useRef, useEffect } from 'react';
 import { BlurView } from 'expo-blur';
 

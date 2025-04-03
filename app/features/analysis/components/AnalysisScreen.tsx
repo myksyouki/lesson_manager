@@ -11,7 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../../../theme';
+import { useTheme } from '../../../../theme';
 import ChartSection from './ChartSection';
 import DetailedReport from './DetailedReport';
 import { useRouter } from 'expo-router';
@@ -21,8 +21,8 @@ import CalendarHeader from '../../schedule/components/CalendarHeader';
 import WeekDayHeader from '../../schedule/components/WeekDayHeader';
 import CalendarGrid from '../../schedule/components/CalendarGrid';
 import LessonDetails from '../../schedule/components/LessonDetails';
-import { useLessonStore } from '../../../store/lessons';
-import { auth } from '../../../config/firebase';
+import { useLessonStore } from '../../../../store/lessons';
+import { auth } from '../../../../config/firebase';
 
 export default function AnalysisScreen() {
   const [activeTab, setActiveTab] = useState<'charts' | 'calendar'>('charts');

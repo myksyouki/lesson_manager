@@ -12,18 +12,18 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLessonStore } from '../store/lessons';
-import { useTaskStore } from '../store/tasks';
-import { useAuthStore } from '../store/auth';
-import { useTheme } from '../theme/index';
+import { useLessonStore } from '../../store/lessons';
+import { useTaskStore } from '../../store/tasks';
+import { useAuthStore } from '../../store/auth';
+import { useTheme } from '../../theme/index';
 import HomeHeader from '../features/home/components/HomeHeader';
 import TaskCard from '../features/tasks/components/TaskCard';
 import EmptyOrLoading from '../features/home/components/EmptyOrLoading';
-import { FadeIn } from '../components/AnimatedComponents';
+import { FadeIn } from '../../components/AnimatedComponents';
 import { MaterialCommunityIcons, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { getUserChatRooms, ChatRoom as ChatRoomType } from '../services/chatRoomService';
+import { getUserChatRooms, ChatRoom as ChatRoomType } from '../../services/chatRoomService';
 import { auth } from '../config/firebase';
 
 export default function HomeScreen() {

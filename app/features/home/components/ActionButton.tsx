@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert, Animated, Easing } from 'react-native';
 import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../../../theme/index';
-import { AnimatedButton } from '../../../components/AnimatedComponents';
+import { useTheme } from '../../../../theme/index';
+import { AnimatedButton } from '../../../../components/AnimatedComponents';
 
 export const ActionButton: React.FC = () => {
   const theme = useTheme();

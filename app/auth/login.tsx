@@ -16,12 +16,12 @@ import {
   Easing,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useAuthStore } from '../store/auth';
-import { useGoogleAuth } from '../store/auth';
+import { useAuthStore } from '../../store/auth';
+import { useGoogleAuth } from '../../store/auth';
 import { MaterialIcons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import LoadingScreen from '../components/LoadingScreen';
+import LoadingScreen from '../../components/LoadingScreen';
 
 const { width, height } = Dimensions.get('window');
 

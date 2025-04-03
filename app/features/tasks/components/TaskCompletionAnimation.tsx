@@ -55,7 +55,7 @@ const TaskCompletionAnimation: React.FC<TaskCompletionAnimationProps> = ({
           
           <View style={styles.animationContainer}>
             <LottieView
-              source={require('../../../assets/animations/confetti.json')}
+              source={require('../../../../assets/animations/confetti.json')}
               autoPlay
               loop={false}
               style={styles.animation}

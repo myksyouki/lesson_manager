@@ -5,10 +5,10 @@ import {
   getConfig, 
   isUsingUserBasedStructure, 
   DatabaseStructure 
-} from '../config/appConfig';
-import { changeDatabaseStructure } from '../services/dbConfig';
+} from '../../config/appConfig';
+import { changeDatabaseStructure } from '../../services/dbConfig';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { auth } from '../config/firebase';
+import { auth } from '../../config/firebase';
 
 export default function DatabaseMigrationScreen() {
   const [isLoading, setIsLoading] = useState(false);

@@ -13,16 +13,16 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from './theme/index';
-import { useLessonStore } from './store/lessons';
-import { useAuthStore } from './store/auth';
-import { Lesson } from './store/lessons';
+import { useTheme } from '../theme/index';
+import { useLessonStore } from '../store/lessons';
+import { useAuthStore } from '../store/auth';
+import { Lesson } from '../store/lessons';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from './config/firebase';
-import { createChatRoom, addMessageToChatRoom, updateChatRoom } from './services/chatRoomService';
-import { getUserProfile, instrumentCategories } from './services/userProfileService';
+import { db } from '../config/firebase';
+import { createChatRoom, addMessageToChatRoom, updateChatRoom } from '../services/chatRoomService';
+import { getUserProfile, instrumentCategories } from '../services/userProfileService';
 import { Timestamp } from 'firebase/firestore';
-import { sendMessageToLessonAI, sendMessageToLessonAIHttp } from './services/lessonAIService';
+import { sendMessageToLessonAI, sendMessageToLessonAIHttp } from '../services/lessonAIService';
 
 // 楽器カテゴリごとのトピックマッピング
 const INSTRUMENT_TOPICS: Record<string, string[]> = {

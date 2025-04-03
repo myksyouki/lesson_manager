@@ -13,11 +13,11 @@ import {
   Linking,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { useAuthStore } from './store/auth';
+import { useAuthStore } from '../store/auth';
 import { useRouter } from 'expo-router';
-import { logout } from './services/authService';
+import { logout } from '../services/authService';
 import { StatusBar } from 'expo-status-bar';
-import { useSettingsStore } from './store/settings';
+import { useSettingsStore } from '../store/settings';
 
 // MenuItemの型定義
 interface MenuItemProps {

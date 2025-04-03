@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Platform, FlatList } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
-import { useLessonStore, Lesson } from '../../../store/lessons';
-import { useTaskStore } from '../../../store/tasks';
-import { Task } from '../../../types/task';
-import { auth } from '../../../config/firebase';
+import { useLessonStore, Lesson } from '../../../../store/lessons';
+import { useTaskStore } from '../../../../store/tasks';
+import { Task } from '../../../../types/_task';
+import { auth } from '../../../../config/firebase';
 import { CalendarHeader, CalendarGrid } from './';
 import { Ionicons } from '@expo/vector-icons';
 

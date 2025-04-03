@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useTaskStore } from '../../../store/tasks';
+import { useTaskStore } from '../../../../store/tasks';
 
 interface TaskDetailHeaderProps {
   title: string;

@@ -17,15 +17,15 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { getChatRoomById, updateChatRoomMessages, updateChatRoom, ChatRoom, ChatMessage, MAX_MESSAGES_PER_CHAT_ROOM, WARNING_MESSAGE_THRESHOLD } from './services/chatRoomService';
-import { sendMessageToLessonAI, sendMessageToLessonAIHttp } from './services/lessonAIService';
-import { useAuthStore } from './store/auth';
+import { getChatRoomById, updateChatRoomMessages, updateChatRoom, ChatRoom, ChatMessage, MAX_MESSAGES_PER_CHAT_ROOM, WARNING_MESSAGE_THRESHOLD } from '../services/chatRoomService';
+import { sendMessageToLessonAI, sendMessageToLessonAIHttp } from '../services/lessonAIService';
+import { useAuthStore } from '../store/auth';
 import { StatusBar } from 'expo-status-bar';
 import { Timestamp } from 'firebase/firestore';
 import ChatsHeader from './components/ui/ChatsHeader';
 import { ChatInput } from './features/chat/components/ChatInput';
 import { useFocusEffect } from 'expo-router';
-import { getUserInstrumentInfo, InstrumentModel } from './services/userProfileService';
+import { getUserInstrumentInfo, InstrumentModel } from '../services/userProfileService';
 
 // 定数定義の追加
 const MAX_MESSAGE_LENGTH = 2000; // メッセージの最大文字数

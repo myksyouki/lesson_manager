@@ -1,7 +1,7 @@
-import { db } from '../config/firebase';
+import { db } from '../app/config/firebase';
 import { doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../config/firebase';
+import { functions } from '../app/config/firebase';
 
 /**
  * Firebase Functionsを使用して音声ファイルの処理を行うサービス

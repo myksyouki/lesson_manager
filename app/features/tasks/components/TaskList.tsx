@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, RefreshControl, Alert } from 'react-native';
 import { Task } from '../../../types/task';
 import TaskCard from './TaskCard';
-import { useTaskStore } from '../../../store/tasks';
+import { useTaskStore } from '../../../../store/tasks';
 import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { auth } from '../../../config/firebase';
+import { auth } from '../../../../config/firebase';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 
 interface TaskListProps {

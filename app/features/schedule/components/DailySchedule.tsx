@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Platform, FlatList } from 'react-native';
-import { Lesson } from '../../../store/lessons';
+import { Lesson } from '../../../../store/lessons';
 
 const colors = {
   primary: '#4285F4',

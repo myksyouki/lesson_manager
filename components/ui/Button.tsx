@@ -193,3 +193,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+// デフォルトエクスポートを追加
+export default Button;

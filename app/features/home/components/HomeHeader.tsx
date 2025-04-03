@@ -2,11 +2,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useTheme } from '../../../theme/index';
-import { RippleButton } from '../../../components/AnimatedComponents';
+import { useTheme } from '../../../../theme/index';
+import { RippleButton } from '../../../../components/AnimatedComponents';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { useAuthStore } from '../../../store/auth';
+import { useAuthStore } from '../../../../store/auth';
 
 export const HomeHeader: React.FC = () => {
   const theme = useTheme();

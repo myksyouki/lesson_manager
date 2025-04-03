@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, Dimensions, TouchableOpacity, Text, ScrollView, PanResponder, Animated, Platform } from 'react-native';
-import { useTaskStore } from '../../../store/tasks';
+import { useTaskStore } from '../../../../store/tasks';
 import TaskCategorySummary from './TaskCategorySummary';
 import MonthlyPracticeChart from './MonthlyPracticeChart';
 

@@ -15,7 +15,7 @@ import {
 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Task } from '../../../types/task';
-import { useTaskStore } from '../../../store/tasks';
+import { useTaskStore } from '../../../../store/tasks';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 

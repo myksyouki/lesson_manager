@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SharedAudioReceiver } from './features/sharing/SharedAudioReceiver';
-import { useAuthStore } from './store/auth';
-import { Button } from './components/ui/Button';
+import { useAuthStore } from '../store/auth';
+import { Button } from '../components/ui/Button';
 
 /**
  * 共有された音声ファイルを処理する画面

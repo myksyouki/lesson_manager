@@ -3,7 +3,7 @@ import { View, StyleSheet, SafeAreaView, TouchableOpacity, Platform, StatusBar }
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import DetailedReport from '../features/analysis/components/DetailedReport';
-import { useTheme } from '../theme';
+import { useTheme } from '../../theme';
 
 export default function DetailedReportScreen() {
   const router = useRouter();

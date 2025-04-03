@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../config/firebase';
+import { db, auth } from '../../config/firebase';
 import { MaterialIcons } from '@expo/vector-icons';
 import LessonDetailHeader from '../features/lessons/components/detail/LessonDetailHeader';
 import LessonDetailContent from '../features/lessons/components/detail/LessonDetailContent';
-import { useLessonStore } from '../store/lessons';
+import { useLessonStore } from '../../store/lessons';
 
 export default function LessonDetail() {
   const params = useLocalSearchParams();

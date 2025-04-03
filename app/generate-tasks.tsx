@@ -12,16 +12,16 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from './theme/index';
-import { useLessonStore } from './store/lessons';
-import { useTaskStore } from './store/tasks';
-import { useAuthStore } from './store/auth';
-import { Lesson } from './store/lessons';
+import { useTheme } from '../theme/index';
+import { useLessonStore } from '../store/lessons';
+import { useTaskStore } from '../store/tasks';
+import { useAuthStore } from '../store/auth';
+import { Lesson } from '../store/lessons';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from './config/firebase';
+import { db } from '../config/firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getUserInstrumentInfo } from './services/userProfileService';
-import { functions as appFunctions, testFunctionConnection, firebaseApp } from './config/firebase';
+import { getUserInstrumentInfo } from '../services/userProfileService';
+import { functions as appFunctions, testFunctionConnection, firebaseApp } from '../config/firebase';
 import { getAuth, User as FirebaseUser } from 'firebase/auth';
 
 export default function GenerateTasksScreen() {

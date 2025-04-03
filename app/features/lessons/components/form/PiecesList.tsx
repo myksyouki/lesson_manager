@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../../../../theme';
+import { useTheme } from '../../../../../theme';
 
 interface PiecesListProps {
   pieces: string[];

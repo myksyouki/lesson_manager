@@ -61,3 +61,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
+// デフォルトエクスポートを追加
+export default RippleButton;

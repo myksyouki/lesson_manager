@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
-import { useAuthStore } from './store/auth';
-import { auth } from './config/firebase';
+import { useAuthStore } from '../store/auth';
+import { auth } from '../config/firebase';
 
 // Firebase Functionsのエミュレータ設定（開発時に必要な場合）
 // import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';

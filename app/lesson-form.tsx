@@ -9,21 +9,21 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import LoadingOverlay from './components/LoadingOverlay';
+import LoadingOverlay from '../components/LoadingOverlay';
 import FormHeader from './features/lessons/components/form/FormHeader';
 import FormInputs from './features/lessons/components/form/FormInputs';
 import { CalendarModal } from './features/lessons/components/form/CalendarModal';
 import AudioUploader from './features/lessons/components/form/AudioUploader';
-import { useCalendar, DAYS } from './hooks/useCalendar';
-import { useFileUpload } from './hooks/useFileUpload';
+import { useCalendar, DAYS } from '../hooks/useCalendar';
+import { useFileUpload } from '../hooks/useFileUpload';
 import { Dimensions } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { collection, addDoc, doc, updateDoc, serverTimestamp, setDoc, getDoc, query, where, getDocs, runTransaction } from 'firebase/firestore';
-import { db, auth, functions } from './config/firebase';
+import { db, auth, functions } from '../config/firebase';
 import { router } from 'expo-router';
-import { uploadAudioFile } from './services/storage';
+import { uploadAudioFile } from '../services/storage';
 import { httpsCallable } from 'firebase/functions';
-import { getUserProfile } from './services/userProfileService';
+import { getUserProfile } from '../services/userProfileService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CALENDAR_WIDTH = Math.min(SCREEN_WIDTH - 40, 600);

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView, ScrollView, View, Text, StyleSheet, Platform, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLessonStore } from './store/lessons';
+import { useLessonStore } from '../store/lessons';
 import LessonCard from './features/lessons/components/list/LessonCard';
-import { useAuthStore } from './store/auth';
+import { useAuthStore } from '../store/auth';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { updateProfile } from 'firebase/auth';
-import { auth } from './config/firebase';
-import { getUserInstrumentInfo, InstrumentInfo } from './services/userProfileService';
+import { auth } from '../config/firebase';
+import { getUserInstrumentInfo, InstrumentInfo } from '../services/userProfileService';
 
 // デフォルト表示名
 const DEFAULT_DISPLAY_NAME = '名称未設定';

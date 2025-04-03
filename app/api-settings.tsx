@@ -13,8 +13,8 @@ import {
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
-import { db } from './config/firebase';
-import { useAuthStore } from './store/auth';
+import { db } from '../config/firebase';
+import { useAuthStore } from '../store/auth';
 
 // API設定の型定義
 interface ApiSettings {
