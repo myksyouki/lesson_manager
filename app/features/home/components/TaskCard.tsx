@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import ReAnimated, { useAnimatedStyle, withTiming, Easing as ReEasing } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { Task } from '../../../_ignore/types/_task';
+import { Task } from '../../../../_ignore/types/_task';
 import { useTheme } from '../../../../theme/index';
 import { AnimatedButton } from '../../../../components/AnimatedComponents';
 import { useTaskStore } from '../../../../store/tasks';

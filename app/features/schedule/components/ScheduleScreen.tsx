@@ -4,9 +4,10 @@ import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import { useLessonStore, Lesson } from '../../../../store/lessons';
 import { useTaskStore } from '../../../../store/tasks';
-import { Task } from '../../../../types/_task';
+import { Task } from '../../../../_ignore/types/_task';
 import { auth } from '../../../../config/firebase';
-import { CalendarHeader, CalendarGrid } from './';
+import CalendarHeader from './CalendarHeader';
+import CalendarGrid from './CalendarGrid';
 import { Ionicons } from '@expo/vector-icons';
 
 const colors = {

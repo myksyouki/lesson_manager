@@ -1,5 +1,6 @@
 import { LogBox } from 'react-native';
 import Constants from 'expo-constants';
+import React from 'react';
 
 // Firebaseの設定情報とサービスをconfig/firebase.tsから再利用
 import firebaseApp, { auth, db, functions } from '../config/firebase';
@@ -21,4 +22,9 @@ if (__DEV__ && Constants.expoConfig?.extra?.useEmulator) {
   } catch (error) {
     console.log('[FIREBASE] Failed to connect to emulator:', error);
   }
+}
+
+// App.tsxのデフォルトエクスポートを追加
+export default function App() {
+  return null; // このファイルは初期化用のため、実際のUIはレンダリングしない
 } 

@@ -203,17 +203,17 @@ export default function RootLayout() {
         }}
       >
         {!user ? (
-          <React.Fragment>
+          <>
             <Stack.Screen name="login" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          </React.Fragment>
+          </>
         ) : isOnboardingCompleted === false ? (
           // オンボーディングが完了していない場合は、オンボーディング画面にリダイレクト
-          <React.Fragment>
+          <>
             <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          </React.Fragment>
+          </>
         ) : (
-          <React.Fragment>
+          <>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(lesson-detail)" options={{ title: 'レッスン詳細' }} />
             <Stack.Screen name="chat-room" options={{ title: 'チャットルーム' }} />
@@ -223,7 +223,6 @@ export default function RootLayout() {
             <Stack.Screen name="task-form" options={{ title: '課題作成' }} />
             <Stack.Screen name="generate-tasks" options={{ title: '課題生成' }} />
             <Stack.Screen name="consult-ai" options={{ title: 'AIに相談' }} />
-            <Stack.Screen name="settings" options={{ title: '設定' }} />
             <Stack.Screen name="subscription" options={{ title: 'サブスクリプション' }} />
             <Stack.Screen name="profile" options={{ title: 'プロフィール' }} />
             <Stack.Screen name="instrument-settings" options={{ title: '楽器設定' }} />
@@ -239,8 +238,7 @@ export default function RootLayout() {
             <Stack.Screen name="admin/knowledge-edit" options={{ title: 'ナレッジ編集' }} />
             <Stack.Screen name="admin/db-migration" options={{ title: 'DB移行' }} />
             */}
-            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          </React.Fragment>
+          </>
         )}
       </Stack>
       <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
