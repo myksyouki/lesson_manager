@@ -1,8 +1,3 @@
----
-description: 
-globs: 
-alwaysApply: true
----
 # 機能開発ガイドライン（Cursor Agent向け）
 
 以下は、CursorがAgentモードで自律的に機能開発を行う際に確認すべきルールです。
