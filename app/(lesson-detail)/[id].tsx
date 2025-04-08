@@ -34,6 +34,7 @@ export default function LessonDetail() {
     isArchived: false,
   });
   const [showExportModal, setShowExportModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   
   // レッスンストアからアーカイブ関連のメソッドを取得
   const { archiveLesson, unarchiveLesson } = useLessonStore();
@@ -441,64 +442,77 @@ export default function LessonDetail() {
     });
   };
 
+  // リフレッシュ処理を追加
+  const handleRefresh = () => {
+    setRefreshing(true);
+    // データを再読み込みする処理
+    setTimeout(() => {
+      // ここでレッスンデータを再読み込みする処理を呼び出す（例：loadChatRoom()など）
+      setRefreshing(false);
+    }, 1000);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <LessonDetailHeader
+      <LessonDetailHeader 
         id={lessonId}
         date={formData.date}
         teacher={formData.teacherName}
         isEditing={isEditing}
-        isArchived={formData.isArchived}
-        isFavorite={formData.isFavorite}
+        isArchived={formData.isArchived || false}
+        isFavorite={formData.isFavorite || false}
         onEdit={handleEditSave}
         onSave={handleSave}
         onCancel={handleCancel}
         onDelete={handleDelete}
         onToggleFavorite={handleToggleFavorite}
       />
-      <LessonDetailContent
-        isEditing={isEditing}
-        formData={formData}
-        onUpdateFormData={handleUpdateFormData}
-        afterSummary={(
-          <TouchableOpacity
-            style={[styles.inlineActionButton, { backgroundColor: '#4285F4' }]}
-            onPress={openExportModal}
-          >
-            <MaterialIcons name="share" size={24} color="#FFFFFF" />
-            <Text style={styles.actionButtonText}>エクスポート</Text>
-          </TouchableOpacity>
-        )}
-      />
-
-      {/* アーカイブステータスバナー */}
-      {currentLesson?.isArchived && (
-        <View style={styles.archiveBanner}>
-          <MaterialIcons name="archive" size={28} color="#FFFFFF" />
-          <Text style={styles.archiveBannerText}>
-            このレッスンはアーカイブされています
-          </Text>
-        </View>
-      )}
-
-      {/* Export Modal */}
+      
+      <View style={styles.content}>
+        <LessonDetailContent 
+          formData={formData}
+          isEditing={isEditing}
+          onUpdateFormData={handleUpdateFormData}
+          afterSummary={
+            <>
+              {formData.status === 'processing' ? (
+                <View style={styles.processingIndicator}>
+                  <View style={styles.processingIconContainer}>
+                    <MaterialIcons name="refresh" size={20} color="#4285F4" />
+                  </View>
+                  <Text style={styles.processingText}>AIが処理中...</Text>
+                  <TouchableOpacity onPress={handleRefresh}>
+                    <MaterialIcons name="refresh" size={24} color="#4285F4" />
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              
+              <TouchableOpacity
+                style={[styles.inlineActionButton, { backgroundColor: '#4285F4' }]}
+                onPress={openExportModal}
+              >
+                <MaterialIcons name="share" size={24} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>エクスポート</Text>
+              </TouchableOpacity>
+            </>
+          }
+        />
+      </View>
+      
+      {/* エクスポート選択モーダル */}
       <Modal
         visible={showExportModal}
-        animationType="fade"
         transparent={true}
+        animationType="fade"
         onRequestClose={() => setShowExportModal(false)}
       >
-        <TouchableOpacity 
-          style={styles.modalOverlay} 
-          activeOpacity={1} 
-          onPress={() => setShowExportModal(false)}
-        >
-          <View style={[styles.modalContent, styles.popoverMenu]}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>エクスポート</Text>
             
             <TouchableOpacity 
               style={styles.modalOption}
-              onPress={navigateToGenerateTasks}
+              onPress={() => handleGenerateTasks()}
             >
               <MaterialIcons name="assignment" size={24} color="#007AFF" />
               <Text style={styles.modalOptionText}>タスク生成</Text>
@@ -506,13 +520,20 @@ export default function LessonDetail() {
             
             <TouchableOpacity 
               style={styles.modalOption}
-              onPress={handleChat}
+              onPress={() => handleChat()}
             >
               <MaterialIcons name="smart-toy" size={24} color="#5856D6" />
               <Text style={styles.modalOptionText}>AIに相談</Text>
             </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modalOption, styles.cancelOption]}
+              onPress={() => setShowExportModal(false)}
+            >
+              <Text style={styles.cancelText}>キャンセル</Text>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -521,7 +542,10 @@ export default function LessonDetail() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8F9FA',
+  },
+  content: {
+    flex: 1, // コンテンツが画面いっぱいに広がるように設定
   },
   inlineActionButton: {
     flexDirection: 'row',
@@ -621,5 +645,46 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 6,
+  },
+  processingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: '#EBF3FB',
+    marginHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  processingIconContainer: {
+    marginRight: 8,
+  },
+  processingText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4285F4',
+    marginRight: 12,
+  },
+  exportOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+  },
+  exportOptionText: {
+    fontSize: 16,
+    marginLeft: 16,
+    color: '#333',
+  },
+  cancelButton: {
+    padding: 16,
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF3B30',
   },
 });

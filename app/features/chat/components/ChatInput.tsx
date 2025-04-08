@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Text, KeyboardAvoidingView, Switch, Platform } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Platform, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../../theme';
 import { useAuthStore } from '../../../../store/auth';
@@ -23,18 +23,27 @@ export function ChatInput({
 }: ChatInputProps) {
   const theme = useTheme();
   const { user } = useAuthStore();
+  const inputRef = useRef<TextInput>(null);
+  
+  // フォーカスイベントの抑制するために単一のイベントハンドラを使用
+  const handleMessageChange = (text: string) => {
+    onChangeMessage(text);
+  };
+  
+  // 送信後キーボードを閉じる
+  const handleSendPress = () => {
+    onSend();
+    Keyboard.dismiss();
+  };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <View style={styles.inputContainer}>
         <TextInput
+          ref={inputRef}
           style={styles.input}
           value={message}
-          onChangeText={onChangeMessage}
+          onChangeText={handleMessageChange}
           placeholder="メッセージを入力..."
           multiline
           maxLength={2000}
@@ -44,7 +53,7 @@ export function ChatInput({
         
         <TouchableOpacity
           style={[styles.sendButton, !message.trim() && styles.disabledButton]}
-          onPress={onSend}
+          onPress={handleSendPress}
           disabled={!message.trim() || sending}
         >
           {sending ? (
@@ -54,14 +63,14 @@ export function ChatInput({
           )}
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     paddingTop: 8,
-    paddingBottom: 0,
+    paddingBottom: 8,
     paddingHorizontal: 10,
     borderTopWidth: 1,
     borderTopColor: '#EEEEEE',

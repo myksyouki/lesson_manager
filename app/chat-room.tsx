@@ -22,7 +22,8 @@ import { sendMessageToLessonAI, sendMessageToLessonAIHttp } from '../services/le
 import { useAuthStore } from '../store/auth';
 import { StatusBar } from 'expo-status-bar';
 import { Timestamp } from 'firebase/firestore';
-import ChatsHeader from './components/ui/ChatsHeader';
+// ChatsHeaderコンポーネントが見つからないため、コメントアウト
+// import ChatsHeader from './components/ui/ChatsHeader';
 import { ChatInput } from './features/chat/components/ChatInput';
 import { useFocusEffect } from 'expo-router';
 import { getUserInstrumentInfo, InstrumentModel } from '../services/userProfileService';
@@ -208,18 +209,20 @@ export default function ChatRoomScreen() {
   // 画面がフォーカスされたときにデータを再読み込み
   useFocusEffect(
     React.useCallback(() => {
-      console.log('チャットルーム画面がフォーカスされました');
-      
-      if (!chatRoom && initialLoadDone) {
+      // URLパラメータから直接アクセスした場合のみ読み込みを行う
+      if (!chatRoom && initialLoadDone && !id) {
         console.log('チャットルームを再読み込みします', { hasChatRoom: !!chatRoom });
         loadChatRoom();
       }
       
+      // フォーカス取得のログのみ記録し、実際の処理は行わない
+      console.log('チャットルーム画面がフォーカスされました');
+      
       return () => {
-        // クリーンアップ処理
+        // クリーンアップ処理のログのみ記録
         console.log('チャットルーム画面のフォーカスが外れました');
       };
-    }, [id, user?.uid, chatRoom, loadChatRoom, initialLoadDone])
+    }, [id, chatRoom, initialLoadDone])
   );
 
   // 編集モーダルを開く
@@ -674,69 +677,73 @@ export default function ChatRoomScreen() {
           }}
         />
         
-        {error ? (
-          <View style={styles.errorContainer}>
-            <MaterialIcons name="error-outline" size={48} color="#FF3B30" />
-            <Text style={styles.errorTitle}>エラーが発生しました</Text>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => {
-                setRetryCount(0);
-                loadChatRoom();
-              }}
-            >
-              <Text style={styles.retryButtonText}>再試行</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-          >
-            {chatRoom && chatRoom.messages && chatRoom.messages.length > 0 ? (
-              <FlatList
-                ref={flatListRef}
-                data={chatRoom.messages}
-                renderItem={renderItem}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.messagesContent}
-                onLayout={() => {
-                  if (flatListRef.current) {
-                    flatListRef.current.scrollToEnd({ animated: false });
-                  }
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        >
+          {error ? (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={48} color="#FF3B30" />
+              <Text style={styles.errorTitle}>エラーが発生しました</Text>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={() => {
+                  setRetryCount(0);
+                  loadChatRoom();
                 }}
-              />
-            ) : (
-              renderEmptyMessages()
-            )}
-            
-            {availableModels.length > 0 && (
-              <TouchableOpacity 
-                style={styles.modelIndicator}
-                onPress={handleOpenModelModal}
               >
-                <View style={styles.modelIndicatorContent}>
-                  <MaterialIcons name="model-training" size={14} color="#1C1C1E" />
-                  <Text style={styles.modelIndicatorText}>
-                    {availableModels.find(m => m.id === selectedChatModel)?.name || 'スタンダード'}
-                  </Text>
-                  <MaterialIcons name="keyboard-arrow-down" size={14} color="#1C1C1E" />
-                </View>
+                <Text style={styles.retryButtonText}>再試行</Text>
               </TouchableOpacity>
-            )}
-            
-            <ChatInput
-              message={message}
-              onChangeMessage={setMessage}
-              onSend={handleSend}
-              sending={sending}
-              roomId={chatRoom?.id || ""}
-              instrument={selectedChatModel || "standard"}
-            />
-          </KeyboardAvoidingView>
-        )}
+            </View>
+          ) : (
+            <View
+              style={styles.container}
+            >
+              {chatRoom && chatRoom.messages && chatRoom.messages.length > 0 ? (
+                <FlatList
+                  ref={flatListRef}
+                  data={chatRoom.messages}
+                  renderItem={renderItem}
+                  keyExtractor={(item) => item.id}
+                  contentContainerStyle={styles.messagesContent}
+                  onLayout={() => {
+                    if (flatListRef.current) {
+                      flatListRef.current.scrollToEnd({ animated: false });
+                    }
+                  }}
+                />
+              ) : (
+                renderEmptyMessages()
+              )}
+              
+              {availableModels.length > 0 && (
+                <TouchableOpacity 
+                  style={styles.modelIndicator}
+                  onPress={handleOpenModelModal}
+                >
+                  <View style={styles.modelIndicatorContent}>
+                    <MaterialIcons name="model-training" size={14} color="#1C1C1E" />
+                    <Text style={styles.modelIndicatorText}>
+                      {availableModels.find(m => m.id === selectedChatModel)?.name || 'スタンダード'}
+                    </Text>
+                    <MaterialIcons name="keyboard-arrow-down" size={14} color="#1C1C1E" />
+                  </View>
+                </TouchableOpacity>
+              )}
+              
+              <ChatInput
+                message={message}
+                onChangeMessage={setMessage}
+                onSend={handleSend}
+                sending={sending}
+                roomId={chatRoom?.id || ""}
+                instrument={selectedChatModel || "standard"}
+              />
+            </View>
+          )}
+        </KeyboardAvoidingView>
       </SafeAreaView>
       
       {/* チャットルーム情報編集モーダル */}

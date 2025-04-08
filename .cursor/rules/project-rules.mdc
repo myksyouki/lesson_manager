@@ -1,0 +1,147 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+ ---
+description: レッスン管理システムのプロジェクトルール
+globs: *
+---
+
+# プロジェクト概要
+
+このプロジェクトは、AI駆動の文字起こしと要約機能を統合したレッスン管理システムです。ユーザーは音声録音をアップロードし、AI技術により要約・タグ付けを自動生成し、レッスンスケジュールを管理できます。
+
+## 技術スタック
+
+- **文字起こし**: OpenAI Whisper API
+- **要約生成**: OpenAI o3-mini モデル (以前は Google Gemini API)
+- **バックエンド**: Firebase (Functions, Firestore, Storage)
+- **フロントエンド**: React Native with Expo
+- **デプロイ**: Firebase Hosting, Expo EAS
+- **ランタイム**: Node.js 20 (注意: Node.js 18 は 2025-04-30 に非推奨、2025-10-31 に廃止予定)
+
+## データ構造
+
+### レッスンデータ
+
+```typescript
+interface Lesson {
+  // 基本情報
+  id: string;
+  title: string;
+  date: Timestamp;
+  instrument: string; // ユーザープロファイルから取得
+  
+  // 音声処理関連
+  audioUrl?: string;
+  transcription?: string;
+  summary?: string;
+  tags?: string[];
+  
+  // 処理状態管理
+  summaryRequired: boolean;
+  summaryInProgress: boolean;
+  transcriptionCompleteTime?: Timestamp;
+  transcriptionId?: string;
+  processingId?: string;
+  lockAcquiredAt?: Timestamp;
+  
+  // アーカイブ関連
+  isArchived: boolean;
+  archivedDate?: Timestamp;
+  
+  // その他
+  pieces?: string; // JSON文字列として保存
+  aiInstructions?: string; // 最大100文字
+}
+```
+
+## 機能制限とガイドライン
+
+### 音声処理
+
+- **最大音声時間**: 90分
+- **最大ファイルサイズ**: 100MB
+- **大きなファイル処理**:
+  - 25MB以上: ファイルを10分単位（20秒オーバーラップ）で分割処理
+  - 30MB以上: Wi-Fi接続でない場合はユーザーに警告表示
+- **タグ生成**: 3つの個別単語（不足する場合は楽器名で補完）
+
+### Firebase関数設定
+
+- **リージョン**: asia-northeast1 (必須)
+- **processAudioOnUpload関数**:
+  - メモリ: 4GB
+  - タイムアウト: 60分
+  - 最大インスタンス数: 50
+- **エラー処理**:
+  - APIコールには堅牢なエラーハンドリングとロギング
+  - 失敗したAPI呼び出しには指数バックオフによる再試行メカニズム
+
+## UI/UXガイドライン
+
+### 画面構成
+
+- **ホーム画面**:
+  - スクロール可能なデザイン
+  - 「タスク完了」セクションは「月間タスク完了数: X」に置き換え
+  - スクロール可能なバッジセクションとして表示
+
+- **レッスン画面**:
+  - 「アーカイブ」タブを追加（月別表示）
+  - アーカイブ/アーカイブ解除機能
+
+- **AI レッスンタブ**:
+  - 練習セクションのチャットルーム（楽器別に変更）:
+    - サックスの場合: 音色、高音域、低音域、タンギング、ビブラート
+  - Dify APIと統合された相談セクション
+
+- **進捗（旧スケジュール）タブ**:
+  - カレンダービュー
+  - グラフビュー（月間タスク完了数、練習日数、レッスン数）
+  - タップで詳細表示、スワイプで期間ナビゲーション
+
+## コード構造
+
+### 関数フォルダ構造
+
+```
+functions/src/
+  ├── index.ts                 # メインエントリーポイント
+  ├── config/
+  │   └── index.ts             # 設定
+  ├── summaries/               # 要約関連機能
+  │   ├── index.ts             # 要約機能のエクスポート
+  │   ├── triggers.ts          # ストレージ/Firestoreトリガー
+  │   ├── processor.ts         # 主要な要約処理ロジック
+  │   ├── transcriber.ts       # 文字起こし機能
+  │   └── generator.ts         # 要約/タグ生成機能
+  ├── chat/                    # チャット関連機能
+  │   ├── index.ts             # チャット機能のエクスポート
+  │   ├── triggers.ts          # チャット関連トリガー
+  │   ├── handlers.ts          # チャットメッセージハンドラ
+  │   └── models.ts            # チャットで使用するAIモデル
+  └── common/                  # 共通ユーティリティ
+      ├── storage.ts           # ストレージ操作
+      ├── firestore.ts         # Firestore操作
+      ├── audio.ts             # 音声ファイル操作
+      ├── llm.ts               # AI/LLM共通処理
+      ├── errors.ts            # エラー処理
+      ├── secret.ts            # シークレット管理
+      └── dify.ts              # Dify API連携機能
+```
+
+## セキュリティとベストプラクティス
+
+- Firestoreでは、タスクとレッスンのコレクションにユーザーベースのセキュリティ強制
+- `pieces`パラメータは必ずJSON文字列として渡す
+- API キーはSecret Managerで管理
+- クライアント側での大きなファイルのアップロード時は適切な警告表示
+
+## 実装時の重要事項
+
+- 音声文字起こしはWhisper APIを使用し、長時間音声は10分間隔（20秒オーバーラップ）で分割
+- 要約はOpenAI o3-miniモデルを使用
+- タグは3つの個別単語として生成（不足する場合は楽器名で補完）
+- 「AI Instructions」フィールド（最大100文字）を使用してAI要約プロセスをカスタマイズ可能 

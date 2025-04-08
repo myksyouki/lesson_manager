@@ -175,7 +175,7 @@ export const LessonDetailContent: React.FC<LessonDetailContentProps> = ({
     <KeyboardAvoidingView 
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 120 : 0}
     >
       {/* カレンダーモーダル */}
       <CalendarModal
@@ -187,7 +187,10 @@ export const LessonDetailContent: React.FC<LessonDetailContentProps> = ({
       
       <ScrollView 
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 80 } // SafeAreaのbottomインセットを考慮
+        ]}
         showsVerticalScrollIndicator={true}
         bounces={true}
         refreshControl={
@@ -339,7 +342,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: 80,
   },
   summaryContainer: {
     marginTop: 16,

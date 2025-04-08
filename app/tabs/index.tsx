@@ -10,6 +10,8 @@ import {
   ScrollView,
   useWindowDimensions,
   ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLessonStore } from '../../store/lessons';
@@ -25,6 +27,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getUserChatRooms, ChatRoom as ChatRoomType } from '../../services/chatRoomService';
 import { auth } from '../config/firebase';
+import { getRecommendedTasks } from '../../services/difyService';
 
 export default function HomeScreen() {
   // 画面サイズを取得
@@ -53,6 +56,15 @@ export default function HomeScreen() {
   // チャットルームデータの状態
   const [recentChatRooms, setRecentChatRooms] = useState<ChatRoomType[]>([]);
   const [isLoadingChats, setIsLoadingChats] = useState(true);
+
+  // AIレコメンデーションタスクの状態
+  const [recommendedTasks, setRecommendedTasks] = useState<any[]>([]);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+
+  // 最新のレッスン、タスク、チャットルームを取得
+  const latestLesson = useLessonStore(state => state.lessons[0]);
+  const latestTask = tasks[0];
+  const latestChatRoom = recentChatRooms[0];
 
   // 画面サイズに応じたスタイルを計算
   const dynamicStyles = useMemo(() => {
@@ -412,95 +424,99 @@ export default function HomeScreen() {
     }
   };
 
-  // チャットルームカードコンポーネント
-  const ChatRoomCard = ({ chatRoom }: { chatRoom: ChatRoomType }) => {
-    const handleCardPress = () => {
-      router.push({
-        pathname: '/chat-room',
-        params: { id: chatRoom.id }
-      } as any);
-    };
-
-    const chatIcon = getChatRoomIcon(chatRoom.topic);
-    
-    // Timestamp型の場合の処理
-    const getFormattedDate = () => {
-      if (!chatRoom.updatedAt) return '';
+  // AIレコメンデーションを取得
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (!user) return;
       
-      let date;
-      if (typeof chatRoom.updatedAt === 'object' && 'seconds' in chatRoom.updatedAt) {
-        date = new Date(chatRoom.updatedAt.seconds * 1000);
-      } else {
-        date = new Date(chatRoom.updatedAt);
+      setIsLoadingRecommendations(true);
+      try {
+        const recommendations = await getRecommendedTasks(user.uid);
+        setRecommendedTasks(recommendations.slice(0, 3)); // 最大3件まで表示
+      } catch (error) {
+        console.error('AIレコメンデーションの取得に失敗しました:', error);
+      } finally {
+        setIsLoadingRecommendations(false);
       }
-      
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      return `${month}/${day}`;
     };
 
-    const formattedDate = getFormattedDate();
+    fetchRecommendations();
+  }, [user]);
+
+  // フローティングボタンの表示
+  const renderFloatingButtons = () => {
+    const buttons = [
+      {
+        icon: "music-note",
+        label: "レッスン",
+        onPress: () => router.push('/lesson-form'),
+        color: theme.colors.primary,
+      },
+      {
+        icon: "assignment",
+        label: "タスク",
+        onPress: () => router.push('/task-form'),
+        color: theme.colors.secondary,
+      },
+      {
+        icon: "chat",
+        label: "チャット",
+        onPress: () => router.push('/chat-room-form'),
+        color: theme.colors.tertiary || '#7C4DFF',
+      },
+    ];
 
     return (
-      <TouchableOpacity
-        style={[
-          styles.flashCard,
-          { 
-            padding: dynamicStyles.cardPadding,
-            marginBottom: dynamicStyles.itemSpacing * 1.5
-          }
-        ]}
-        onPress={handleCardPress}
-        activeOpacity={0.6}
-      >
-        {/* 左側: アイコン */}
-        <View style={[
-          styles.taskIconContainer,
-          { 
-            width: dynamicStyles.iconSize * 1.8, 
-            height: dynamicStyles.iconSize * 1.8, 
-            borderRadius: dynamicStyles.iconSize * 0.9,
-            marginRight: dynamicStyles.itemSpacing,
-            backgroundColor: 'rgba(124, 77, 255, 0.1)',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }
-        ]}>
-          {chatIcon}
+      <View style={styles.floatingButtonsContainer}>
+        <View style={styles.floatingButtonsRow}>
+          {buttons.map((button, index) => (
+            <TouchableOpacity
+              key={button.icon}
+              style={[
+                styles.floatingButton,
+                {
+                  backgroundColor: button.color,
+                  marginLeft: index > 0 ? 8 : 0,
+                },
+              ]}
+              onPress={button.onPress}
+            >
+              <MaterialIcons name={button.icon as any} size={24} color="white" />
+              <Text style={styles.floatingButtonLabel}>{button.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
+      </View>
+    );
+  };
 
-        {/* 中央: チャット情報 */}
-        <View style={styles.taskContent}>
-          <Text 
-            style={[
-              styles.taskTitle, 
-              { fontSize: dynamicStyles.taskTitleFontSize },
-              { color: theme.colors.text }
-            ]}
-            numberOfLines={1}
-          >
-            {chatRoom.title}
-          </Text>
-          
-          <Text 
-            style={[
-              styles.taskDescription,
-              { fontSize: dynamicStyles.taskDescriptionFontSize },
-              { color: theme.colors.textSecondary }
-            ]}
-            numberOfLines={1}
-          >
-            {chatRoom.topic}
-          </Text>
+  // クイックアクセスカード
+  const QuickAccessCard = ({ title, icon, onPress, subtitle }: { 
+    title: string; 
+    icon: React.ReactNode; 
+    onPress: () => void;
+    subtitle?: string;
+  }) => {
+    return (
+      <TouchableOpacity
+        style={[styles.quickAccessCard, { backgroundColor: theme.colors.cardElevated }]}
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        <View style={styles.quickAccessIconContainer}>
+          {icon}
         </View>
-        
-        {/* 右側: 日付と矢印 */}
-        <View style={styles.taskRightContent}>
-          <Text style={[styles.taskDate, { fontSize: dynamicStyles.taskDescriptionFontSize - 1 }]}>
-            {formattedDate}
+        <View style={styles.quickAccessContent}>
+          <Text style={[styles.quickAccessTitle, { color: theme.colors.text }]}>
+            {title}
           </Text>
-          <MaterialIcons name="chevron-right" size={dynamicStyles.iconSize} color={theme.colors.primary} />
+          {subtitle && (
+            <Text style={[styles.quickAccessSubtitle, { color: theme.colors.textSecondary }]}>
+              {subtitle}
+            </Text>
+          )}
         </View>
+        <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
       </TouchableOpacity>
     );
   };
@@ -518,189 +534,79 @@ export default function HomeScreen() {
 
         <ScrollView 
           ref={scrollViewRef}
-          contentContainerStyle={styles.contentContainer} 
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: 100 } // フローティングボタンの分の余白を追加
+          ]} 
           showsVerticalScrollIndicator={false}
         >
-          {/* 練習進捗状況セクション */}
-          <View style={[
-            styles.progressCard, 
-            { 
-              margin: dynamicStyles.contentMargin,
-              padding: dynamicStyles.cardPadding
-            }
-          ]}>
-            <View style={[styles.progressTitleContainer, { marginBottom: dynamicStyles.itemSpacing }]}>
-              <Text style={[styles.progressTitle, { fontSize: dynamicStyles.titleFontSize }]}>今月の練習進捗状況</Text>
-              <Text style={[styles.progressSubtitle, { fontSize: dynamicStyles.subtitleFontSize }]}>{getFormattedDate()}</Text>
-            </View>
-            
-            {/* 全体進捗 */}
-            <View style={[styles.overallProgressContainer, { marginBottom: dynamicStyles.contentMargin }]}>
-              <View style={[styles.progressSectionRow, { marginBottom: dynamicStyles.itemSpacing * 0.6 }]}>
-                <Text style={[styles.progressSectionTitle, { fontSize: dynamicStyles.subtitleFontSize }]}>今月のタスク進捗</Text>
-                <Text style={[styles.progressDetail, { fontSize: dynamicStyles.subtitleFontSize - 1 }]}>{monthlyTasksCompleted}/{monthlyTasksTotal} 完了</Text>
-              </View>
-              {renderProgressBar()}
-            </View>
-            
-            {/* 進捗バッジ */}
-            <View style={styles.progressBadgesContainer}>
-              <ProgressBadge 
-                icon={<MaterialIcons name="calendar-today" size={dynamicStyles.iconSize} color="#4285F4" />}
-                label="練習日数"
-                value={`${monthlyPracticeCount}日`}
-                color="#4285F4"
-              />
-              <ProgressBadge 
-                icon={<MaterialIcons name="check-circle" size={dynamicStyles.iconSize} color="#0F9D58" />}
-                label="完了タスク"
-                value={monthlyTasksCompleted}
-                color="#0F9D58"
-              />
-              <ProgressBadge 
-                icon={<MaterialIcons name="assignment" size={dynamicStyles.iconSize} color="#F4B400" />}
-                label="残りタスク"
-                value={monthlyTasksTotal - monthlyTasksCompleted}
-                color="#F4B400"
-              />
-            </View>
-          </View>
-
-          {/* ピックアップタスクセクション */}
-          <View style={[styles.sectionContainer, { 
-            marginTop: dynamicStyles.contentMargin,
-            marginBottom: dynamicStyles.contentMargin, 
-            paddingHorizontal: dynamicStyles.contentMargin 
-          }]}>
+          {/* AIレコメンデーションセクション */}
+          <View style={[styles.sectionContainer, { paddingHorizontal: dynamicStyles.contentMargin }]}>
             <View style={[styles.sectionHeaderContainer, { marginBottom: dynamicStyles.itemSpacing * 1.5 }]}>
-              <Text style={[styles.sectionTitle, { fontSize: dynamicStyles.titleFontSize }]}>ピックアップタスク</Text>
-              <TouchableOpacity onPress={navigateToAllTasks} style={styles.viewAllButton}>
-                <Text style={[styles.viewAllText, { fontSize: dynamicStyles.subtitleFontSize, color: theme.colors.primary }]}>すべて表示</Text>
-                <MaterialIcons name="arrow-forward" size={dynamicStyles.iconSize - 4} color={theme.colors.primary} />
-              </TouchableOpacity>
+              <Text style={[styles.sectionTitle, { fontSize: dynamicStyles.titleFontSize }]}>
+                AIおすすめの練習メニュー
+              </Text>
             </View>
 
-            {isLoading ? (
-              <EmptyOrLoading 
-                isLoading={isLoading} 
-                onGenerateTasks={handleGenerateTasks} 
-              />
-            ) : pinnedTasks.length === 0 ? (
-              <View style={[styles.emptyPinnedContainer, { padding: dynamicStyles.cardPadding + 4 }]}>
-                <MaterialIcons name="bookmark-border" size={dynamicStyles.iconSize * 1.5} color={theme.colors.borderLight} />
-                <Text style={[
-                  styles.emptyPinnedText, 
-                  { 
-                    marginTop: dynamicStyles.itemSpacing, 
-                    marginBottom: dynamicStyles.itemSpacing * 1.5,
-                    fontSize: dynamicStyles.subtitleFontSize
-                  }
-                ]}>
-                  タスクを最大3つまでピックアップできます
-                </Text>
-                <TouchableOpacity 
-                  style={[
-                    styles.goToTaskButton, 
-                    { 
-                      backgroundColor: theme.colors.primary,
-                      paddingVertical: dynamicStyles.itemSpacing,
-                      paddingHorizontal: dynamicStyles.contentMargin
-                    }
-                  ]}
-                  onPress={navigateToAllTasks}
-                >
-                  <Text style={[styles.goToTaskButtonText, { fontSize: dynamicStyles.subtitleFontSize }]}>タスク一覧へ</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.tasksContainer}>
-                {pinnedTasks.map((task) => (
-                  <CompactTaskCard key={task.id} task={task} />
-                ))}
-                
-                {pinnedTasks.length < 3 && (
-                  <TouchableOpacity 
-                    style={[
-                      styles.emptyTaskSlot,
-                      { 
-                        height: dynamicStyles.checkboxSize * 2.4,
-                        marginBottom: dynamicStyles.itemSpacing,
-                        borderColor: 'rgba(76, 175, 80, 0.3)'
-                      }
-                    ]}
-                    onPress={navigateToAllTasks}
-                  >
-                    <MaterialIcons name="add-circle-outline" size={dynamicStyles.iconSize + 4} color="#4CAF50" />
-                    <Text style={[styles.emptySlotText, { 
-                      marginLeft: dynamicStyles.itemSpacing,
-                      fontSize: dynamicStyles.subtitleFontSize
-                    }]}>タスクを選択</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* 最新のチャットルームセクション */}
-          <View style={[styles.sectionContainer, { 
-            marginTop: dynamicStyles.contentMargin,
-            marginBottom: dynamicStyles.contentMargin, 
-            paddingHorizontal: dynamicStyles.contentMargin 
-          }]}>
-            <View style={[styles.sectionHeaderContainer, { marginBottom: dynamicStyles.itemSpacing * 1.5 }]}>
-              <Text style={[styles.sectionTitle, { fontSize: dynamicStyles.titleFontSize }]}>最新のチャットルーム</Text>
-              <TouchableOpacity 
-                onPress={() => router.push('/tabs/ai-lesson' as any)} 
-                style={styles.viewAllButton}
-              >
-                <Text style={[styles.viewAllText, { fontSize: dynamicStyles.subtitleFontSize, color: theme.colors.primary }]}>すべて表示</Text>
-                <MaterialIcons name="arrow-forward" size={dynamicStyles.iconSize - 4} color={theme.colors.primary} />
-              </TouchableOpacity>
-            </View>
-
-            {isLoadingChats ? (
+            {isLoadingRecommendations ? (
               <View style={[styles.emptyPinnedContainer, { padding: dynamicStyles.cardPadding }]}>
                 <ActivityIndicator size="small" color={theme.colors.primary} />
                 <Text style={[styles.emptyPinnedText, { fontSize: dynamicStyles.subtitleFontSize, marginTop: dynamicStyles.itemSpacing }]}>
-                  チャットルームを読み込み中...
+                  おすすめの練習メニューを生成中...
                 </Text>
               </View>
-            ) : recentChatRooms.length === 0 ? (
-              <View style={[styles.emptyPinnedContainer, { padding: dynamicStyles.cardPadding + 4 }]}>
-                <MaterialIcons name="chat-bubble-outline" size={dynamicStyles.iconSize * 1.5} color={theme.colors.borderLight} />
-                <Text style={[
-                  styles.emptyPinnedText, 
-                  { 
-                    marginTop: dynamicStyles.itemSpacing, 
-                    marginBottom: dynamicStyles.itemSpacing * 1.5,
-                    fontSize: dynamicStyles.subtitleFontSize
-                  }
-                ]}>
-                  チャットルームがまだありません
-                </Text>
-                <TouchableOpacity 
-                  style={[
-                    styles.goToTaskButton, 
-                    { 
-                      backgroundColor: theme.colors.primary,
-                      paddingVertical: dynamicStyles.itemSpacing,
-                      paddingHorizontal: dynamicStyles.contentMargin
-                    }
-                  ]}
-                  onPress={() => router.push('/chat-room-form' as any)}
-                >
-                  <Text style={[styles.goToTaskButtonText, { fontSize: dynamicStyles.subtitleFontSize }]}>チャットルームを作成</Text>
-                </TouchableOpacity>
-              </View>
+            ) : recommendedTasks.length > 0 ? (
+              recommendedTasks.map((task, index) => (
+                <TaskCard key={index} task={task} />
+              ))
             ) : (
-              <View style={styles.tasksContainer}>
-                {recentChatRooms.map((chatRoom) => (
-                  <ChatRoomCard key={chatRoom.id} chatRoom={chatRoom} />
-                ))}
+              <View style={[styles.emptyPinnedContainer, { padding: dynamicStyles.cardPadding + 4 }]}>
+                <MaterialIcons name="auto-awesome" size={dynamicStyles.iconSize * 1.5} color={theme.colors.borderLight} />
+                <Text style={[styles.emptyPinnedText, { fontSize: dynamicStyles.subtitleFontSize, marginTop: dynamicStyles.itemSpacing }]}>
+                  AIがあなたに最適な練習メニューを提案します
+                </Text>
               </View>
             )}
           </View>
+
+          {/* クイックアクセスセクション */}
+          <View style={[styles.sectionContainer, { paddingHorizontal: dynamicStyles.contentMargin }]}>
+            <View style={[styles.sectionHeaderContainer, { marginBottom: dynamicStyles.itemSpacing * 1.5 }]}>
+              <Text style={[styles.sectionTitle, { fontSize: dynamicStyles.titleFontSize }]}>
+                クイックアクセス
+              </Text>
+            </View>
+
+            {latestLesson && (
+              <QuickAccessCard
+                title="最新のレッスン"
+                subtitle={latestLesson.title}
+                icon={<MaterialIcons name="music-note" size={24} color={theme.colors.primary} />}
+                onPress={() => router.push(`/lesson-detail/${latestLesson.id}`)}
+              />
+            )}
+
+            {latestTask && (
+              <QuickAccessCard
+                title="最新のタスク"
+                subtitle={latestTask.title}
+                icon={<MaterialIcons name="assignment" size={24} color={theme.colors.primary} />}
+                onPress={() => router.push(`/task-detail/${latestTask.id}`)}
+              />
+            )}
+
+            {latestChatRoom && (
+              <QuickAccessCard
+                title="最新のチャットルーム"
+                subtitle={latestChatRoom.title}
+                icon={<MaterialIcons name="chat" size={24} color={theme.colors.primary} />}
+                onPress={() => router.push(`/chat-room/${latestChatRoom.id}`)}
+              />
+            )}
+          </View>
         </ScrollView>
+
+        {renderFloatingButtons()}
       </View>
     </SafeAreaView>
   );
@@ -950,5 +856,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusIcon: {
+  },
+  floatingButtonsContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    zIndex: 1000,
+  },
+  floatingButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  floatingButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 28,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
+    maxWidth: '33%',
+  },
+  floatingButtonLabel: {
+    color: 'white',
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  quickAccessCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  quickAccessIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(124, 77, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  quickAccessContent: {
+    flex: 1,
+  },
+  quickAccessTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  quickAccessSubtitle: {
+    fontSize: 14,
   },
 });
