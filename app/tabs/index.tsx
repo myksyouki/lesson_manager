@@ -426,6 +426,9 @@ export default function HomeScreen() {
 
   // AIレコメンデーションを取得
   useEffect(() => {
+    // 開発中のため、APIリクエストはスキップ
+    // 開発が完了したら下記のコメントを外す
+    /*
     const fetchRecommendations = async () => {
       if (!user) return;
       
@@ -441,6 +444,10 @@ export default function HomeScreen() {
     };
 
     fetchRecommendations();
+    */
+    
+    // 開発中状態を設定
+    setIsLoadingRecommendations(false);
   }, [user]);
 
   // フローティングボタンの表示
