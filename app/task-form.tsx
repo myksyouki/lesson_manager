@@ -17,7 +17,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useTaskStore } from '../store/tasks';
 import { useAuthStore } from '../store/auth';
-import { Task } from './types/task';
 import { getCurrentUserProfile } from '../services/userProfileService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -102,7 +101,7 @@ export default function PracticeMenuGenerator() {
       // 各練習項目をタスクとして保存
       const savedTasks = [];
       for (const menuItem of generatedMenu) {
-        const taskData: Task = {
+        const taskData: any = {
           id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // 一意のIDを生成
           title: menuItem.title,
           description: menuItem.description,
@@ -197,7 +196,7 @@ export default function PracticeMenuGenerator() {
                 <View style={styles.noticeContainer}>
                   <FontAwesome5 name="exclamation-triangle" size={24} color="#ff9500" />
                   <Text style={styles.noticeText}>
-                    この機能は現在メンテナンス中です。申し訳ありませんが、しばらくお待ちください。
+                    この機能は現在開発中です。申し訳ありませんが、しばらくお待ちください。
                   </Text>
                 </View>
                 
