@@ -30,7 +30,41 @@ import { useAuthStore } from '../store/auth';
 const { width } = Dimensions.get('window');
 
 // オンボーディングの各ステップを表す型
-type OnboardingStep = 'welcome' | 'category' | 'instrument' | 'model' | 'features';
+type OnboardingStep = 'welcome' | 'category' | 'instrument' | 'model' | 'features' | 'tabs';
+
+// タブガイドのデータ構造
+const tabGuides = [
+  {
+    id: 'home',
+    icon: 'home',
+    title: 'ホーム',
+    description: 'レッスンや練習の概要を確認できます。最近のレッスンや推奨練習メニューにすぐアクセスできます。'
+  },
+  {
+    id: 'lessons',
+    icon: 'library-music',
+    title: 'レッスン',
+    description: 'レッスン録音を管理・閲覧できます。録音は自動的に文字起こしされ要約が作成されます。'
+  },
+  {
+    id: 'ai-lesson',
+    icon: 'assistant',
+    title: 'AIレッスン',
+    description: '練習に関する質問をAIにできます。サクソフォンの音色やテクニックについて質問してみましょう。'
+  },
+  {
+    id: 'task',
+    icon: 'check-circle',
+    title: '課題',
+    description: 'レッスンから生成された練習課題を管理します。完了した課題をチェックして進捗を記録できます。'
+  },
+  {
+    id: 'schedule',
+    icon: 'calendar-today',
+    title: 'スケジュール',
+    description: 'レッスンと練習の予定を管理できます。カレンダーで練習の進捗も確認できます。'
+  }
+];
 
 export default function OnboardingScreen() {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
@@ -182,9 +216,10 @@ export default function OnboardingScreen() {
       // 新規ユーザーフラグをリセット
       setIsNewUser(false);
       
-      // ホーム画面に移動
-      // @ts-ignore - 型エラーを無視
-      router.replace("/(tabs)/home");
+      // ホーム画面に移動（正しいパスに修正）
+      console.log('ホーム画面へリダイレクト開始...');
+      router.replace('/'); // ルートパスへ直接リダイレクト
+      console.log('router.replace呼び出し完了 - ルートパスへリダイレクト');
     } catch (error) {
       console.error('オンボーディング完了エラー:', error);
       Alert.alert('エラー', 'オンボーディングの完了に失敗しました。再度お試しください。');
@@ -446,6 +481,9 @@ export default function OnboardingScreen() {
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.title}>主な機能</Text>
+            <Text style={styles.description}>
+              この楽器レッスン管理アプリには次の機能があります。
+            </Text>
             
             <View style={styles.featureItem}>
               <MaterialIcons name="mic" size={32} color="#007AFF" />
@@ -460,7 +498,7 @@ export default function OnboardingScreen() {
             <View style={styles.featureItem}>
               <MaterialIcons name="format-list-bulleted" size={32} color="#007AFF" />
               <View style={styles.featureTextContainer}>
-                <Text style={styles.featureTitle}>練習タスク管理</Text>
+                <Text style={styles.featureTitle}>練習管理（開発中）</Text>
                 <Text style={styles.featureDescription}>
                   レッスンから練習タスクを作成し、進捗を管理できます。
                 </Text>
@@ -479,15 +517,15 @@ export default function OnboardingScreen() {
             
             <TouchableOpacity
               style={styles.button}
-              onPress={handleComplete}
+              onPress={() => setCurrentStep('tabs')}
               disabled={isLoading}
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <>
-                  <Text style={styles.buttonText}>完了</Text>
-                  <MaterialIcons name="check" size={24} color="white" />
+                  <Text style={styles.buttonText}>次へ</Text>
+                  <MaterialIcons name="arrow-forward" size={24} color="white" />
                 </>
               )}
             </TouchableOpacity>
@@ -501,21 +539,68 @@ export default function OnboardingScreen() {
             )}
           </View>
         );
+
+      case 'tabs':
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.title}>アプリの使い方</Text>
+            <Text style={styles.description}>
+              アプリの各タブの機能について説明します。まずはホーム画面から探索してみましょう。
+            </Text>
+            
+            {tabGuides.map((tab) => (
+              <View key={tab.id} style={styles.featureItem}>
+                <MaterialIcons name={tab.icon as any} size={32} color="#007AFF" />
+                <View style={styles.featureTextContainer}>
+                  <Text style={styles.featureTitle}>{tab.title}</Text>
+                  <Text style={styles.featureDescription}>
+                    {tab.description}
+                  </Text>
+                </View>
+              </View>
+            ))}
+            
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleComplete}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <>
+                  <Text style={styles.buttonText}>アプリを始める</Text>
+                  <MaterialIcons name="check" size={24} color="white" />
+                </>
+              )}
+            </TouchableOpacity>
+            
+            {currentInstrument && (
+              <View style={styles.selectedInfo}>
+                <Text style={styles.selectedInfoText}>
+                  選択した楽器: {currentCategory?.name} / {currentInstrument.name}
+                </Text>
+              </View>
+            )}
+          </View>
+        );
     }
   };
 
-  // 進捗の計算（例：ウェルカム=0%, カテゴリ=25%, 楽器=50%, モデル=75%, 機能=100%）
+  // 進捗の計算（例：ウェルカム=0%, カテゴリ=20%, 楽器=40%, モデル=60%, 機能=80%, タブ=100%）
   const calculateProgress = () => {
     switch (currentStep) {
       case 'welcome':
         return 0;
       case 'category':
-        return 25;
+        return 20;
       case 'instrument':
-        return 50;
+        return 40;
       case 'model':
-        return 75;
+        return 60;
       case 'features':
+        return 80;
+      case 'tabs':
         return 100;
     }
   };
@@ -563,6 +648,12 @@ export default function OnboardingScreen() {
           style={[
             styles.progressDot, 
             (currentStep === 'features') && styles.activeProgressDot
+          ]} 
+        />
+        <View 
+          style={[
+            styles.progressDot, 
+            (currentStep === 'tabs') && styles.activeProgressDot
           ]} 
         />
       </View>

@@ -231,6 +231,8 @@ export default function RootLayout() {
             <Stack.Screen name="language" options={{ title: '言語設定' }} />
             <Stack.Screen name="notifications" options={{ title: '通知設定' }} />
             <Stack.Screen name="privacy-policy" options={{ title: 'プライバシーポリシー' }} />
+            <Stack.Screen name="terms-of-service" options={{ title: '利用規約' }} />
+            <Stack.Screen name="help-support" options={{ title: 'ヘルプとサポート' }} />
             <Stack.Screen name="sync" options={{ title: 'データ同期' }} />
             <Stack.Screen name="shared-audio" options={{ title: '共有音声' }} />
             {/* 管理者機能は現在非表示

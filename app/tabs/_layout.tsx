@@ -247,7 +247,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="task"
         options={{
-          title: 'Task',
+          title: '練習',
         }}
       />
       <Tabs.Screen

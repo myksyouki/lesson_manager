@@ -92,11 +92,15 @@ export default function SettingsScreen() {
   };
 
   const openPrivacyPolicy = () => {
-    Linking.openURL('https://example.com/privacy-policy');
+    router.push('/privacy-policy');
+  };
+
+  const openTermsOfService = () => {
+    router.push('/terms-of-service');
   };
 
   const openSupport = () => {
-    Linking.openURL('https://example.com/support');
+    router.push('/help-support');
   };
   
   // ユーザーが管理者かどうかをチェック
@@ -176,21 +180,35 @@ export default function SettingsScreen() {
           />
           
           <MenuItem 
+            icon="school" 
+            text="オンボーディング画面" 
+            onPress={() => router.push('/onboarding')}
+          />
+          
+          <MenuItem 
             icon="color-lens" 
             text="テーマ設定" 
             onPress={() => router.push('/theme-settings')}
           />
           
+          {/* 通知設定は一時的にクローズ
           <MenuItem 
             icon="notifications" 
             text="通知設定" 
             onPress={() => router.push('/notifications')}
           />
+          */}
 
           <MenuItem 
             icon="privacy-tip" 
-            text="データとプライバシー" 
+            text="プライバシーポリシー" 
             onPress={openPrivacyPolicy}
+          />
+
+          <MenuItem 
+            icon="description" 
+            text="利用規約" 
+            onPress={openTermsOfService}
           />
 
           <MenuItem 

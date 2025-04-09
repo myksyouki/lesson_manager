@@ -710,31 +710,36 @@ export default function LessonsScreen() {
           )}
           
           {isSelectionMode && selectedLessons.length > 0 && (
-            <View style={[
-              styles.selectionActionsContainer, 
-              { 
-                paddingBottom: Math.max(20, insets.bottom + 50),
-                paddingTop: 16,
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                zIndex: 9999,
-                width: dimensions.width,
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                borderTopLeftRadius: 24,
-                borderTopRightRadius: 24,
-              }
-            ]}>
+            <View style={{
+              position: 'absolute',
+              bottom: 90,
+              left: 0,
+              right: 0,
+              backgroundColor: 'transparent',
+              borderTopWidth: 0,
+              borderTopColor: 'transparent',
+              borderTopLeftRadius: 0,
+              borderTopRightRadius: 0,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              shadowColor: 'transparent',
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0,
+              shadowRadius: 0,
+              elevation: 0,
+              zIndex: 9999,
+            }}>
               <View style={{ 
                 flexDirection: 'row',
                 justifyContent: 'space-around',
                 width: '100%',
-                paddingHorizontal: 20
+                marginBottom: 8,
               }}>
                 <TouchableOpacity 
-                  style={[styles.selectionActionButton, { backgroundColor: '#4CAF50' }]}
-                  onPress={generateTasksFromSelectedLessons}
+                  style={[styles.selectionActionButton, { 
+                    backgroundColor: '#999999',
+                  }]}
+                  disabled={true}
                 >
                   <MaterialIcons name="assignment" size={20} color="#FFFFFF" />
                   <Text style={styles.selectionActionText}>タスク生成</Text>
@@ -1070,37 +1075,13 @@ const styles = StyleSheet.create({
     }),
   },
   // 選択アクション
-  selectionActionsContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.05)',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 9999,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingVertical: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: 'rgba(0, 0, 0, 0.15)',
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
   selectionActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 10,
     marginHorizontal: 4,
     flex: 1,
     ...Platform.select({
@@ -1116,10 +1097,10 @@ const styles = StyleSheet.create({
     }),
   },
   selectionActionText: {
-    marginLeft: 8,
+    marginLeft: 6,
     color: '#FFFFFF',
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: 12,
   },
   folderItemContainer: {
     marginLeft: 12,
