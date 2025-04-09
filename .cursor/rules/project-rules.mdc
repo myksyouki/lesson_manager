@@ -1,16 +1,19 @@
 ---
 description: レッスン管理システムのプロジェクトルール
 globs: *
+alwaysApply: false
 ---
+# 音楽レッスン・練習総合AIアシスタント
 
 # プロジェクト概要
 
-このプロジェクトは、AI駆動の文字起こしと要約機能を統合したレッスン管理システムです。ユーザーは音声録音をアップロードし、AI技術により要約・タグ付けを自動生成し、レッスンスケジュールを管理できます。
+このプロジェクトは、音楽レッスンの記録と練習をサポートする総合AIアシスタントです。ユーザーはレッスン音声をアップロードすると、AI技術により文字起こし・要約・タグ付けが自動生成され、レッスン内容を効率的に管理できます。さらに、レッスン内容や個人の技術レベルに基づいた最適な練習メニューをAIが提案し、ユーザーの日々の練習をサポートします。練習に関する相談もAIに行えるなど、レッスンから日常練習までをトータルにサポートするプラットフォームです。
 
 ## 技術スタック
 
 - **文字起こし**: OpenAI Whisper API
-- **要約生成**: OpenAI o3-mini モデル (以前は Google Gemini API)
+- **要約生成**: Dify API
+- **AI対話**: Dify API
 - **バックエンド**: Firebase (Functions, Firestore, Storage)
 - **フロントエンド**: React Native with Expo
 - **デプロイ**: Firebase Hosting, Expo EAS
@@ -26,17 +29,28 @@ interface Lesson {
   id: string;
   title: string;
   date: Timestamp;
-  instrument: string; // ユーザープロファイルから取得
+  instrument: string;
+  teacherName?: string;
+  user_id: string;
   
   // 音声処理関連
   audioUrl?: string;
+  audioPath?: string;
+  audioFileName?: string;
+  fileName?: string;
+  audioDuration?: number;
+  audioSize?: number;
   transcription?: string;
   summary?: string;
   tags?: string[];
   
   // 処理状態管理
+  status?: "pending" | "processing" | "completed" | "error";
   summaryRequired: boolean;
   summaryInProgress: boolean;
+  processingProgress?: number;
+  processingMessage?: string;
+  processingTimeSeconds?: number;
   transcriptionCompleteTime?: Timestamp;
   transcriptionId?: string;
   processingId?: string;
@@ -45,10 +59,58 @@ interface Lesson {
   // アーカイブ関連
   isArchived: boolean;
   archivedDate?: Timestamp;
+  isFavorite?: boolean;
   
   // その他
   pieces?: string; // JSON文字列として保存
   aiInstructions?: string; // 最大100文字
+  notes?: string;
+  
+  // 時間情報
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+### 練習メニューデータ
+
+```typescript
+// 練習メニューコレクション
+interface PracticeMenu {
+  id: string;                // ドキュメントID
+  title: string;             // メニュータイトル
+  description: string;       // 詳細説明
+  instrument: string;        // 対象楽器
+  category: string;          // カテゴリ（基礎練習/テクニック/表現など）
+  difficulty: string;        // 難易度（初級/中級/上級）
+  duration: number;          // 所要時間（分）
+  sheetMusicUrl?: string;    // 楽譜URL
+  videoUrl?: string;         // 解説動画URL（オプション）
+  steps: PracticeStep[];     // 練習ステップ
+  tags: string[];            // 検索用タグ
+  createdAt: Timestamp;      // 作成日時
+  updatedAt: Timestamp;      // 更新日時
+}
+
+// 練習ステップ
+interface PracticeStep {
+  id: string;                // ステップID
+  title: string;             // ステップ名
+  description: string;       // 詳細説明
+  duration: number;          // 所要時間（分）
+  orderIndex: number;        // 順序
+}
+
+// 楽譜データモデル
+interface SheetMusic {
+  id: string;                // 楽譜ID
+  title: string;             // タイトル
+  svgContent: string;        // SVG形式の楽譜データ
+  instrumentId: string;      // 対象楽器ID
+  difficulty: string;        // 難易度
+  tags: string[];            // 検索用タグ
+  createdAt: Timestamp;      // 作成日時
+  updatedAt: Timestamp;      // 更新日時
 }
 ```
 
@@ -70,6 +132,10 @@ interface Lesson {
   - メモリ: 4GB
   - タイムアウト: 60分
   - 最大インスタンス数: 50
+- **generateTasksFromLessons関数**:
+  - メモリ: 4GB
+  - タイムアウト: 300秒
+  - 最大インスタンス数: 10
 - **エラー処理**:
   - APIコールには堅牢なエラーハンドリングとロギング
   - 失敗したAPI呼び出しには指数バックオフによる再試行メカニズム
@@ -82,20 +148,33 @@ interface Lesson {
   - スクロール可能なデザイン
   - 「タスク完了」セクションは「月間タスク完了数: X」に置き換え
   - スクロール可能なバッジセクションとして表示
+  - 自動レコメンドされた練習メニューを表示
 
 - **レッスン画面**:
   - 「アーカイブ」タブを追加（月別表示）
   - アーカイブ/アーカイブ解除機能
+  - レッスン詳細画面からタスク生成機能へアクセス可能
 
 - **AI レッスンタブ**:
   - 練習セクションのチャットルーム（楽器別に変更）:
     - サックスの場合: 音色、高音域、低音域、タンギング、ビブラート
   - Dify APIと統合された相談セクション
+  - チャット画面からタスク生成機能へアクセス可能
+
+- **タスクタブ**:
+  - 練習メニュー生成機能
+  - 練習メニュー一覧表示
+  - 詳細表示と完了機能
 
 - **進捗（旧スケジュール）タブ**:
   - カレンダービュー
   - グラフビュー（月間タスク完了数、練習日数、レッスン数）
   - タップで詳細表示、スワイプで期間ナビゲーション
+
+- **管理画面**:
+  - 管理者権限設定機能
+  - 練習メニュー登録・管理機能
+  - システム設定管理機能
 
 ## コード構造
 
@@ -104,7 +183,7 @@ interface Lesson {
 ```
 functions/src/
   ├── index.ts                 # メインエントリーポイント
-  ├── config/
+  ├── config/                  # 設定
   │   └── index.ts             # 設定
   ├── summaries/               # 要約関連機能
   │   ├── index.ts             # 要約機能のエクスポート
@@ -112,11 +191,12 @@ functions/src/
   │   ├── processor.ts         # 主要な要約処理ロジック
   │   ├── transcriber.ts       # 文字起こし機能
   │   └── generator.ts         # 要約/タグ生成機能
-  ├── chat/                    # チャット関連機能
-  │   ├── index.ts             # チャット機能のエクスポート
-  │   ├── triggers.ts          # チャット関連トリガー
-  │   ├── handlers.ts          # チャットメッセージハンドラ
-  │   └── models.ts            # チャットで使用するAIモデル
+  ├── practice-menu/           # 練習メニュー関連機能
+  │   ├── index.ts             # 練習メニュー機能のエクスポート
+  │   ├── genkit.ts            # AI連携処理
+  │   └── models.ts            # 練習メニューのデータモデル
+  ├── tools/                   # 管理ツール
+  │   └── admin-setup.ts       # 管理者設定機能
   └── common/                  # 共通ユーティリティ
       ├── storage.ts           # ストレージ操作
       ├── firestore.ts         # Firestore操作
@@ -127,16 +207,47 @@ functions/src/
       └── dify.ts              # Dify API連携機能
 ```
 
+### アプリフォルダ構造
+
+```
+app/
+  ├── _layout.tsx              # メインレイアウト
+  ├── index.tsx                # エントリーポイント
+  ├── admin.tsx                # 管理画面
+  ├── admin/                   # 管理機能
+  ├── settings.tsx             # 設定画面
+  ├── lesson-form.tsx          # レッスン作成画面
+  ├── task-form.tsx            # タスク作成画面
+  ├── task-detail.tsx          # タスク詳細画面
+  ├── tabs/                    # メインタブ
+  │   ├── _layout.tsx          # タブレイアウト
+  │   ├── index.tsx            # ホーム画面
+  │   ├── lessons.tsx          # レッスン一覧
+  │   ├── task.tsx             # タスク一覧
+  │   ├── ai-lesson.tsx        # AIレッスン
+  │   └── schedule.tsx         # スケジュール
+  ├── (lesson-detail)/         # レッスン詳細
+  ├── features/                # 機能モジュール
+  ├── components/              # 共通コンポーネント
+  ├── chat-room.tsx            # チャットルーム
+  ├── chat-room-form.tsx       # チャットルーム作成
+  ├── consult-ai.tsx           # AI相談機能
+  └── navigation/              # ナビゲーション
+```
+
 ## セキュリティとベストプラクティス
 
 - Firestoreでは、タスクとレッスンのコレクションにユーザーベースのセキュリティ強制
 - `pieces`パラメータは必ずJSON文字列として渡す
 - API キーはSecret Managerで管理
 - クライアント側での大きなファイルのアップロード時は適切な警告表示
+- 管理機能へのアクセスは管理者権限を持つユーザーのみに制限
 
 ## 実装時の重要事項
 
 - 音声文字起こしはWhisper APIを使用し、長時間音声は10分間隔（20秒オーバーラップ）で分割
-- 要約はOpenAI o3-miniモデルを使用
+- 要約はDify APIを使用
 - タグは3つの個別単語として生成（不足する場合は楽器名で補完）
-- 「AI Instructions」フィールド（最大100文字）を使用してAI要約プロセスをカスタマイズ可能 
+- 「AI Instructions」フィールド（最大100文字）を使用してAI要約プロセスをカスタマイズ可能
+- 練習メニュー生成機能はDify APIとOpenAI APIを併用して実装
+- 複数のアクセスポイント（タスクタブ、レッスン詳細画面、チャット画面、ホーム画面）から練習メニュー生成機能にアクセス可能 
