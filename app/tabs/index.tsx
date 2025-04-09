@@ -548,25 +548,15 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            {isLoadingRecommendations ? (
-              <View style={[styles.emptyPinnedContainer, { padding: dynamicStyles.cardPadding }]}>
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-                <Text style={[styles.emptyPinnedText, { fontSize: dynamicStyles.subtitleFontSize, marginTop: dynamicStyles.itemSpacing }]}>
-                  おすすめの練習メニューを生成中...
-                </Text>
-              </View>
-            ) : recommendedTasks.length > 0 ? (
-              recommendedTasks.map((task, index) => (
-                <TaskCard key={index} task={task} />
-              ))
-            ) : (
-              <View style={[styles.emptyPinnedContainer, { padding: dynamicStyles.cardPadding + 4 }]}>
-                <MaterialIcons name="auto-awesome" size={dynamicStyles.iconSize * 1.5} color={theme.colors.borderLight} />
-                <Text style={[styles.emptyPinnedText, { fontSize: dynamicStyles.subtitleFontSize, marginTop: dynamicStyles.itemSpacing }]}>
-                  AIがあなたに最適な練習メニューを提案します
-                </Text>
-              </View>
-            )}
+            <View style={[styles.emptyPinnedContainer, { padding: dynamicStyles.cardPadding + 4 }]}>
+              <MaterialCommunityIcons name="tools" size={dynamicStyles.iconSize * 1.5} color={theme.colors.textSecondary} style={{ marginBottom: 8 }} />
+              <Text style={[styles.developmentText, { fontSize: dynamicStyles.titleFontSize - 2, color: theme.colors.text, fontWeight: '600', marginBottom: 4 }]}>
+                開発中
+              </Text>
+              <Text style={[styles.emptyPinnedText, { fontSize: dynamicStyles.subtitleFontSize, marginTop: dynamicStyles.itemSpacing / 2 }]}>
+                この機能は現在準備中です
+              </Text>
+            </View>
           </View>
 
           {/* クイックアクセスセクション */}
@@ -921,5 +911,8 @@ const styles = StyleSheet.create({
   },
   quickAccessSubtitle: {
     fontSize: 14,
+  },
+  developmentText: {
+    fontWeight: '600',
   },
 });
