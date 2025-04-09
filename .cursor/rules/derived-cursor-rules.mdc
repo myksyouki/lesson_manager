@@ -111,6 +111,7 @@ app/
 - スプラッシュスクリーンの設定を`app.config.js`に追加する。
 - アプリバージョン：0.0.1 (追加)
 - アプリのバンドルIDを `com.regnition.appli` に変更する。(追加)
+- バンドルID: com.regnition.appli
 
 
 ## REFERENCE EXAMPLES
