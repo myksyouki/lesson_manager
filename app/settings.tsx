@@ -379,6 +379,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 16,
+    paddingVertical: 18,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
@@ -394,6 +395,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#8E8E93',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    lineHeight: 22,
   },
   homeButton: {
     flexDirection: 'row',
