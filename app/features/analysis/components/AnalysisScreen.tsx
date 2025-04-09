@@ -9,11 +9,11 @@ import {
   Platform,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../../theme';
 import ChartSection from './ChartSection';
-import DetailedReport from './DetailedReport';
 import { useRouter } from 'expo-router';
 
 // スケジュール関連のコンポーネントをインポート
@@ -59,7 +59,12 @@ export default function AnalysisScreen() {
   }, [lessons, formatDate]);
 
   const handleShowDetailedReport = () => {
-    router.push('/analysis/detailed-report');
+    // 開発中メッセージを表示
+    Alert.alert(
+      '開発中',
+      'この機能は現在開発中です。今後のアップデートをお待ちください。',
+      [{ text: 'OK', style: 'default' }]
+    );
   };
 
   return (
@@ -139,15 +144,15 @@ export default function AnalysisScreen() {
               
               {/* 詳細レポートボタンを最下部に配置 */}
               <TouchableOpacity 
-                style={styles.detailReportButton}
+                style={[styles.detailReportButton, styles.developmentButton]}
                 onPress={handleShowDetailedReport}
               >
                 <MaterialIcons 
-                  name="assessment" 
+                  name="construction" 
                   size={24} 
                   color="#FFFFFF"
                 />
-                <Text style={styles.detailButtonText}>詳細レポート</Text>
+                <Text style={styles.detailButtonText}>詳細レポート（開発中）</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -261,6 +266,9 @@ const styles = StyleSheet.create({
         elevation: 4,
       },
     }),
+  },
+  developmentButton: {
+    backgroundColor: '#757575',
   },
   detailButtonText: {
     fontSize: 16,
