@@ -544,7 +544,7 @@ export default function HomeScreen() {
           <View style={[styles.sectionContainer, { paddingHorizontal: dynamicStyles.contentMargin }]}>
             <View style={[styles.sectionHeaderContainer, { marginBottom: dynamicStyles.itemSpacing * 1.5 }]}>
               <Text style={[styles.sectionTitle, { fontSize: dynamicStyles.titleFontSize }]}>
-                AIおすすめの練習メニュー
+                パーソナライズド練習プラン
               </Text>
             </View>
 
