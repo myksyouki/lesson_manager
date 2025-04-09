@@ -45,6 +45,11 @@ export default function LessonsScreen() {
   // パラメータを取得（トップレベルに移動）
   const params = useLocalSearchParams();
   
+  // LINE風のタブバー高さ設定
+  const TAB_BAR_HEIGHT = 50;
+  const BOTTOM_INSET = Platform.OS === 'ios' ? insets.bottom : 0;
+  const TOTAL_TAB_HEIGHT = TAB_BAR_HEIGHT + BOTTOM_INSET;
+  
   // 画面サイズの状態を管理
   const [dimensions, setDimensions] = useState({
     width: Dimensions.get('window').width,
@@ -52,7 +57,7 @@ export default function LessonsScreen() {
   });
   
   // 画面の高さに基づいてパディングを計算
-  const bottomPadding = Math.max(70, dimensions.height * 0.15);
+  const bottomPadding = Math.max(TOTAL_TAB_HEIGHT + 20, dimensions.height * 0.1);
   
   // デバイスの向き変更時に画面サイズを更新
   useEffect(() => {
@@ -412,10 +417,8 @@ export default function LessonsScreen() {
   };
 
   // コンテンツの表示部分の高さを計算（ヘッダーとフッターの高さを考慮）
-  // タブバーの高さは約50px（Expo Router/React Navigation）
-  const TAB_BAR_HEIGHT = 50;
   const HEADER_HEIGHT = 130; // 検索バーとセグメントコントロールの高さの概算
-  const contentHeight = dimensions.height - HEADER_HEIGHT - TAB_BAR_HEIGHT - insets.top - insets.bottom;
+  const contentHeight = dimensions.height - HEADER_HEIGHT - TOTAL_TAB_HEIGHT - insets.top;
   
   // アーカイブ一覧のレンダリング
   const renderArchivedLessons = () => {
