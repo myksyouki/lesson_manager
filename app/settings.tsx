@@ -235,11 +235,11 @@ export default function SettingsScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>バージョン</Text>
-              <Text style={styles.infoValue}>1.0.0</Text>
+              <Text style={styles.infoValue}>0.0.1</Text>
             </View>
             <View style={[styles.infoItem, styles.noBorder]}>
               <Text style={styles.infoLabel}>開発者</Text>
-              <Text style={styles.infoValue}>Lesson Manager Team</Text>
+              <Text style={styles.infoValue}>Regnition inc.</Text>
             </View>
           </View>
         </View>
