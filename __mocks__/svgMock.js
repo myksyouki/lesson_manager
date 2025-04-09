@@ -1,0 +1,2 @@
+// SVGモック
+module.exports = 'SvgMock'; 

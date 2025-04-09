@@ -3,9 +3,14 @@ module.exports = {
     owner: "myksyouki",
     name: "Lesson Manager",
     slug: "lesson-manager",
-    version: "1.0.0",
+    version: "0.0.1",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
+    splash: {
+      image: "./assets/splash.png",
+      resizeMode: "contain",
+      backgroundColor: "#121212"
+    },
     scheme: "lessonmanager",
     userInterfaceStyle: "automatic",
     sdkVersion: "52.0.0",
@@ -38,7 +43,7 @@ module.exports = {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.yourcompany.lessonmanager",
+      bundleIdentifier: "com.regnition.appli",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         CFBundleAllowMixedLocalizations: true,
@@ -52,7 +57,7 @@ module.exports = {
       }
     },
     android: {
-      package: "com.yourcompany.lessonmanager",
+      package: "com.regnition.appli",
       adaptiveIcon: {
         foregroundImage: "./assets/images/icon.png",
         backgroundColor: "#ffffff"

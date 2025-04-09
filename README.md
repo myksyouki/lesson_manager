@@ -86,3 +86,26 @@ firebase deploy --only functions,firestore:rules,firestore:indexes
 - 移行中はデータが両方の構造に存在することがあります
 - 移行はバックグラウンドで実行されるため、数分から数時間かかることがあります
 - 移行中にエラーが発生した場合は、Failed Usersリストで確認できます 
+
+## テスト環境
+
+プロジェクトには以下のテスト環境が設定されています：
+
+1. **ユニットテスト環境**:
+   - Jestテストフレームワーク
+   - React Native Testing Library
+   - Firebase Functions Test
+
+詳細なテスト環境の設定と実行方法は以下のドキュメントを参照してください：
+- [テスト導入ガイド](./TESTING.md) - ユニットテストおよび統合テストのセットアップと実行方法
+- [E2Eテスト環境セットアップガイド](./E2E-TESTING.md) - エンドツーエンドテスト環境の構築と実行方法
+
+### テスト実行
+
+```bash
+# ユニットテスト実行
+yarn test
+
+# E2Eテスト実行（セットアップ後）
+yarn e2e
+``` 
