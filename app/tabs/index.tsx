@@ -454,7 +454,7 @@ export default function HomeScreen() {
       },
       {
         icon: "assignment",
-        label: "タスク",
+        label: "練習",
         onPress: () => router.push('/task-form'),
         color: theme.colors.secondary,
       },
