@@ -334,71 +334,15 @@ export default function LessonDetail() {
    */
   const handleGenerateTasks = async () => {
     try {
-      // 認証確認
-      if (!auth.currentUser) {
-        Alert.alert('エラー', 'タスク生成にはログインが必要です');
-        return;
-      }
-      
-      // サマリーがあるか確認
-      if (!currentLesson?.summary) {
-        Alert.alert('エラー', 'タスク生成にはレッスンのサマリーが必要です');
-        return;
-      }
-      
-      // 確認ダイアログを表示
+      // 開発中アラートを表示
       Alert.alert(
-        'タスクを生成',
-        'このレッスンからAIを使用して練習タスクを生成しますか？',
-        [
-          {
-            text: 'キャンセル',
-            style: 'cancel'
-          },
-          {
-            text: '生成する',
-            onPress: async () => {
-              try {
-                // ローディング表示
-                Alert.alert('処理中', 'タスクを生成しています...');
-                
-                // タスク生成サービスの呼び出し
-                const { createTaskFromLessonSummary } = require('../services/taskService');
-                
-                // レッスンデータ
-                const tasks = await createTaskFromLessonSummary(
-                  lessonId,
-                  currentLesson.summary || '',
-                  currentLesson.pieces || [],
-                  currentLesson.teacherName || ''
-                );
-                
-                // 成功アラート
-                Alert.alert(
-                  '生成完了',
-                  `${tasks.length}個のタスクを生成しました`,
-                  [
-                    {
-                      text: 'タスク一覧を見る',
-                      onPress: () => router.push('/tabs/task')
-                    },
-                    {
-                      text: 'OK',
-                      style: 'cancel'
-                    }
-                  ]
-                );
-              } catch (error) {
-                console.error('タスク生成エラー:', error);
-                Alert.alert('エラー', 'タスクの生成に失敗しました');
-              }
-            }
-          }
-        ]
+        '開発中',
+        'この機能は現在開発中です。申し訳ありませんが、しばらくお待ちください。',
+        [{ text: 'OK' }]
       );
     } catch (error) {
       console.error('タスク生成ボタン処理エラー:', error);
-      Alert.alert('エラー', 'タスク生成の準備に失敗しました');
+      Alert.alert('エラー', '処理に失敗しました');
     }
   };
 
