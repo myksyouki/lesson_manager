@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, View, Text, ScrollView, SafeAreaView, StatusBar } from 'react-native';
-import { Stack } from 'expo-router';
+import { StyleSheet, View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
+import { Ionicons } from '@expo/vector-icons';
 
 import SubscriptionButton from '../components/SubscriptionButton';
 import SubscriptionStatus from '../components/SubscriptionStatus';
@@ -9,6 +10,7 @@ import SubscriptionStatus from '../components/SubscriptionStatus';
 export default function SubscriptionScreen() {
   const auth = getAuth();
   const isLoggedIn = !!auth.currentUser;
+  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -20,6 +22,14 @@ export default function SubscriptionScreen() {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
+        headerLeft: () => (
+          <TouchableOpacity 
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          </TouchableOpacity>
+        ),
       }} />
       
       <ScrollView style={styles.scrollView}>
@@ -170,5 +180,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     color: '#444',
+  },
+  backButton: {
+    padding: 10,
   },
 }); 
