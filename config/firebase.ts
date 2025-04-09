@@ -1,10 +1,11 @@
 // app/config/firebase.ts
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence, browserSessionPersistence, inMemoryPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 // Firebase の設定を直接指定
 export const firebaseConfig = {
@@ -21,6 +22,26 @@ export const firebaseApp = initializeApp(firebaseConfig);
 
 // Auth の初期化
 export const auth = getAuth(firebaseApp);
+
+// 認証の永続性を設定
+// ブラウザでは永続的なローカルストレージを使用し、
+// ネイティブモバイルアプリでは標準の永続性設定を使用
+try {
+  if (Platform.OS === 'web') {
+    setPersistence(auth, browserLocalPersistence)
+      .then(() => {
+        console.log('✅ 認証の永続性がブラウザローカルストレージに設定されました');
+      })
+      .catch((error) => {
+        console.error('❌ 認証の永続性設定エラー:', error);
+      });
+  } else {
+    // ネイティブモバイルアプリでは標準でセッションが維持される
+    console.log('ネイティブアプリ: デフォルトの認証永続性を使用します');
+  }
+} catch (error) {
+  console.error('認証の永続性設定中にエラーが発生しました:', error);
+}
 
 // Firebase の各サービスをエクスポート
 export const db = getFirestore(firebaseApp);
