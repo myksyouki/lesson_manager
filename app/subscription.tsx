@@ -22,17 +22,18 @@ export default function SubscriptionScreen() {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
-        headerLeft: () => (
-          <TouchableOpacity 
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color="#007AFF" />
-          </TouchableOpacity>
-        ),
       }} />
       
       <ScrollView style={styles.scrollView}>
+        {/* 戻るボタン */}
+        <TouchableOpacity
+          style={styles.backButtonContainer}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          <Text style={styles.backButtonText}>戻る</Text>
+        </TouchableOpacity>
+        
         <View style={styles.content}>
           <Text style={styles.title}>プレミアムプラン</Text>
           
@@ -181,7 +182,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#444',
   },
-  backButton: {
+  backButtonContainer: {
     padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#007AFF',
+    marginLeft: 10,
   },
 }); 
