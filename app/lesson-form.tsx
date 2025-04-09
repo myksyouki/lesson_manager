@@ -38,6 +38,7 @@ interface LessonFormData {
   tags: string[];
   userPrompt?: string; // AI用の指示（要約生成時のヒント）
   priority?: 'high' | 'medium'; // 優先度（重要/基本）
+  agreedToTerms: boolean; // 利用規約同意
 }
 
 // ユーザープロファイル情報の型定義
@@ -67,6 +68,7 @@ export default function LessonForm() {
     notes: '',
     pieces: [],
     tags: [],
+    agreedToTerms: false, // 利用規約同意の初期値はfalse
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState('');
@@ -133,7 +135,9 @@ export default function LessonForm() {
 
   // フォームのバリデーション
   const isFormValid = () => {
-    return formData.teacherName.trim() !== '' && formData.date.trim() !== '';
+    return formData.teacherName.trim() !== '' && 
+           formData.date.trim() !== '' && 
+           formData.agreedToTerms; // 利用規約に同意している必要がある
   };
 
   // 日本語形式の日付に変換
@@ -384,6 +388,33 @@ export default function LessonForm() {
           openDatePicker={toggleCalendar}
         />
         
+        {/* 利用規約同意チェックボックス */}
+        <View style={styles.termsContainer}>
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => updateFormData({ agreedToTerms: !formData.agreedToTerms })}
+          >
+            <View style={[
+              styles.checkbox,
+              formData.agreedToTerms ? styles.checkboxChecked : {}
+            ]}>
+              {formData.agreedToTerms && (
+                <MaterialIcons name="check" size={16} color="#FFFFFF" />
+              )}
+            </View>
+            <View style={styles.termsTextContainer}>
+              <Text style={styles.termsText}>
+                利用規約に同意します
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push('/terms-of-service')}
+              >
+                <Text style={styles.termsLink}>利用規約を読む</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </View>
+        
         <View style={styles.uploadSection}>
           <AudioUploader
             selectedFile={selectedFile}
@@ -468,5 +499,56 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
     fontStyle: 'italic',
-  }
+  },
+  termsContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#4285F4',
+    borderRadius: 4,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#4285F4',
+  },
+  termsTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  termsText: {
+    fontSize: 14,
+    color: '#202124',
+    marginRight: 5,
+  },
+  termsLink: {
+    fontSize: 14,
+    color: '#4285F4',
+    textDecorationLine: 'underline',
+  },
 });

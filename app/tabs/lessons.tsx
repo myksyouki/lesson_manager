@@ -742,7 +742,7 @@ export default function LessonsScreen() {
                   disabled={true}
                 >
                   <MaterialIcons name="assignment" size={20} color="#FFFFFF" />
-                  <Text style={styles.selectionActionText}>タスク生成</Text>
+                  <Text style={styles.selectionActionText}>練習生成</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 

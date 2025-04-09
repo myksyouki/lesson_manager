@@ -10,7 +10,8 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  Dimensions
+  Dimensions,
+  ImageSourcePropType
 } from 'react-native';
 import { MaterialIcons, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -32,37 +33,198 @@ const { width } = Dimensions.get('window');
 // オンボーディングの各ステップを表す型
 type OnboardingStep = 'welcome' | 'category' | 'instrument' | 'model' | 'features' | 'tabs';
 
+// モックアップ用のコンポーネント
+const HomeScreenMockup = () => (
+  <View style={{ width: '100%', height: '100%', backgroundColor: '#F8F9FA', borderRadius: 16, padding: 12 }}>
+    <View style={{ marginBottom: 16, backgroundColor: '#E1ECFF', padding: 12, borderRadius: 12 }}>
+      <Text style={{ fontSize: 18, fontWeight: '700', color: '#4285F4', marginBottom: 8 }}>今日の練習</Text>
+      <View style={{ backgroundColor: '#FFFFFF', borderRadius: 8, padding: 10, marginBottom: 6 }}>
+        <Text style={{ fontSize: 14, color: '#444' }}>音程の安定性を高める練習</Text>
+      </View>
+      <View style={{ backgroundColor: '#FFFFFF', borderRadius: 8, padding: 10 }}>
+        <Text style={{ fontSize: 14, color: '#444' }}>音色改善エクササイズ</Text>
+      </View>
+    </View>
+    <View style={{ backgroundColor: '#F0F0F0', padding: 12, borderRadius: 12 }}>
+      <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 8 }}>最近のレッスン</Text>
+      <View style={{ backgroundColor: '#FFFFFF', borderRadius: 8, padding: 10, marginBottom: 6 }}>
+        <Text style={{ fontSize: 14, color: '#444' }}>4月10日のレッスン</Text>
+      </View>
+    </View>
+  </View>
+);
+
+const LessonsScreenMockup = () => (
+  <View style={{ width: '100%', height: '100%', backgroundColor: '#F8F9FA', borderRadius: 16, padding: 12 }}>
+    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 10, marginBottom: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: '#4285F4', marginRight: 10 }} />
+        <Text style={{ fontSize: 16, color: '#333' }}>検索バー</Text>
+      </View>
+    </View>
+    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#4285F4' }}>
+      <Text style={{ fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 6 }}>4月10日のレッスン</Text>
+      <Text style={{ fontSize: 14, color: '#666' }}>サクソフォン・テクニック</Text>
+      <View style={{ flexDirection: 'row', marginTop: 8 }}>
+        <View style={{ backgroundColor: '#E1ECFF', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, marginRight: 6 }}>
+          <Text style={{ fontSize: 12, color: '#4285F4' }}>音程</Text>
+        </View>
+        <View style={{ backgroundColor: '#E1ECFF', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 }}>
+          <Text style={{ fontSize: 12, color: '#4285F4' }}>音色</Text>
+        </View>
+      </View>
+    </View>
+    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderLeftWidth: 3, borderLeftColor: '#4285F4' }}>
+      <Text style={{ fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 6 }}>4月3日のレッスン</Text>
+      <Text style={{ fontSize: 14, color: '#666' }}>ジャズ練習</Text>
+    </View>
+    <View style={{ position: 'absolute', right: 20, bottom: 20, width: 50, height: 50, borderRadius: 25, backgroundColor: '#4285F4', alignItems: 'center', justifyContent: 'center' }}>
+      <MaterialIcons name="add" size={30} color="#FFFFFF" />
+    </View>
+  </View>
+);
+
+const AILessonScreenMockup = () => (
+  <View style={{ width: '100%', height: '100%', backgroundColor: '#F8F9FA', borderRadius: 16, padding: 12 }}>
+    <View style={{ height: '60%', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12, marginBottom: 16 }}>
+      <View style={{ backgroundColor: '#F0F0F0', alignSelf: 'flex-start', borderRadius: 12, padding: 10, marginBottom: 10, maxWidth: '80%' }}>
+        <Text style={{ fontSize: 14, color: '#333' }}>サックスの音色を改善するには？</Text>
+      </View>
+      <View style={{ backgroundColor: '#E1ECFF', alignSelf: 'flex-end', borderRadius: 12, padding: 10, marginBottom: 10, maxWidth: '80%' }}>
+        <Text style={{ fontSize: 14, color: '#333' }}>音色を改善するためには、まず適切なマウスピースと...</Text>
+      </View>
+      <View style={{ backgroundColor: '#F0F0F0', alignSelf: 'flex-start', borderRadius: 12, padding: 10, maxWidth: '80%' }}>
+        <Text style={{ fontSize: 14, color: '#333' }}>ありがとう！他におすすめの練習は？</Text>
+      </View>
+    </View>
+    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: '#F0F0F0', borderRadius: 20, padding: 10 }}>
+        <Text style={{ fontSize: 14, color: '#666' }}>質問を入力...</Text>
+      </View>
+      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#7C4DFF', alignItems: 'center', justifyContent: 'center', marginLeft: 10 }}>
+        <MaterialIcons name="send" size={20} color="#FFFFFF" />
+      </View>
+    </View>
+  </View>
+);
+
+const TaskScreenMockup = () => (
+  <View style={{ width: '100%', height: '100%', backgroundColor: '#F8F9FA', borderRadius: 16, padding: 12 }}>
+    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#4CAF50', marginRight: 10, alignItems: 'center', justifyContent: 'center' }}>
+          <MaterialIcons name="check" size={16} color="#4CAF50" />
+        </View>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: '#333' }}>長音練習</Text>
+      </View>
+      <Text style={{ fontSize: 14, color: '#666', marginLeft: 34 }}>4月10日のレッスンから</Text>
+    </View>
+    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#CCCCCC', marginRight: 10 }} />
+        <Text style={{ fontSize: 16, fontWeight: '600', color: '#333' }}>音程の安定性トレーニング</Text>
+      </View>
+      <Text style={{ fontSize: 14, color: '#666', marginLeft: 34 }}>4月3日のレッスンから</Text>
+    </View>
+    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#CCCCCC', marginRight: 10 }} />
+        <Text style={{ fontSize: 16, fontWeight: '600', color: '#333' }}>タンギングエクササイズ</Text>
+      </View>
+      <Text style={{ fontSize: 14, color: '#666', marginLeft: 34 }}>3月27日のレッスンから</Text>
+    </View>
+  </View>
+);
+
+const AnalyticsScreenMockup = () => (
+  <View style={{ width: '100%', height: '100%', backgroundColor: '#F8F9FA', borderRadius: 16, padding: 12 }}>
+    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginBottom: 12 }}>
+      <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 8 }}>練習統計</Text>
+      <View style={{ height: 60, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 10 }}>
+        <View style={{ width: 20, height: 30, backgroundColor: '#4285F4', borderRadius: 4 }} />
+        <View style={{ width: 20, height: 40, backgroundColor: '#4285F4', borderRadius: 4 }} />
+        <View style={{ width: 20, height: 20, backgroundColor: '#4285F4', borderRadius: 4 }} />
+        <View style={{ width: 20, height: 50, backgroundColor: '#4285F4', borderRadius: 4 }} />
+        <View style={{ width: 20, height: 35, backgroundColor: '#4285F4', borderRadius: 4 }} />
+        <View style={{ width: 20, height: 45, backgroundColor: '#4285F4', borderRadius: 4 }} />
+        <View style={{ width: 20, height: 25, backgroundColor: '#4285F4', borderRadius: 4 }} />
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+        <Text style={{ fontSize: 10, color: '#666' }}>月</Text>
+        <Text style={{ fontSize: 10, color: '#666' }}>火</Text>
+        <Text style={{ fontSize: 10, color: '#666' }}>水</Text>
+        <Text style={{ fontSize: 10, color: '#666' }}>木</Text>
+        <Text style={{ fontSize: 10, color: '#666' }}>金</Text>
+        <Text style={{ fontSize: 10, color: '#666' }}>土</Text>
+        <Text style={{ fontSize: 10, color: '#666' }}>日</Text>
+      </View>
+    </View>
+    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14 }}>
+      <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 8 }}>レッスン履歴</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: 8 }}>
+        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#4285F4' }} />
+        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#F1F1F1' }} />
+        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#F1F1F1' }} />
+        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#4285F4' }} />
+        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#F1F1F1' }} />
+        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#F1F1F1' }} />
+        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#4285F4' }} />
+      </View>
+      <Text style={{ fontSize: 14, color: '#666' }}>4月: 合計3回のレッスン</Text>
+    </View>
+  </View>
+);
+
 // タブガイドのデータ構造
-const tabGuides = [
+interface TabGuide {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+  color: string;
+  mockupComponent: React.ReactNode;
+}
+
+const tabGuides: TabGuide[] = [
   {
     id: 'home',
     icon: 'home',
     title: 'ホーム',
-    description: 'レッスンや練習の概要を確認できます。最近のレッスンや推奨練習メニューにすぐアクセスできます。'
+    description: 'レッスンや練習の概要を確認できます。最近のレッスンが表示され、すぐにアクセスできます。AIが推奨する練習メニューも表示されるので、今日の練習に役立てられます。',
+    color: '#4285F4',
+    mockupComponent: <HomeScreenMockup />
   },
   {
     id: 'lessons',
     icon: 'library-music',
     title: 'レッスン',
-    description: 'レッスン録音を管理・閲覧できます。録音は自動的に文字起こしされ要約が作成されます。'
+    description: 'レッスン録音を管理・閲覧できます。録音は自動的に文字起こしされ要約が作成されます。レッスンカードを長押しすると、複数のレッスンを選択してAIに相談したり、アーカイブしたりできます。',
+    color: '#4285F4',
+    mockupComponent: <LessonsScreenMockup />
   },
   {
     id: 'ai-lesson',
     icon: 'assistant',
     title: 'AIレッスン',
-    description: '練習に関する質問をAIにできます。サクソフォンの音色やテクニックについて質問してみましょう。'
+    description: '練習に関する質問をAIにできます。サクソフォンの音色やテクニックについて質問したり、練習方法のアドバイスを求めたりできます。過去のレッスン内容に基づいた具体的なアドバイスも受けられます。',
+    color: '#7C4DFF',
+    mockupComponent: <AILessonScreenMockup />
   },
   {
     id: 'task',
     icon: 'check-circle',
-    title: '課題',
-    description: 'レッスンから生成された練習課題を管理します。完了した課題をチェックして進捗を記録できます。'
+    title: '練習管理',
+    description: 'レッスンから生成された練習メニューを管理します。AIが最適な練習プランを提案し、実行状況を記録できます。完了した練習にはチェックを入れて進捗を記録できます。',
+    color: '#4CAF50',
+    mockupComponent: <TaskScreenMockup />
   },
   {
     id: 'schedule',
     icon: 'calendar-today',
-    title: 'スケジュール',
-    description: 'レッスンと練習の予定を管理できます。カレンダーで練習の進捗も確認できます。'
+    title: '分析',
+    description: 'レッスンと練習の履歴を時系列で確認できます。カレンダーやグラフ形式で練習の進捗状況を可視化し、長期的な上達の傾向を分析できます。月ごとの統計も表示されます。',
+    color: '#FF9800',
+    mockupComponent: <AnalyticsScreenMockup />
   }
 ];
 
@@ -548,17 +710,41 @@ export default function OnboardingScreen() {
               アプリの各タブの機能について説明します。まずはホーム画面から探索してみましょう。
             </Text>
             
-            {tabGuides.map((tab) => (
-              <View key={tab.id} style={styles.featureItem}>
-                <MaterialIcons name={tab.icon as any} size={32} color="#007AFF" />
-                <View style={styles.featureTextContainer}>
-                  <Text style={styles.featureTitle}>{tab.title}</Text>
-                  <Text style={styles.featureDescription}>
-                    {tab.description}
-                  </Text>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              style={styles.screenshotCarousel}
+              contentContainerStyle={styles.carouselContent}
+            >
+              {tabGuides.map((tab, index) => (
+                <View key={tab.id} style={styles.tabGuideSlide}>
+                  <View style={[styles.screenshotContainer, { borderColor: tab.color }]}>
+                    {tab.mockupComponent}
+                  </View>
+                  <View style={styles.tabInfoContainer}>
+                    <View style={styles.tabHeaderRow}>
+                      <MaterialIcons name={tab.icon as any} size={32} color={tab.color} />
+                      <Text style={styles.tabTitle}>{tab.title}</Text>
+                    </View>
+                    <Text style={styles.tabDescription}>
+                      {tab.description}
+                    </Text>
+                  </View>
+                  <View style={styles.paginationDots}>
+                    {tabGuides.map((_, dotIndex) => (
+                      <View 
+                        key={dotIndex} 
+                        style={[
+                          styles.paginationDot,
+                          dotIndex === index && [styles.activePaginationDot, { backgroundColor: tab.color }]
+                        ]} 
+                      />
+                    ))}
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </ScrollView>
             
             <TouchableOpacity
               style={styles.button}
@@ -875,5 +1061,90 @@ const styles = StyleSheet.create({
   },
   disabledText: {
     color: '#CCCCCC',
+  },
+  screenshotCarousel: {
+    width: width,
+    height: 450,
+    marginVertical: 20,
+  },
+  carouselContent: {
+    alignItems: 'center',
+  },
+  tabGuideSlide: {
+    width: width - 40,
+    marginHorizontal: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  screenshotContainer: {
+    width: width - 80,
+    height: 250,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabInfoContainer: {
+    width: '100%',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0,0,0,0.1)',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  tabHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  tabTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginLeft: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  tabDescription: {
+    fontSize: 15,
+    color: '#666',
+    lineHeight: 22,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  paginationDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#CCCCCC',
+    marginHorizontal: 4,
+  },
+  activePaginationDot: {
+    backgroundColor: '#007AFF',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
 }); 
