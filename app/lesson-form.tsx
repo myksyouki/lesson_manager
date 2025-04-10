@@ -80,6 +80,9 @@ export default function LessonForm() {
     selectedModel: 'standard'
   });
   
+  const [isCancellable, setIsCancellable] = useState(false);
+  const uploadController = useRef<AbortController | null>(null);
+  
   // ユーザープロファイルから楽器情報を取得
   useEffect(() => {
     const loadUserInstrumentInfo = async () => {
@@ -184,6 +187,57 @@ export default function LessonForm() {
     return `lesson_${hash}`;
   };
 
+  // アップロードをキャンセルする処理
+  const handleCancelUpload = useCallback(async () => {
+    try {
+      // AbortControllerを使ってアップロードをキャンセル
+      if (uploadController.current) {
+        uploadController.current.abort();
+        uploadController.current = null;
+      }
+
+      // すでに作成されたレッスンデータをクリーンアップ
+      setProcessingStep('キャンセル中...');
+      const userId = auth.currentUser?.uid;
+      if (!userId) return;
+
+      // 最後に作成されたレッスンを取得
+      const q = query(
+        collection(db, `users/${userId}/lessons`),
+        where('status', '==', 'processing'),
+        where('updatedAt', '>=', new Date(Date.now() - 30 * 60 * 1000)) // 最近30分以内に作られたもの
+      );
+      
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        // 処理中のレッスンを削除または状態を更新
+        querySnapshot.forEach(async (doc) => {
+          await updateDoc(doc.ref, {
+            status: 'cancelled',
+            updatedAt: serverTimestamp()
+          });
+          console.log('レッスン処理をキャンセルしました:', doc.id);
+        });
+      }
+
+      // フォーム状態をリセット
+      setTimeout(() => {
+        setIsSaving(false);
+        savingRef.current = false;
+        setIsProcessing(false);
+        setProcessingStep('');
+        setProcessingStatus(null);
+        setIsCancellable(false);
+        setUploadProgress(0);
+      }, 500);
+
+      Alert.alert('キャンセル完了', 'アップロードをキャンセルしました');
+    } catch (error) {
+      console.error('キャンセル処理エラー:', error);
+      Alert.alert('エラー', 'キャンセル処理中にエラーが発生しました');
+    }
+  }, []);
+
   // シンプル化した保存ハンドラー
   const onSave = useCallback(async () => {
     // 保存中フラグのチェック（stateとrefの両方）
@@ -269,6 +323,7 @@ export default function LessonForm() {
         try {
           setProcessingStep('音声ファイルをアップロード中...');
           setProcessingStatus('uploading');
+          setIsCancellable(true); // キャンセル可能に設定
           
           // レッスンのステータスを更新
           const lessonRef = doc(db, `users/${userId}/lessons`, lessonId);
@@ -281,15 +336,28 @@ export default function LessonForm() {
           // Storage パス - audioで始まるパスにする（Functionsトリガーに合わせるため）
           const storagePath = `audio/${userId}/${lessonId}/${selectedFile.name}`;
           
-          // 音声ファイルをアップロード
+          // 新しいAbortControllerを作成
+          uploadController.current = new AbortController();
+          
+          // 音声ファイルをアップロード (引数順序の修正)
           const uploadResult = await uploadAudioFile(
             selectedFile.uri, 
             storagePath,
             (progress) => {
               console.log('アップロード進捗:', progress.progress);
               setUploadProgress(progress.progress);
+            },
+            uploadController.current.signal, // signal を渡す
+            { // レッスンデータを最後の引数として渡す
+              instrumentName: userInstrumentInfo.selectedInstrument,
+              instrumentCategory: userInstrumentInfo.selectedCategory,
+              pieces: formData.pieces || [],
+              userPrompt: formData.userPrompt || ''
             }
           );
+          
+          // アップロード完了後はキャンセル不可に戻す
+          setIsCancellable(false);
           
           if (uploadResult.success) {
             console.log('ファイルアップロード成功:', uploadResult.url);
@@ -323,6 +391,12 @@ export default function LessonForm() {
             throw new Error('ファイルのアップロードに失敗しました');
           }
         } catch (audioError: unknown) {
+          // AbortErrorの場合は既にキャンセル処理済みなのでスキップ
+          if (audioError instanceof Error && audioError.name === 'AbortError') {
+            console.log('アップロードがキャンセルされました');
+            return;
+          }
+          
           console.error('音声処理エラー:', audioError);
           
           // レッスンステータスをエラーに設定
@@ -359,8 +433,9 @@ export default function LessonForm() {
         setProcessingStep('');
         setProcessingStatus(null);
       }, 1000);
+      setIsCancellable(false);
     }
-  }, [formData, selectedFile, isSaving, userInstrumentInfo]);
+  }, [formData, selectedFile, isSaving, userInstrumentInfo, handleCancelUpload]);
 
   // カレンダー表示トグル
   const toggleCalendar = useCallback(() => {
@@ -441,6 +516,8 @@ export default function LessonForm() {
           message={processingStep}
           progress={uploadProgress}
           showProgress={processingStatus === 'uploading'}
+          showCancelButton={isCancellable && processingStatus === 'uploading'}
+          onCancel={handleCancelUpload}
         />
       )}
     </SafeAreaView>

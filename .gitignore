@@ -15,7 +15,6 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 /android/
-/ios/
 
 # metro
 .metro-health-check*
@@ -53,3 +52,11 @@ gcp-audio-processing/venv/
 
 # specstory
 .specstory/
+
+# ios関連
+/ios/*.xcodeproj/*
+!/ios/*.xcodeproj/project.pbxproj
+!/ios/*.xcodeproj/xcshareddata/
+!/ios/*.xcworkspace/contents.xcworkspacedata
+/ios/.xcode.env.local
+/ios/Pods/

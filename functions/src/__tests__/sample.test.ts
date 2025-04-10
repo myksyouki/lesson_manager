@@ -6,10 +6,12 @@
  */
 
 // テスト環境を設定
-import * as functionsTest from 'firebase-functions-test';
+// import functionsTest from 'firebase-functions-test';
 
 // Firebase機能をテストするための環境変数を設定
-const testEnv = functionsTest();
+// const testFunctions = functionsTest();
+// または使用しない場合はコメントアウト
+// const testFunctions = functionsTest();
 
 describe('サンプルテスト', () => {
   // 各テストの前に実行される

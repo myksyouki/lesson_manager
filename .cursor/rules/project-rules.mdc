@@ -1,6 +1,6 @@
 ---
 description: レッスン管理システムのプロジェクトルール
-globs: *
+globs: 
 alwaysApply: false
 ---
 # 音楽レッスン・練習総合AIアシスタント

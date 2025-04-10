@@ -15,7 +15,35 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "ios": {
+        "resourceClass": "m-medium",
+        "image": "latest",
+        "cache": {
+          "disabled": false
+        }
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "ios-fix": {
+      "distribution": "store",
+      "credentialsSource": "remote",
+      "env": {
+        "LANG": "en_US.UTF-8",
+        "RCT_NEW_ARCH_ENABLED": "0",
+        "EAS_SKIP_AUTO_FINGERPRINT": "1"
+      },
+      "ios": {
+        "image": "latest",
+        "resourceClass": "m-medium",
+        "simulator": false,
+        "buildConfiguration": "Release",
+        "cocoapods": "1.14.3",
+        "scheme": "LessonManager"
+      },
+      "prebuildCommand": "find ./ios -name Podfile && cd ios && pod install"
     },
     "androidapk": {
       "android": {

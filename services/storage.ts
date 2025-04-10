@@ -40,10 +40,16 @@ export interface UploadResult {
 export const uploadAudioFile = async (
   uri: string,
   storagePath: string, // 形式: audio/{userId}/{lessonId}/{fileName}
-  lessonData?: any,
-  onProgress?: (progress: UploadProgress) => void
+  onProgress?: (progress: UploadProgress) => void,
+  signal?: AbortSignal,
+  lessonData?: any
 ): Promise<UploadResult> => {
   try {
+    // キャンセルシグナルのチェック
+    if (signal?.aborted) {
+      throw new Error('アップロードがキャンセルされました');
+    }
+
     // Optional("https")形式のURLを処理
     let validUri = uri;
     if (uri.includes('Optional(') && uri.includes(')')) {
@@ -106,6 +112,29 @@ export const uploadAudioFile = async (
 
     // 進捗状況の監視
     return new Promise((resolve, reject) => {
+      // キャンセル済みかチェック
+      if (signal?.aborted) {
+        reject(new Error('AbortError'));
+        return;
+      }
+      
+      // キャンセルイベントのリスナー設定
+      let unsubscribeSignal: (() => void) | undefined;
+      if (signal) {
+        const abortHandler = () => {
+          console.log('アップロードがキャンセルされました');
+          // uploadTaskはfirebaseの仕様上、直接キャンセルできないが
+          // Promiseをrejectすることでキャンセル処理を行う
+          if (unsubscribeSignal) unsubscribeSignal();
+          reject(new Error('AbortError'));
+        };
+        
+        signal.addEventListener('abort', abortHandler);
+        unsubscribeSignal = () => {
+          signal.removeEventListener('abort', abortHandler);
+        };
+      }
+      
       uploadTask.on(
         'state_changed',
         (snapshot: UploadTaskSnapshot) => {
@@ -120,6 +149,7 @@ export const uploadAudioFile = async (
         },
         (error) => {
           console.error('アップロードエラー:', error);
+          if (unsubscribeSignal) unsubscribeSignal();
           reject(error);
         },
         async () => {
@@ -127,6 +157,7 @@ export const uploadAudioFile = async (
             // アップロード完了後のURLを取得
             const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
             
+            if (unsubscribeSignal) unsubscribeSignal();
             resolve({
               success: true,
               url: downloadUrl,
@@ -138,6 +169,7 @@ export const uploadAudioFile = async (
             });
           } catch (error) {
             console.error('ダウンロードURL取得エラー:', error);
+            if (unsubscribeSignal) unsubscribeSignal();
             reject(error);
           }
         }
@@ -145,6 +177,14 @@ export const uploadAudioFile = async (
     });
 
   } catch (error) {
+    // AbortErrorの場合は特別に処理
+    if (error instanceof Error && error.message === 'AbortError') {
+      return {
+        success: false,
+        error: 'アップロードがキャンセルされました'
+      };
+    }
+    
     console.error('ファイルアップロードエラー:', error);
     return {
       success: false,

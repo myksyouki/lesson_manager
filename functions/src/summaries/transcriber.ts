@@ -203,6 +203,9 @@ async function transcribeSingleFile(
     formData.append("language", "ja");
     formData.append("response_format", "json");
 
+    // APIキーが有効な形式であることを確認
+    const cleanApiKey = apiKey.trim().replace(/^["']|["']$/g, '').trim();
+    
     // Whisper APIにリクエスト
     const response = await axios.post(
       WHISPER_API_ENDPOINT,
@@ -210,7 +213,7 @@ async function transcribeSingleFile(
       {
         headers: {
           ...formData.getHeaders(),
-          "Authorization": `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${cleanApiKey}`,
         },
         timeout: 300000, // 5分のタイムアウト
       }
@@ -282,8 +285,13 @@ async function getSecret(secretName: string): Promise<string> {
       throw new Error(`シークレット ${secretName} が見つからないか、データがありません`);
     }
 
+    // APIキーの値をトリムして余分な文字を削除
+    const rawValue = version.payload.data.toString();
+    // 前後の空白、引用符、改行などを削除
+    const cleanedValue = rawValue.trim().replace(/^["']|["']$/g, '').trim();
+    
     logger.info(`シークレット ${secretName} の取得に成功`);
-    return version.payload.data.toString();
+    return cleanedValue;
   } catch (error) {
     logger.error(`Secret Managerでのエラー: ${secretName}`, error);
     throw createError(

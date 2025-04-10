@@ -36,7 +36,7 @@ functions/src/
   │   └── admin-setup.ts       # 管理者設定機能
   └── common/                  # 共通ユーティリティ
       ├── storage.ts           # ストレージ操作
-      ├── firestore.ts           # Firestore操作
+      ├── firestore.ts         # Firestore操作
       ├── audio.ts             # 音声ファイル操作
       ├── llm.ts               # AI/LLM共通処理
       ├── errors.ts            # エラー処理
@@ -86,6 +86,8 @@ app/
 - **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, Jest, React Native Testing Library, ts-jest, detox
 - **アイコン生成**: Canva, Figma
 - **スプラッシュスクリーン**: (追加)
+- **アプリのバージョン**: 0.0.1 (追加)
+- **バンドルID**: com.regnition.appli (追加)
 
 
 ## PROJECT-SPECIFIC STANDARDS
@@ -223,13 +225,13 @@ app/
     - **E2Eテスト環境**: Detox.  設定と実行方法は[E2Eテスト環境セットアップガイド](./E2E-TESTING.md)を参照。テスト実行: `yarn e2e:ios`, `yarn e2e:android`, `yarn e2e`
 - スプラッシュスクリーンを追加する。
 - スプラッシュスクリーンの設定を`app.config.js`に追加する必要があります。  `splash.png`を`assets`フォルダに配置し、`app.config.js`に以下の設定を追加します。
-```javascript
-splash: {
-  image: "./assets/splash.png",
-  resizeMode: "contain",
-  backgroundColor: "#ffffff"
-}
-```
+-```javascript
+----splash: {
+----  image: "./assets/splash.png",
+----  resizeMode: "contain",
+----  backgroundColor: "#ffffff"
+----}
+-```
 - アプリのバージョンを 0.0.1 に設定する
 - アプリのバンドルIDを `com.regnition.appli` に変更する。
 - GoogleクライアントIDの更新が必要
@@ -238,3 +240,27 @@ splash: {
 - バンドルID: com.regnition.appli
 - パッケージ名: com.regnition.appli (Android)
 - スプラッシュスクリーン設定追加: app.config.jsに`splash`セクションを追加
+- アプリバージョン: 0.0.1
+- バンドルID: com.regnition.appli
+- パッケージ名: com.regnition.appli (Android)
+- スプラッシュスクリーンを追加しました。`assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。
+- GoogleクライアントIDの更新が必要
+---- アプリバージョン: 0.0.1
+---- バンドルID: com.regnition.appli
+---- パッケージ名: com.regnition.appli (Android)
+---- スプラッシュスクリーンを追加しました。 `assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。GoogleクライアントIDの更新が必要。
+-+ アプリバージョン: 0.0.1
+-+ バンドルID: com.regnition.appli
+-+ パッケージ名: com.regnition.appli (Android)
+-+ スプラッシュスクリーンを追加しました。 `assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。GoogleクライアントIDの更新が必要。
++ アプリバージョン: 0.0.1
++ バンドルID: com.regnition.appli
++ パッケージ名: com.regnition.appli (Android)
++ スプラッシュスクリーンを追加しました。`assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。GoogleクライアントIDの更新が必要。  アプリアイコンも更新済み。
++ アプリのバージョンを 0.0.1 に設定する
++ アプリのバンドルIDを `com.regnition.appli` に変更する
++ GoogleクライアントIDの更新が必要
++ スプラッシュスクリーンを追加しました。`assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。
++ GoogleクライアントIDの更新が必要
++ アプリアイコンとスプラッシュスクリーンを追加、バージョンを0.0.1に変更、バンドルIDをcom.regnition.appliに更新
++ アプリアイコンとスプラッシュスクリーンを追加、バージョンを0.0.1に変更、バンドルIDを更新
