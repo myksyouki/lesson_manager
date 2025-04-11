@@ -6,15 +6,45 @@ import {
   Alert,
   TouchableOpacity,
   Text,
-  Modal
+  Modal,
+  ActivityIndicator
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../../config/firebase';
+import { doc, onSnapshot, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { db, auth, functions } from '../../config/firebase';
+import { httpsCallable } from 'firebase/functions';
 import { MaterialIcons } from '@expo/vector-icons';
 import LessonDetailHeader from '../features/lessons/components/detail/LessonDetailHeader';
 import LessonDetailContent from '../features/lessons/components/detail/LessonDetailContent';
 import { useLessonStore } from '../../store/lessons';
+import { getCurrentUserProfile } from '../../services/userProfileService';
+import { updateTask, createTask, getUserTasks, Task } from '../../services/taskService';
+import { Timestamp } from "firebase/firestore";
+
+// PracticeMenuとPracticeStepインターフェース
+interface PracticeStep {
+  title: string;
+  description: string;
+  estimatedTime?: number;
+  // レガシーフィールド
+  id?: string;
+  duration?: number;
+  orderIndex?: number;
+}
+
+interface PracticeMenu {
+  title: string;
+  description: string;
+  steps: PracticeStep[];
+  category?: string;
+  difficultyLevel?: string;
+  tags?: string[];
+  // レガシーフィールド
+  id?: string;
+  instrument?: string;
+  difficulty?: string;
+  duration?: number;
+}
 
 export default function LessonDetail() {
   const params = useLocalSearchParams();
@@ -35,6 +65,7 @@ export default function LessonDetail() {
   });
   const [showExportModal, setShowExportModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
   
   // レッスンストアからアーカイブ関連のメソッドを取得
   const { archiveLesson, unarchiveLesson } = useLessonStore();
@@ -333,72 +364,207 @@ export default function LessonDetail() {
    * AIでタスクを生成する
    */
   const handleGenerateTasks = async () => {
+    setShowExportModal(false);
+    
+    if (!auth.currentUser) {
+      alert('タスクを生成するにはログインが必要です');
+      return;
+    }
+
+    if (!currentLesson || !currentLesson.summary) {
+      alert('タスクを生成するにはレッスンのサマリーが必要です');
+      return;
+    }
+
+    // 確認ダイアログ
+    Alert.alert(
+      'タスク生成',
+      'AIを使用してレッスン内容から練習メニューを生成しますか？',
+      [
+        {
+          text: 'キャンセル',
+          style: 'cancel',
+        },
+        {
+          text: '生成',
+          onPress: async () => {
+            setIsLoadingTasks(true);
+            try {
+              const generatePracticeRecommendation = httpsCallable(functions, 'generatePracticeRecommendation');
+
+              // ユーザー情報を取得
+              const userDoc = await getDoc(doc(db, 'users', auth.currentUser?.uid || ''));
+              const userData = userDoc.data();
+              
+              // 楽器情報（デフォルトはピアノ）
+              const instrument = userData?.instrument || 'Piano';
+              
+              console.log(`${instrument}の練習メニューを生成します...`);
+              
+              // GenKit APIを呼び出す
+              const result = await generatePracticeRecommendation({
+                lessonSummary: currentLesson.summary,
+                instrument: instrument,
+                level: 'INTERMEDIATE'
+              });
+              
+              // レスポンスデータの取得
+              const responseData = result.data as { 
+                success: boolean; 
+                recommendations?: PracticeMenu[];
+                message?: string 
+              };
+              
+              console.log('レスポンスデータ:', responseData);
+              
+              if (!responseData.success) {
+                throw new Error(responseData.message || '練習メニュー生成に失敗しました');
+              }
+              
+              // レコメンデーションの配列を取得（nullの場合は空配列）
+              const recommendations = responseData.recommendations || [];
+              console.log('取得した練習メニュー:', recommendations);
+              
+              if (recommendations.length === 0) {
+                alert('練習メニューが見つかりませんでした。別のレッスン内容で試してください。');
+                setIsLoadingTasks(false);
+                return;
+              }
+              
+              // 各レコメンデーションをタスクとして保存
+              const userId = auth.currentUser?.uid;
+              if (!userId) {
+                throw new Error('ユーザーIDが取得できませんでした');
+              }
+              
+              const tasksCreated = await Promise.all(
+                recommendations.map(async (menu) => {
+                  // ステップをマークダウン形式に変換
+                  const stepsText = menu.steps.map(step => 
+                    `- ${step.title}: ${step.description} (${step.estimatedTime || step.duration || 0}分)`
+                  ).join('\n');
+                  
+                  // 完全な説明文を作成
+                  const fullDescription = `${menu.description}\n\n【練習ステップ】\n${stepsText}\n\n【目安時間】${menu.duration || 30}分\n【難易度】${menu.difficultyLevel || menu.difficulty || "中級"}\n【カテゴリ】${menu.category || "基本練習"}`;
+                  
+                  // taskServiceのcreateTaskを使用してタスクを作成
+                  const task = await createTask(
+                    userId,
+                    menu.title,
+                    fullDescription,
+                    undefined, // dueDate
+                    [{ // attachments
+                      type: 'text',
+                      url: `/lessons/${currentLesson.id}`
+                    }]
+                  );
+                  
+                  // タスクにタグを追加
+                  await updateTask(task.id, {
+                    tags: ['練習メニュー', '自動生成', menu.category || '基本練習'],
+                    lessonId: currentLesson.id
+                  } as any, userId);
+                  
+                  return task;
+                })
+              );
+              
+              console.log(`${tasksCreated.length}個のタスクを作成しました`);
+              alert(`${tasksCreated.length}個の練習メニューがタスクリストに追加されました！`);
+              
+            } catch (error: any) {
+              console.error('タスク生成中にエラーが発生しました:', error);
+              alert(`エラーが発生しました: ${error?.message || 'タスク生成に失敗しました'}`);
+            } finally {
+              setIsLoadingTasks(false);
+            }
+          },
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  // ローカルで練習メニューを作成する関数
+  const createLocalPracticeMenu = async (instrument: string) => {
     try {
-      // 認証確認
-      if (!auth.currentUser) {
-        Alert.alert('エラー', 'タスク生成にはログインが必要です');
-        return;
+      console.log("ローカル練習メニュー生成開始");
+      if (!auth.currentUser?.uid) {
+        console.error('ユーザーが認証されていません');
+        throw new Error('認証が必要です。ログインしてください。');
       }
-      
-      // サマリーがあるか確認
-      if (!currentLesson?.summary) {
-        Alert.alert('エラー', 'タスク生成にはレッスンのサマリーが必要です');
-        return;
-      }
-      
-      // 確認ダイアログを表示
-      Alert.alert(
-        'タスクを生成',
-        'このレッスンからAIを使用して練習タスクを生成しますか？',
-        [
+
+      const now = new Date();
+      const sampleMenu: PracticeMenu = {
+        id: `local_${now.getTime()}`,
+        title: `${instrument}の基本練習`,
+        description: 'レッスンで学んだ内容を定着させるための基本練習メニューです。',
+        instrument: instrument,
+        category: '基礎練習',
+        difficulty: 'INTERMEDIATE',
+        duration: 30,
+        steps: [
           {
-            text: 'キャンセル',
+            id: 'step1',
+            title: 'ウォームアップ',
+            description: '基本的なポジションの確認と簡単なウォームアップ練習',
+            duration: 5,
+            orderIndex: 0
+          },
+          {
+            id: 'step2',
+            title: '基本テクニック',
+            description: 'レッスンで学んだ基本テクニックの復習',
+            duration: 15,
+            orderIndex: 1
+          },
+          {
+            id: 'step3',
+            title: '応用練習',
+            description: '基本テクニックを組み合わせた応用練習',
+            duration: 10,
+            orderIndex: 2
+          }
+        ],
+        tags: ['基礎', 'ウォームアップ', 'テクニック']
+      };
+
+      const stepsText = sampleMenu.steps.map(step => 
+        `- ${step.title}: ${step.description} (${step.duration || step.estimatedTime || 0}分)`
+      ).join('\n');
+      
+      const fullDescription = `${sampleMenu.description}\n\n【練習ステップ】\n${stepsText}\n\n【目安時間】${sampleMenu.duration || 30}分\n【難易度】${sampleMenu.difficultyLevel || sampleMenu.difficulty || "中級"}\n【カテゴリ】${sampleMenu.category || "基本練習"}`;
+      
+      // タスクを作成
+      try {
+        await createTask(
+          auth.currentUser.uid,
+          sampleMenu.title,
+          fullDescription,
+          undefined,
+          [{
+            type: 'text',
+            url: `/lessons/${lessonId}`
+          }]
+        );
+        
+        Alert.alert('完了', 'ローカルで練習メニューを作成しました。タスク一覧を表示しますか？', [
+          {
+            text: 'いいえ',
             style: 'cancel'
           },
           {
-            text: '生成する',
-            onPress: async () => {
-              try {
-                // ローディング表示
-                Alert.alert('処理中', 'タスクを生成しています...');
-                
-                // タスク生成サービスの呼び出し
-                const { createTaskFromLessonSummary } = require('../services/taskService');
-                
-                // レッスンデータ
-                const tasks = await createTaskFromLessonSummary(
-                  lessonId,
-                  currentLesson.summary || '',
-                  currentLesson.pieces || [],
-                  currentLesson.teacherName || ''
-                );
-                
-                // 成功アラート
-                Alert.alert(
-                  '生成完了',
-                  `${tasks.length}個のタスクを生成しました`,
-                  [
-                    {
-                      text: 'タスク一覧を見る',
-                      onPress: () => router.push('/tabs/task')
-                    },
-                    {
-                      text: 'OK',
-                      style: 'cancel'
-                    }
-                  ]
-                );
-              } catch (error) {
-                console.error('タスク生成エラー:', error);
-                Alert.alert('エラー', 'タスクの生成に失敗しました');
-              }
-            }
+            text: 'はい',
+            onPress: () => router.push('/tasks')
           }
-        ]
-      );
+        ]);
+      } catch (error) {
+        console.error('タスク作成エラー:', error);
+        Alert.alert('エラー', 'タスク作成に失敗しました');
+      }
     } catch (error) {
-      console.error('タスク生成ボタン処理エラー:', error);
-      Alert.alert('エラー', 'タスク生成の準備に失敗しました');
+      console.error('ローカル練習メニュー生成エラー:', error);
+      Alert.alert('エラー', '練習メニューの生成に失敗しました');
     }
   };
 

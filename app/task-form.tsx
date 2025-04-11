@@ -160,6 +160,132 @@ export default function PracticeMenuGenerator() {
     }));
   };
 
+  const handleCreateTask = async () => {
+    try {
+      // タスクデータを構築
+      const taskData = {
+        title: formData.practice_content || '',
+        description: formData.specific_goals || '',
+        dueDate: new Date().toISOString(),
+        tags: formData.practice_content ? [formData.practice_content] : [],
+        isCompleted: false,
+        practiceDate: new Date().toISOString(),
+        priority: 'medium',
+        steps: [],
+        attachments: [{
+          type: 'image' as const,
+          url: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAAyAEsDAREAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD+/igAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgD//Z',
+          format: 'image/jpeg'
+        }]
+      };
+
+      // タスクを作成
+      await addTask(taskData);
+      
+      // フォームをクリア
+      setFormData({
+        instrument: '',
+        skill_level: '中級者',
+        practice_duration: DEFAULT_PRACTICE_DURATION,
+        practice_content: '',
+        specific_goals: ''
+      });
+      
+      // タスク一覧画面に戻る
+      router.replace({
+        pathname: '/tabs/task',
+        params: { isNewlyCreated: 'true' }
+      });
+      
+      // 成功メッセージを表示
+      Alert.alert(
+        'タスク作成完了',
+        'タスクを作成しました',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('タスク作成エラー:', error);
+      
+      // エラーメッセージを表示
+      Alert.alert(
+        'タスク作成エラー',
+        'タスクの作成に失敗しました',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handleCreateSampleTask = async () => {
+    try {
+      // サンプルの練習ステップを作成
+      const sampleSteps = [
+        {
+          id: `step_${Date.now()}_1`,
+          title: 'ロングトーン練習',
+          description: '息の流れを一定に保ちながら、音の強弱をコントロールする練習です。',
+          duration: '10',
+          orderIndex: 0
+        },
+        {
+          id: `step_${Date.now()}_2`,
+          title: '指のトレーニング',
+          description: '特に難しいフレーズを集中的に練習し、指の独立性を高めます。',
+          duration: '15',
+          orderIndex: 1
+        },
+        {
+          id: `step_${Date.now()}_3`,
+          title: '表現力の向上',
+          description: '曲の感情表現に焦点を当て、強弱とリズムの変化を意識します。',
+          duration: '15',
+          orderIndex: 2
+        }
+      ];
+
+      // タスクデータを構築
+      const taskData = {
+        title: 'ムーンライト・ソナタの練習',
+        description: '第1楽章の冒頭部分を中心に、ペダリングと音色の変化に注意して練習しましょう。特に右手のアルペジオ部分はなめらかさを意識し、左手の低音部は音が膨らみすぎないように注意してください。',
+        dueDate: new Date().toISOString(),
+        tags: ['ピアノ', 'クラシック', '表現'],
+        isCompleted: false,
+        practiceDate: new Date().toISOString(),
+        priority: 'high',
+        steps: sampleSteps,
+        attachments: [{
+          type: 'image' as const,
+          url: 'https://firebasestorage.googleapis.com/v0/b/lesson-manager-99ab9.firebasestorage.app/o/sheetMusic%2Fmenu_1744199223315.jpg?alt=media&token=8cdb200b-bb90-4972-aaad-e00a03a3f631',
+          format: 'image/jpeg'
+        }]
+      };
+
+      // タスクを作成
+      await addTask(taskData);
+      
+      // タスク一覧画面に戻る
+      router.replace({
+        pathname: '/tabs/task',
+        params: { isNewlyCreated: 'true' }
+      });
+      
+      // 成功メッセージを表示
+      Alert.alert(
+        'サンプルタスク作成完了',
+        'ムーンライト・ソナタの練習メニューを作成しました',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('タスク作成エラー:', error);
+      
+      // エラーメッセージを表示
+      Alert.alert(
+        'タスク作成エラー',
+        'タスクの作成に失敗しました',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView 
@@ -252,20 +378,25 @@ export default function PracticeMenuGenerator() {
                 </View>
               </View>
 
-              <TouchableOpacity 
-                style={[styles.generateButton, { opacity: 0.5 }]}
-                onPress={handleGenerateMenu}
-                disabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <>
-                    <MaterialIcons name="auto-fix-high" size={24} color="#ffffff" />
-                    <Text style={styles.generateButtonText}>練習メニューを生成</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={styles.generateButton}
+                  onPress={handleCreateSampleTask}
+                >
+                  <Text style={styles.generateButtonText}>サンプルタスクを作成</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={[styles.generateButton, { backgroundColor: '#E0E0E0' }]}
+                  onPress={handleGenerateMenu}
+                >
+                  <Text style={[styles.generateButtonText, { color: '#757575' }]}>
+                    自動で練習メニューを作成（現在利用できません）
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : 
             // 生成された練習メニューの表示

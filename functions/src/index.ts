@@ -17,6 +17,10 @@ import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
 
 // プロジェクトモジュール
 import {generateTasksFromLessons} from "./practice-menu";
+import { practiceMenuFunctions } from './practice-menu';
+import { testOpenAIConnection, generatePracticeRecommendation } from './practice-menu/genkit';
+import { setAdminRole, initializeAdmin } from './tools/admin-setup';
+import { FUNCTION_REGION } from './config';
 
 // Firebaseの初期化（まだ初期化されていない場合）
 if (admin.apps.length === 0) {
@@ -759,12 +763,21 @@ async function callDifyChat(apiKey: string, appId: string, data: any, instrument
   }
 }
 
-// Firebase Cloud Functions エクスポート
-export {generateTasksFromLessons};
+// 関数のエクスポート
+export {
+  helloWorld,
+  generateTasksFromLessons,
+  // 管理者設定関連
+  setAdminRole,
+  initializeAdmin,
+};
 
-// 他のモジュールで必要な関数をエクスポート
-export * from "./summaries";
-export * from "./common/errors";
+// 練習メニュー関連の関数をエクスポート
+export const getPracticeMenuRecommendations = practiceMenuFunctions.getPracticeMenuRecommendations;
+export const getSheetMusic = practiceMenuFunctions.getSheetMusic;
+export const createPracticeMenu = practiceMenuFunctions.createPracticeMenu;
+export const uploadSheetMusic = practiceMenuFunctions.uploadSheetMusic;
+export { testOpenAIConnection, generatePracticeRecommendation };
 
 /**
  * チャットルームの会話履歴からタスクを作成するCloud Function
@@ -891,3 +904,74 @@ function generateFallbackTask(userId: string, data: any) {
     fallback: true,
   };
 }
+
+/**
+ * ユーティリティ：実行時の環境情報を返す関数
+ */
+export const getEnvironmentInfo = onCall(
+  {
+    region: "asia-northeast1",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "認証が必要です");
+    }
+
+    // 実行環境情報を収集
+    const envInfo = {
+      projectId: process.env.GCLOUD_PROJECT || "unknown",
+      region: process.env.FUNCTION_REGION || "unknown",
+      nodeVersion: process.version,
+      timestamp: new Date().toISOString(),
+      auth: {
+        uid: request.auth.uid,
+        token: {
+          // トークン情報の一部を安全に返す
+          iss: request.auth.token.iss,
+          aud: request.auth.token.aud,
+          exp: request.auth.token.exp,
+        },
+      },
+    };
+
+    return {
+      success: true,
+      environment: envInfo,
+    };
+  }
+);
+
+// テスト用の簡易関数を追加
+export const testPracticeRecommendation = onCall({
+  region: FUNCTION_REGION
+}, async (request) => {
+  if (!request.auth) {
+    return {
+      success: false,
+      message: '認証が必要です',
+      recommendations: []
+    };
+  }
+
+  return {
+    success: true,
+    message: 'テスト成功',
+    recommendations: [
+      {
+        id: 'test_1',
+        title: 'テスト練習メニュー',
+        description: 'これはテスト用の練習メニューです',
+        difficulty: 'INTERMEDIATE',
+        estimatedTime: '30分',
+        category: 'テスト',
+        steps: [
+          {
+            title: 'ステップ1',
+            description: 'テストステップの説明',
+            duration: 10
+          }
+        ]
+      }
+    ]
+  };
+});

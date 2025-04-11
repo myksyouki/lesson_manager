@@ -27,7 +27,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getUserChatRooms, ChatRoom as ChatRoomType } from '../../services/chatRoomService';
 import { auth } from '../config/firebase';
-import { getRecommendedTasks } from '../../services/difyService';
+import { getAIRecommendedPracticeMenus } from '../../services/practiceRecommendationService';
 
 export default function HomeScreen() {
   // 画面サイズを取得
@@ -65,6 +65,9 @@ export default function HomeScreen() {
   const latestLesson = useLessonStore(state => state.lessons[0]);
   const latestTask = tasks[0];
   const latestChatRoom = recentChatRooms[0];
+
+  // レッスンストアからレッスン一覧を取得
+  const lessons = useLessonStore(state => state.lessons);
 
   // 画面サイズに応じたスタイルを計算
   const dynamicStyles = useMemo(() => {
@@ -424,24 +427,30 @@ export default function HomeScreen() {
     }
   };
 
+  // 更新関数を分離して再利用可能にする
+  const fetchRecommendations = async () => {
+    if (!user) return;
+    
+    setIsLoadingRecommendations(true);
+    try {
+      const recommendations = await getAIRecommendedPracticeMenus(user.uid);
+      setRecommendedTasks(recommendations.slice(0, 3)); // 最大3件まで表示
+    } catch (error) {
+      console.error('AIレコメンデーションの取得に失敗しました:', error);
+    } finally {
+      setIsLoadingRecommendations(false);
+    }
+  };
+
   // AIレコメンデーションを取得
   useEffect(() => {
-    const fetchRecommendations = async () => {
-      if (!user) return;
-      
-      setIsLoadingRecommendations(true);
-      try {
-        const recommendations = await getRecommendedTasks(user.uid);
-        setRecommendedTasks(recommendations.slice(0, 3)); // 最大3件まで表示
-      } catch (error) {
-        console.error('AIレコメンデーションの取得に失敗しました:', error);
-      } finally {
-        setIsLoadingRecommendations(false);
-      }
-    };
-
     fetchRecommendations();
-  }, [user]);
+  }, [user, lessons, recentChatRooms]); // レッスンとチャットルームの変更を監視
+
+  // 手動リフレッシュ処理
+  const handleRefreshRecommendations = () => {
+    fetchRecommendations();
+  };
 
   // フローティングボタンの表示
   const renderFloatingButtons = () => {
@@ -546,6 +555,17 @@ export default function HomeScreen() {
               <Text style={[styles.sectionTitle, { fontSize: dynamicStyles.titleFontSize }]}>
                 AIおすすめの練習メニュー
               </Text>
+              <TouchableOpacity 
+                onPress={handleRefreshRecommendations} 
+                disabled={isLoadingRecommendations}
+                style={styles.refreshButton}
+              >
+                <MaterialIcons 
+                  name="refresh" 
+                  size={dynamicStyles.iconSize} 
+                  color={isLoadingRecommendations ? theme.colors.textTertiary : theme.colors.primary} 
+                />
+              </TouchableOpacity>
             </View>
 
             {isLoadingRecommendations ? (
@@ -921,5 +941,9 @@ const styles = StyleSheet.create({
   },
   quickAccessSubtitle: {
     fontSize: 14,
+  },
+  refreshButton: {
+    padding: 6,
+    borderRadius: 20,
   },
 });

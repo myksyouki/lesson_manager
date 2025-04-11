@@ -6,6 +6,11 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    // 特定のUIDのみが管理者権限を持つように変更
+    function isAdmin() {
+      return request.auth != null && request.auth.uid == "fY5GIog5htgqyhRBCZDp0CK2SMh1";
+    }
+    
     // テストユーザーであるかを確認する関数
     function isTestUser() {
       return request.auth.token.email == "test@example.com";
@@ -93,6 +98,33 @@ service cloud.firestore {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // ユーザー固有の練習メニュー記録
+    match /users/{userId}/practiceRecords/{recordId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 練習メニュー階層構造（楽器別 > カテゴリ別 > メニュー）
+    match /practiceMenus/{instrument} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+
+      match /categories/{category} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin();
+
+        match /menus/{menuId} {
+          allow read: if isAuthenticated();
+          allow write: if isAdmin();
+
+          match /sheetMusic/{sheetId} {
+            allow read: if isAuthenticated();
+            allow write: if isAdmin();
+          }
+        }
+      }
     }
   }
 } 

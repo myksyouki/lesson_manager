@@ -12,6 +12,18 @@ import {
 import {ErrorType, createError} from "../common/errors";
 import * as logger from "firebase-functions/logger";
 import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
+import { getFirestore } from 'firebase-admin/firestore';
+import { PracticeMenu, SheetMusic } from './models';
+import { getOpenAIApiKey } from '../common/secret';
+import * as admin from 'firebase-admin';
+
+// Firebase アプリが初期化されていなければ初期化
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
+// Firestore インスタンスを取得
+const db = getFirestore();
 
 // 外部参照用にDify APIレスポンスのインターフェイス定義
 interface DifyAPIResponse {
@@ -206,9 +218,11 @@ export const generateTasksFromLessons = onCall(
         return taskData;
       } catch (apiError: unknown) {
         logger.error("Dify API呼び出しエラー:", apiError);
+        const errorMessage = apiError instanceof Error ? apiError.message : "不明なエラー";
         throw createError(
           ErrorType.INTERNAL,
-          `AIサービス呼び出しエラー: ${(apiError as Error).message || "不明なエラー"}`
+          `AIサービス呼び出しエラー: ${errorMessage}`,
+          { originalError: apiError instanceof Error ? apiError.message : String(apiError) }
         );
       }
     } catch (error: any) {
@@ -556,4 +570,597 @@ function extractParagraph(text: string, sectionName: string): string | null {
     logger.error(`${sectionName}の抽出に失敗:`, e);
     return null;
   }
-} 
+}
+
+/**
+ * 練習メニュー関連の関数
+ */
+
+/**
+ * 練習メニュー推薦機能
+ * ユーザーのプロファイル、レッスンサマリー、練習履歴から最適なメニューを推薦
+ */
+export const getPracticeMenuRecommendations = onCall(
+  {
+    region: FUNCTION_REGION,
+    timeoutSeconds: DEFAULT_TIMEOUT,
+  },
+  async (request) => {
+    // 認証チェック - v2では新しい方法で認証情報にアクセス
+    if (!request.auth) {
+      throw createError(
+        ErrorType.UNAUTHENTICATED,
+        "この機能を使用するにはログインが必要です"
+      );
+    }
+
+    // callableのリクエストデータを型安全に取得
+    const data = request.data as Record<string, unknown>;
+    // リクエストのバリデーション
+    if (!data || (!data.source && !data.summaryId && !data.chatId)) {
+      throw createError(
+        ErrorType.INVALID_ARGUMENT,
+        "推薦ソースが指定されていません"
+      );
+    }
+
+    try {
+      logger.info(`ユーザー ${request.auth.uid} の練習メニュー推薦を開始`);
+      
+      // ユーザープロファイル情報を取得
+      const userProfileRef = await db.collection('users').doc(request.auth.uid).collection('profile').doc('main').get();
+      
+      if (!userProfileRef.exists) {
+        throw createError(
+          ErrorType.NOT_FOUND,
+          'ユーザープロファイルが見つかりません'
+        );
+      }
+      
+      const userProfile = userProfileRef.data();
+      const instrument = userProfile?.selectedInstrument || 'piano';
+      const level = userProfile?.level || '中級';
+      
+      // OpenAI APIキー取得
+      const apiKey = await getOpenAIApiKey();
+      
+      if (!apiKey) {
+        throw createError(
+          ErrorType.INTERNAL,
+          'APIキーの取得に失敗しました'
+        );
+      }
+      
+      // ソースに応じたキーワード抽出
+      let keywords: string[] = [];
+      let context = '';
+      
+      if (data.source === 'profile') {
+        // プロファイルからの推薦の場合はユーザー情報を使用
+        keywords = generateKeywordsFromProfile(userProfile);
+        context = `楽器: ${instrument}, レベル: ${level}`;
+      } 
+      else if (data.source === 'summary' && data.summaryId) {
+        // レッスンサマリーからキーワード抽出
+        const summaryId = data.summaryId as string;
+        const summaryData = await getDataFromLessonSummary(request.auth.uid, summaryId);
+        keywords = extractKeywordsFromSummary(summaryData.summary);
+        context = `レッスンサマリー: ${summaryData.summary.substring(0, 100)}...`;
+      } 
+      else if (data.source === 'chat' && data.chatId) {
+        // チャット履歴からキーワード抽出
+        const chatId = data.chatId as string;
+        const chatData = await getDataFromChatHistory(request.auth.uid, chatId);
+        keywords = extractKeywordsFromChat(chatData);
+        context = `チャットタイトル: ${chatData.title}`;
+      } 
+      else {
+        throw createError(
+          ErrorType.INVALID_ARGUMENT,
+          '有効な推薦ソースが指定されていません'
+        );
+      }
+      
+      // OpenAI APIを使用して練習メニューを生成
+      logger.info(`練習メニュー生成: ${instrument}, ${level}, キーワード: ${keywords.join(', ')}`);
+      
+      // リクエストを構築
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: `あなたは${instrument}の専門家で、効果的な練習メニューを提案できる先生です。ユーザーに適切な練習メニューを${data.limit || 3}個提案してください。各メニューはJSON形式で返してください。`
+            },
+            {
+              role: 'user',
+              content: `以下の情報に基づいて、${instrument}の${level}レベルのユーザーに最適な練習メニューを${data.limit || 3}個提案してください。
+              
+              コンテキスト: ${context}
+              キーワード: ${keywords.join(', ')}
+              
+              各練習メニューは以下の形式のJSONオブジェクトで返してください:
+              [
+                {
+                  "title": "メニュータイトル",
+                  "description": "詳細説明",
+                  "category": "カテゴリ名",
+                  "difficulty": "難易度",
+                  "duration": 練習時間（分）,
+                  "steps": [
+                    {"title": "ステップ1", "description": "詳細", "duration": 時間（分）},
+                    {"title": "ステップ2", "description": "詳細", "duration": 時間（分）}
+                  ],
+                  "tags": ["タグ1", "タグ2", "タグ3"]
+                }
+              ]`
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          }
+        }
+      );
+      
+      // JSONパースを試みる
+      let practiceMenus: any[] = [];
+      
+      try {
+        // 応答をパース
+        const aiResponse = response.data.choices[0].message.content;
+        
+        // JSONを抽出（```json や ``` で囲まれている可能性がある）
+        const jsonMatch = aiResponse.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || [null, aiResponse];
+        const jsonContent = jsonMatch[1];
+        
+        // JSON文字列をパース
+        practiceMenus = JSON.parse(jsonContent);
+        
+        // バリデーションと整形
+        practiceMenus = practiceMenus.map((menu: any) => {
+          return {
+            id: `pm_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+            title: menu.title || '練習メニュー',
+            description: menu.description || '',
+            category: menu.category || 'その他',
+            difficulty: menu.difficulty || level,
+            duration: menu.duration || 30,
+            steps: Array.isArray(menu.steps) ? menu.steps : [],
+            tags: Array.isArray(menu.tags) ? menu.tags : [],
+            instrument: instrument,
+            createdAt: admin.firestore.Timestamp.now(),
+            updatedAt: admin.firestore.Timestamp.now()
+          };
+        });
+      } catch (parseError) {
+        logger.error('練習メニューJSONのパースエラー:', parseError);
+        throw createError(
+          ErrorType.INTERNAL,
+          'AIレスポンスの解析に失敗しました',
+          { originalError: parseError instanceof Error ? parseError.message : String(parseError) }
+        );
+      }
+      
+      return {
+        success: true,
+        message: '練習メニューの生成に成功しました',
+        menus: practiceMenus,
+        context: {
+          source: data.source,
+          instrument,
+          level,
+          keywords
+        }
+      };
+    } catch (error) {
+      logger.error('練習メニュー推薦エラー:', error);
+      throw createError(
+        ErrorType.INTERNAL,
+        '練習メニュー推薦中にエラーが発生しました',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  });
+
+/**
+ * ユーザープロファイルからキーワードを生成
+ */
+function generateKeywordsFromProfile(profile: any): string[] {
+  const keywords: string[] = [];
+  
+  // 楽器からキーワード生成
+  if (profile.selectedInstrument) {
+    keywords.push(profile.selectedInstrument);
+  }
+  
+  // レベルからキーワード生成
+  if (profile.level) {
+    keywords.push(profile.level);
+  }
+  
+  // その他のプロファイル情報からキーワード生成
+  // TODO: ユーザーの過去の練習記録や得意ジャンルなどからキーワード生成
+  
+  // デフォルトキーワード補完
+  if (keywords.length < 3) {
+    keywords.push('基礎練習');
+  }
+  
+  return keywords;
+}
+
+/**
+ * レッスンサマリーからデータを取得
+ */
+async function getDataFromLessonSummary(userId: string, summaryId: string): Promise<any> {
+  const lessonDoc = await db.collection('users').doc(userId).collection('lessons').doc(summaryId).get();
+  
+  if (!lessonDoc.exists) {
+    throw createError(
+      ErrorType.NOT_FOUND,
+      '指定されたレッスンデータが見つかりません'
+    );
+  }
+  
+  return lessonDoc.data() || { summary: '' };
+}
+
+/**
+ * レッスンサマリーからキーワードを抽出
+ */
+function extractKeywordsFromSummary(summary: string): string[] {
+  if (!summary) return ['基礎練習'];
+  
+  // 簡易的なキーワード抽出（実際のプロダクションでは自然言語処理を使用）
+  const commonWords = ['した', 'です', 'ます', 'など', 'から', 'まで', 'による', 'について'];
+  const words = summary
+    .replace(/[。、.,:;!?]/g, ' ')
+    .split(' ')
+    .map(w => w.trim())
+    .filter(w => w.length > 1 && !commonWords.includes(w));
+  
+  // 重複を除去
+  const uniqueWords = [...new Set(words)];
+  
+  // 最大5つのキーワードを返す
+  return uniqueWords.slice(0, 5);
+}
+
+/**
+ * チャット履歴からデータを取得
+ */
+async function getDataFromChatHistory(userId: string, chatId: string): Promise<any> {
+  const chatDoc = await db.collection('users').doc(userId).collection('chatRooms').doc(chatId).get();
+  
+  if (!chatDoc.exists) {
+    throw createError(
+      ErrorType.NOT_FOUND,
+      '指定されたチャットルームが見つかりません'
+    );
+  }
+  
+  // チャットメッセージも取得
+  const messagesSnapshot = await db
+    .collection('users')
+    .doc(userId)
+    .collection('chatRooms')
+    .doc(chatId)
+    .collection('messages')
+    .orderBy('createdAt', 'desc')
+    .limit(10)
+    .get();
+  
+  const messages = messagesSnapshot.docs.map(doc => doc.data());
+  const chatData = chatDoc.data() || {};
+  
+  return {
+    ...chatData,
+    messages,
+    title: chatData.title || 'チャット',
+    content: messages.map((m: any) => m.content).join(' ')
+  };
+}
+
+/**
+ * チャット内容からキーワードを抽出
+ */
+function extractKeywordsFromChat(chatData: any): string[] {
+  // チャットタイトルからキーワード抽出
+  const titleKeywords = chatData.title ? 
+    chatData.title.split(/\s+/).filter((w: string) => w.length > 1) : 
+    [];
+  
+  // チャット内容からキーワード抽出
+  const contentKeywords = chatData.content ? 
+    extractKeywordsFromSummary(chatData.content) : 
+    [];
+  
+  // トピックがあれば追加
+  if (chatData.topic) {
+    titleKeywords.push(chatData.topic);
+  }
+  
+  // 結合して重複を除去
+  const allKeywords = [...new Set([...titleKeywords, ...contentKeywords])];
+  
+  // 最大5つのキーワードを返す
+  return allKeywords.slice(0, 5);
+}
+
+/**
+ * 楽譜データ取得関数
+ */
+export const getSheetMusic = onCall(
+  {
+    region: FUNCTION_REGION,
+    timeoutSeconds: DEFAULT_TIMEOUT,
+  },
+  async (request) => {
+    // 認証チェック - v2では新しい方法で認証情報にアクセス
+    if (!request.auth) {
+      throw createError(
+        ErrorType.UNAUTHENTICATED,
+        "この機能を使用するにはログインが必要です"
+      );
+    }
+
+    // callableのリクエストデータを型安全に取得
+    const data = request.data as Record<string, unknown>;
+    
+    try {
+      const { sheetMusicId } = data;
+      
+      if (!sheetMusicId) {
+        throw createError(
+          ErrorType.INVALID_ARGUMENT,
+          '楽譜IDが指定されていません'
+        );
+      }
+      
+      // 楽譜データ取得
+      const sheetMusicDoc = await db.collection('sheetMusic').doc(sheetMusicId as string).get();
+      
+      if (!sheetMusicDoc.exists) {
+        throw createError(
+          ErrorType.NOT_FOUND,
+          '指定された楽譜が見つかりません'
+        );
+      }
+      
+      return {
+        success: true,
+        sheetMusic: sheetMusicDoc.data()
+      };
+    } catch (error) {
+      console.error('楽譜データ取得エラー:', error);
+      throw createError(
+        ErrorType.INTERNAL,
+        '楽譜データ取得中にエラーが発生しました',
+        { originalError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  });
+
+/**
+ * 管理者用：新しい練習メニューを登録する関数
+ */
+export const createPracticeMenu = onCall(
+  {
+    region: FUNCTION_REGION,
+    timeoutSeconds: DEFAULT_TIMEOUT,
+  },
+  async (request) => {
+    try {
+      // 認証チェック
+      if (!request.auth) {
+        throw createError(
+          ErrorType.UNAUTHENTICATED,
+          "この機能を使用するにはログインが必要です"
+        );
+      }
+
+      const userId = request.auth.uid;
+      logger.info(`ユーザー ${userId} が練習メニュー登録を開始`);
+      
+      // 管理者権限チェック
+      const userDoc = await db.collection('users').doc(userId).get();
+      const userData = userDoc.data();
+      
+      if (!userData?.isAdmin) {
+        logger.warn(`ユーザー ${userId} は管理者権限がありません`);
+        throw createError(
+          ErrorType.PERMISSION_DENIED,
+          "管理者権限が必要です"
+        );
+      }
+      
+      // リクエストデータ検証
+      const data = request.data as Record<string, unknown> || {};
+      
+      // 必須フィールドのチェック
+      const title = data.title as string;
+      const description = data.description as string;
+      const instrument = data.instrument as string;
+      const category = data.category as string;
+      const difficulty = data.difficulty as string;
+      
+      if (!title || !description || !instrument || !category || !difficulty) {
+        throw createError(
+          ErrorType.INVALID_ARGUMENT,
+          "必須フィールドが不足しています（title, description, instrument, category, difficulty）"
+        );
+      }
+      
+      // ステップデータのチェック
+      const steps = data.steps as Array<any>;
+      if (!Array.isArray(steps) || steps.length === 0) {
+        throw createError(
+          ErrorType.INVALID_ARGUMENT,
+          "練習ステップが必要です"
+        );
+      }
+      
+      // ステップに順序を追加
+      const stepsWithOrder = steps.map((step, index) => ({
+        ...step,
+        id: step.id || `step_${Date.now()}_${index}`,
+        orderIndex: index
+      }));
+      
+      // 新しいドキュメントIDを生成
+      const menuId = db.collection('practiceMenus').doc().id;
+      
+      // 練習メニューオブジェクト作成
+      const practiceMenu: PracticeMenu = {
+        id: menuId,
+        title,
+        description,
+        instrument,
+        category,
+        difficulty,
+        duration: Number(data.duration) || 30,
+        steps: stepsWithOrder,
+        tags: Array.isArray(data.tags) ? data.tags as string[] : [],
+        sheetMusicUrl: data.sheetMusicUrl as string || '',
+        videoUrl: data.videoUrl as string || '',
+        createdAt: admin.firestore.Timestamp.now(),
+        updatedAt: admin.firestore.Timestamp.now()
+      };
+      
+      // Firestoreに保存
+      await db.collection('practiceMenus').doc(menuId).set(practiceMenu);
+      
+      logger.info(`練習メニュー "${title}" を登録しました（ID: ${menuId}）`);
+      
+      // 成功結果を返す
+      return {
+        success: true,
+        message: '練習メニューの登録に成功しました',
+        menuId
+      };
+      
+    } catch (error) {
+      // エラーハンドリング
+      logger.error('練習メニュー登録エラー:', error);
+      
+      // エラーの種類に応じて適切な応答を返す
+      if (error instanceof Error) {
+        throw error; // createErrorで作成されたエラーはそのまま返す
+      }
+      
+      // その他の予期せぬエラー
+      throw createError(
+        ErrorType.INTERNAL,
+        "練習メニューの登録中にエラーが発生しました"
+      );
+    }
+  }
+);
+
+/**
+ * 管理者用：楽譜データをアップロードする関数
+ */
+export const uploadSheetMusic = onCall(
+  {
+    region: FUNCTION_REGION,
+    timeoutSeconds: DEFAULT_TIMEOUT,
+  },
+  async (request) => {
+    try {
+      // 認証チェック
+      if (!request.auth) {
+        throw createError(
+          ErrorType.UNAUTHENTICATED,
+          "この機能を使用するにはログインが必要です"
+        );
+      }
+
+      const userId = request.auth.uid;
+      logger.info(`ユーザー ${userId} が楽譜データのアップロードを開始`);
+      
+      // 管理者権限チェック
+      const userDoc = await db.collection('users').doc(userId).get();
+      const userData = userDoc.data();
+      
+      if (!userData?.isAdmin) {
+        logger.warn(`ユーザー ${userId} は管理者権限がありません`);
+        throw createError(
+          ErrorType.PERMISSION_DENIED,
+          "管理者権限が必要です"
+        );
+      }
+      
+      // リクエストデータ検証
+      const data = request.data as Record<string, unknown> || {};
+      
+      // 必須フィールドのチェック
+      const title = data.title as string;
+      const svgContent = data.svgContent as string;
+      const instrumentId = data.instrumentId as string;
+      
+      if (!title || !svgContent || !instrumentId) {
+        throw createError(
+          ErrorType.INVALID_ARGUMENT,
+          "必須フィールドが不足しています（title, svgContent, instrumentId）"
+        );
+      }
+      
+      // 新しいドキュメントIDを生成
+      const sheetMusicId = db.collection('sheetMusic').doc().id;
+      
+      // 楽譜データオブジェクト作成
+      const sheetMusic: SheetMusic = {
+        id: sheetMusicId,
+        title,
+        svgContent,
+        instrumentId,
+        difficulty: (data.difficulty as string) || 'medium',
+        tags: Array.isArray(data.tags) ? data.tags as string[] : [],
+        createdAt: admin.firestore.Timestamp.now(),
+        updatedAt: admin.firestore.Timestamp.now()
+      };
+      
+      // Firestoreに保存
+      await db.collection('sheetMusic').doc(sheetMusicId).set(sheetMusic);
+      
+      logger.info(`楽譜データ "${title}" をアップロードしました（ID: ${sheetMusicId}）`);
+      
+      // 成功結果を返す
+      return {
+        success: true,
+        message: '楽譜データのアップロードに成功しました',
+        sheetMusicId
+      };
+      
+    } catch (error) {
+      // エラーハンドリング
+      logger.error('楽譜データアップロードエラー:', error);
+      
+      // エラーの種類に応じて適切な応答を返す
+      if (error instanceof Error) {
+        throw error; // createErrorで作成されたエラーはそのまま返す
+      }
+      
+      // その他の予期せぬエラー
+      throw createError(
+        ErrorType.INTERNAL,
+        "楽譜データのアップロード中にエラーが発生しました"
+      );
+    }
+  }
+);
+
+// 関数をエクスポート
+export const practiceMenuFunctions = {
+  getPracticeMenuRecommendations,
+  getSheetMusic,
+  createPracticeMenu,
+  uploadSheetMusic
+}; 

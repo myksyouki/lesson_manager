@@ -21,13 +21,25 @@ export default function TaskDetail() {
   const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
   const [completionCount, setCompletionCount] = useState(0);
   const [streakCount, setStreakCount] = useState(0);
-  const [showPracticeTools, setShowPracticeTools] = useState(false);
+  const [sheetMusicUrl, setSheetMusicUrl] = useState<string | null>(null);
+  const [isPracticeMode, setIsPracticeMode] = useState(false);
 
   useEffect(() => {
     if (id) {
       const foundTask = tasks.find(t => t.id === id);
       if (foundTask) {
         setTask(foundTask);
+        
+        // 楽譜データを取得
+        const sheetMusic = foundTask.attachments?.find(
+          (att: any) => att.type === 'image' && att.format === 'image/jpeg'
+        );
+        if (sheetMusic) {
+          setSheetMusicUrl(sheetMusic.url);
+          console.log('シートミュージックURL設定:', sheetMusic.url);
+        } else {
+          console.log('シートミュージックデータが見つかりません:', foundTask.attachments);
+        }
         
         // タスクの完了回数とストリーク回数を取得
         const count = getTaskCompletionCount(foundTask.title);
@@ -105,6 +117,22 @@ export default function TaskDetail() {
     setShowCompletionAnimation(false);
   };
 
+  // 練習モードを開く処理
+  const handleOpenPracticeMode = () => {
+    if (sheetMusicUrl) {
+      setIsPracticeMode(true);
+      console.log('練習モードを開きます:', sheetMusicUrl);
+    } else {
+      console.log('楽譜データがないため練習モードを開けません');
+    }
+  };
+
+  // 練習モードを閉じる処理
+  const handleClosePracticeMode = () => {
+    setIsPracticeMode(false);
+    console.log('練習モードを閉じました');
+  };
+
   if (!task) {
     return (
       <View style={styles.loadingContainer}>
@@ -134,25 +162,28 @@ export default function TaskDetail() {
           onOpenChatRoom={handleOpenChatRoom}
         />
         
-        {/* 練習ツール */}
-        <View style={styles.toolsSection}>
+        {/* 練習モードボタン */}
+        {sheetMusicUrl && (
           <TouchableOpacity
-            style={styles.toolsToggleButton}
-            onPress={() => setShowPracticeTools(!showPracticeTools)}
+            style={styles.practiceButton}
+            onPress={handleOpenPracticeMode}
           >
-            <MaterialIcons
-              name={showPracticeTools ? "keyboard-arrow-up" : "music-note"}
-              size={24}
-              color="#4285F4"
-            />
-            <Text style={styles.toolsToggleText}>
-              {showPracticeTools ? "練習ツールを閉じる" : "練習ツールを開く"}
-            </Text>
+            <MaterialIcons name="music-note" size={24} color="#FFFFFF" />
+            <Text style={styles.practiceButtonText}>練習モード</Text>
           </TouchableOpacity>
-          
-          <PracticeTools isVisible={showPracticeTools} />
-        </View>
+        )}
       </ScrollView>
+      
+      {/* 練習モードの表示 */}
+      {isPracticeMode && sheetMusicUrl && (
+        <View style={styles.practiceModeFull}>
+          <PracticeTools 
+            isVisible={true} 
+            sheetMusicUrl={sheetMusicUrl} 
+            onClose={handleClosePracticeMode}
+          />
+        </View>
+      )}
       
       <View style={styles.swipeButtonContainer}>
         <TaskCompletionSwipeButton
@@ -195,25 +226,35 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
   },
-  toolsSection: {
-    marginBottom: 80, // スワイプボタンのスペースを確保
-  },
-  toolsToggleButton: {
+  practiceButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
     marginHorizontal: 16,
-    marginTop: 16,
-    backgroundColor: '#F5F9FF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E1ECFF',
+    marginTop: 24,
+    marginBottom: 80, // スワイプボタンのスペースを確保
+    backgroundColor: '#2196F3',
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  toolsToggleText: {
-    fontSize: 16,
+  practiceButtonText: {
+    fontSize: 18,
     fontWeight: '600',
-    color: '#4285F4',
+    color: '#FFFFFF',
     marginLeft: 8,
+  },
+  practiceModeFull: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000000',
+    zIndex: 9999,
   },
 });

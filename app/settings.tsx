@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  Pressable,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/auth';
@@ -18,6 +19,8 @@ import { useRouter } from 'expo-router';
 import { logout } from '../services/authService';
 import { StatusBar } from 'expo-status-bar';
 import { useSettingsStore } from '../store/settings';
+import { getAuth } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 // MenuItemの型定義
 interface MenuItemProps {
@@ -33,6 +36,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -100,8 +104,26 @@ export default function SettingsScreen() {
   };
   
   // ユーザーが管理者かどうかをチェック
-  // 開発目的で一時的にtrueに設定。本番環境では適切な管理者チェックに置き換える
-  const isAdmin = false; // 管理者機能を非表示
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const auth = getAuth();
+        const user = auth.currentUser;
+        
+        if (user) {
+          const db = getFirestore();
+          const userDocRef = doc(db, 'users', user.uid);
+          const userSnapshot = await getDoc(userDocRef);
+          
+          setIsAdmin(userSnapshot.exists() && userSnapshot.data()?.isAdmin === true);
+        }
+      } catch (error) {
+        console.error('管理者ステータス確認エラー:', error);
+      }
+    };
+    
+    checkAdminStatus();
+  }, []);
   
   // メニュー項目コンポーネント
   const MenuItem = ({ icon, text, onPress, iconColor = "#4A6572" }: MenuItemProps) => (
@@ -116,6 +138,28 @@ export default function SettingsScreen() {
       <MaterialIcons name="chevron-right" size={24} color="#aaa" />
     </TouchableOpacity>
   );
+
+  // 管理者メニューを追加
+  function AdminMenuItem() {
+    // 管理者でない場合は表示しない
+    if (!isAdmin) return null;
+    
+    return (
+      <Pressable
+        onPress={() => router.push('/admin')}
+        style={({ pressed }) => [
+          styles.settingItem,
+          { backgroundColor: pressed ? '#F0F0F0' : 'white' }
+        ]}
+      >
+        <View style={styles.settingContent}>
+          <MaterialIcons name="admin-panel-settings" size={24} color="#7B68EE" />
+          <Text style={styles.settingText}>管理者ページ</Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={24} color="#CCCCCC" />
+      </Pressable>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -243,6 +287,9 @@ export default function SettingsScreen() {
             </View>
           </View>
         </View>
+
+        {/* 管理者メニューを追加 */}
+        <AdminMenuItem />
       </ScrollView>
       
       <View style={styles.footer}>
@@ -461,5 +508,22 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
     color: 'white',
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  settingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+    marginLeft: 16,
   },
 });

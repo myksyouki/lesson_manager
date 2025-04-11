@@ -233,10 +233,15 @@ export default function RootLayout() {
             <Stack.Screen name="privacy-policy" options={{ title: 'プライバシーポリシー' }} />
             <Stack.Screen name="sync" options={{ title: 'データ同期' }} />
             <Stack.Screen name="shared-audio" options={{ title: '共有音声' }} />
+            
+            {/* 管理者画面ルート */}
+            <Stack.Screen name="admin" options={{ title: '管理者ページ' }} />
+            <Stack.Screen name="admin/practice-menu" options={{ title: '練習メニュー管理' }} />
+            <Stack.Screen name="admin/db-migration" options={{ title: 'DB移行' }} />
+            
             {/* 管理者機能は現在非表示
             <Stack.Screen name="admin/knowledge-management" options={{ title: 'ナレッジベース管理' }} />
             <Stack.Screen name="admin/knowledge-edit" options={{ title: 'ナレッジ編集' }} />
-            <Stack.Screen name="admin/db-migration" options={{ title: 'DB移行' }} />
             */}
           </>
         )}

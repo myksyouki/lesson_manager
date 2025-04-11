@@ -1,0 +1,1 @@
+function isAdmin() { return request.auth != null && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true); }

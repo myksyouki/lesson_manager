@@ -10,8 +10,9 @@ export interface Task {
   priority?: string; // 優先度（高、中、低）
   tags?: string[]; // タグのリスト
   attachments?: {
-    type: 'text' | 'pdf';
+    type: 'text' | 'pdf' | 'image';
     url: string;
+    format?: string; // 'image/jpeg'などのMIMEタイプ
   }[];
   userId?: string; // ユーザーID
   lessonId?: string; // 関連するレッスンID（存在する場合）
@@ -19,4 +20,11 @@ export interface Task {
   practiceDate?: string | Date | { seconds: number; nanoseconds: number }; // 練習予定日
   isPinned?: boolean; // ホーム画面にピン留めされているかどうか
   displayOrder?: number; // タスクの表示順序
+  steps?: {
+    id: string;
+    title: string;
+    description: string;
+    duration?: string | number; // 所要時間（分）
+    orderIndex: number;
+  }[]; // 練習ステップ
 }

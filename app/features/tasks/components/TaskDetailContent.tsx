@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Dimensions, Image } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Task } from '../../../../types/_task';
 import { useTaskStore } from '../../../../store/tasks';
@@ -68,14 +68,65 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
     return `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日`;
   };
 
+  // 楽譜データの取得
+  const sheetMusicUrl = task.attachments?.find(
+    (att: any) => att.type === 'image' && att.format === 'image/jpeg'
+  )?.url || null;
+
+  // 練習ステップを解析
+  const practiceSteps = task.steps || [];
+
   return (
     <>
       <View style={styles.container}>
-        {/* 詳細セクション */}
+        {/* 練習内容・目標セクション */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>詳細</Text>
+          <Text style={styles.sectionTitle}>練習内容・目標</Text>
           <Text style={styles.description}>{task.description || '詳細はありません'}</Text>
         </View>
+        
+        {/* 練習ステップセクション */}
+        {practiceSteps.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>練習ステップ</Text>
+            <View style={styles.stepsContainer}>
+              {practiceSteps.map((step: any, index: number) => (
+                <View key={index} style={styles.stepItem}>
+                  <View style={styles.stepNumberContainer}>
+                    <Text style={styles.stepNumber}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>{step.title}</Text>
+                    <Text style={styles.stepDescription}>{step.description}</Text>
+                    {step.duration && (
+                      <View style={styles.stepDuration}>
+                        <MaterialIcons name="timer" size={14} color="#4285F4" />
+                        <Text style={styles.stepDurationText}>{step.duration}分</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+        
+        {/* 楽譜セクション */}
+        {sheetMusicUrl && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>楽譜</Text>
+            <View style={styles.sheetMusicContainer}>
+              <Image 
+                source={{ uri: sheetMusicUrl }}
+                style={styles.sheetMusicPreview}
+                resizeMode="contain"
+              />
+              <Text style={styles.sheetMusicNote}>
+                練習ツールセクションで楽譜を拡大表示できます
+              </Text>
+            </View>
+          </View>
+        )}
         
         {/* 練習予定日セクション */}
         <View style={styles.section}>
@@ -240,6 +291,70 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginLeft: 4,
+  },
+  // 練習ステップ関連スタイル
+  stepsContainer: {
+    marginTop: 8,
+  },
+  stepItem: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  stepNumberContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#4285F4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    marginTop: 2,
+  },
+  stepNumber: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  stepContent: {
+    flex: 1,
+  },
+  stepTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#202124',
+    marginBottom: 4,
+  },
+  stepDescription: {
+    fontSize: 14,
+    color: '#5F6368',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  stepDuration: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepDurationText: {
+    fontSize: 14,
+    color: '#4285F4',
+    marginLeft: 4,
+  },
+  // 楽譜関連スタイル
+  sheetMusicContainer: {
+    alignItems: 'center',
+  },
+  sheetMusicPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    marginBottom: 8,
+  },
+  sheetMusicNote: {
+    fontSize: 14,
+    color: '#5F6368',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });
 

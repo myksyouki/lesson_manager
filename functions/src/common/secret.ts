@@ -1,5 +1,5 @@
 import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
-import {PROJECT_ID} from "../config";
+import * as logger from 'firebase-functions/logger';
 
 const secretClient = new SecretManagerServiceClient();
 
@@ -8,22 +8,41 @@ const secretClient = new SecretManagerServiceClient();
  * @param secretName シークレット名
  * @returns シークレットの値
  */
-export async function getSecret(secretName: string): Promise<string> {
-  // 環境変数からプロジェクトIDを取得、ない場合は設定ファイルの値を使用
-  const projectId = process.env.GOOGLE_CLOUD_PROJECT || PROJECT_ID;
-  console.log(`シークレット取得に使用するプロジェクトID: "${projectId}"`);
-  
-  if (!projectId) {
-    throw new Error("プロジェクトIDが設定されていません。環境変数GOOGLE_CLOUD_PROJECTを確認してください。");
-  }
-  
-  const name = `projects/${projectId}/secrets/${secretName}/versions/latest`;
-  
+export const getSecret = async (secretName: string): Promise<string> => {
   try {
-    const [version] = await secretClient.accessSecretVersion({name});
-    return version.payload?.data?.toString() || "";
+    const projectId = process.env.GCLOUD_PROJECT;
+    const name = `projects/${projectId}/secrets/${secretName}/versions/latest`;
+    
+    logger.info(`シークレット ${secretName} を取得中...`);
+    
+    const [version] = await secretClient.accessSecretVersion({ name });
+    
+    if (!version.payload || !version.payload.data) {
+      throw new Error(`シークレット ${secretName} の値が取得できませんでした`);
+    }
+    
+    const secretValue = version.payload.data.toString();
+    logger.info(`シークレット ${secretName} の取得に成功`);
+    
+    return secretValue;
   } catch (error) {
-    console.error(`シークレット取得エラー (${secretName}):`, error);
-    throw new Error(`シークレットの取得に失敗しました: ${secretName}`);
+    logger.error(`シークレット ${secretName} の取得に失敗:`, error);
+    throw new Error(`シークレット取得エラー: ${error}`);
   }
-} 
+};
+
+/**
+ * OpenAI APIキーを取得
+ * @returns OpenAI APIキー
+ */
+export const getOpenAIApiKey = async (): Promise<string> => {
+  return getSecret('openai-api-key');
+};
+
+/**
+ * DiFy APIキーを取得
+ * @returns DiFy APIキー
+ */
+export const getDifyApiKey = async (): Promise<string> => {
+  return getSecret('dify-api-key');
+}; 
