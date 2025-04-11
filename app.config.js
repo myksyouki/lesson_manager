@@ -1,7 +1,7 @@
 module.exports = {
   expo: {
     owner: "myksyouki",
-    name: "Lesson Manager",
+    name: "Resonote",
     slug: "lesson-manager",
     version: "0.0.2",
     orientation: "portrait",
