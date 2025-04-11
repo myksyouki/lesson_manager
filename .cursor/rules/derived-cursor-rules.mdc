@@ -83,13 +83,12 @@ app/
 - **デプロイ**: Firebase Hosting, Expo EAS
 - **ランタイム**: Node.js 20 (注意: Node.js 18 は 2025-04-30 に非推奨、2025-10-31 に廃止予定)
 - **テスト**: Jest, React Native Testing Library, @testing-library/jest-native, jest-expo, detox, react-native-iap
-- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios
+- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg
 - **アイコン生成**: Canva, Figma
 - **スプラッシュスクリーン**: (追加)
 - **アプリのバージョン**: 0.0.2 (更新)
 - **バンドルID**: com.regnition.appli (追加)
 - **パッケージ名**: com.regnition.appli (Android)
-- react-native-iap
 - react-native-iap
 
 
@@ -229,11 +228,11 @@ app/
 - スプラッシュスクリーンを追加する。
 - スプラッシュスクリーンの設定を`app.config.js`に追加する必要があります。  `splash.png`を`assets`フォルダに配置し、`app.config.js`に以下の設定を追加します。
 -```javascript
-----splash: {
-----  image: "./assets/splash.png",
-----  resizeMode: "contain",
-----  backgroundColor: "#ffffff"
-----}
+-----splash: {
+-----  image: "./assets/splash.png",
+-----  resizeMode: "contain",
+-----  backgroundColor: "#ffffff"
+-----}
 -```
 - アプリのバージョンを 0.0.1 に設定する
 - アプリのバンドルIDを `com.regnition.appli` に変更する。
@@ -248,10 +247,14 @@ app/
 - パッケージ名: com.regnition.appli (Android)
 - スプラッシュスクリーンを追加しました。`assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。
 - GoogleクライアントIDの更新が必要
----- アプリバージョン: 0.0.2 (更新)
----- バンドルID: com.regnition.appli
----- パッケージ名: com.regnition.appli (Android)
----- スプラッシュスクリーンを追加しました。 `assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。GoogleクライアントIDの更新が必要。
+----- アプリバージョン: 0.0.2 (更新)
+----- バンドルID: com.regnition.appli
+----- パッケージ名: com.regnition.appli (Android)
+----- スプラッシュスクリーンを追加しました。 `assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。GoogleクライアントIDの更新が必要。
+-+ アプリバージョン: 0.0.2 (更新)
+-+ バンドルID: com.regnition.appli
+-+ パッケージ名: com.regnition.appli (Android)
+-+ スプラッシュスクリーンを追加しました。 `assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。GoogleクライアントIDの更新が必要。
 -+ アプリバージョン: 0.0.2 (更新)
 -+ バンドルID: com.regnition.appli
 -+ パッケージ名: com.regnition.appli (Android)
@@ -284,3 +287,5 @@ app/
 + ログイン画面のテストユーザーボタンを一時的に非表示にする
 + 設定画面のGoogleクライアントIDの更新が必要
 + Googleログインボタンのディセンダーが切れている問題を修正する
++ GoogleログインボタンにGoogleアイコンを追加
++ ログイン画面のアプリ名とテストユーザーボタンを更新
