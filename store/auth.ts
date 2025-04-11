@@ -114,16 +114,27 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const currentUser = auth.currentUser;
 
       // 2. AsyncStorage/LocalStorageからユーザー情報の復元を試みる
-      let storedUserId = null;
+      let storedUser = null;
       
       try {
         if (Platform.OS === 'web') {
           // ウェブの場合はlocalStorageから直接読み込み
-          storedUserId = localStorage.getItem('userId');
+          const userId = localStorage.getItem('userId');
+          const userEmail = localStorage.getItem('userEmail');
+          if (userId) {
+            storedUser = {
+              uid: userId,
+              email: userEmail,
+              displayName: localStorage.getItem('userDisplayName'),
+              photoURL: localStorage.getItem('userPhotoURL')
+            };
+          }
         } else {
           // ネイティブアプリの場合はAsyncStorageから読み込み
           const userData = await getLocalStorageItem('auth_user');
-          storedUserId = userData?.uid;
+          if (userData && userData.uid) {
+            storedUser = userData;
+          }
         }
       } catch (storageError) {
         console.error("ストレージからの認証情報取得エラー:", storageError);
@@ -132,13 +143,21 @@ export const useAuthStore = create<AuthState>((set, get) => {
       // 3. 現在のユーザーが取得できた場合はそれを使用
       if (currentUser) {
         console.log("✅ Firebase認証からユーザー情報を復元:", currentUser.uid);
-        set({ user: currentUser, isAuthenticated: true, isLoading: false });
+        set({ user: {
+          uid: currentUser.uid,
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+          photoURL: currentUser.photoURL
+        }, isAuthenticated: true, isLoading: false });
         
         // ローカルストレージにも保存/更新
         try {
           if (Platform.OS === 'web') {
             localStorage.setItem('userAuth', 'true');
             localStorage.setItem('userId', currentUser.uid);
+            localStorage.setItem('userEmail', currentUser.email || '');
+            localStorage.setItem('userDisplayName', currentUser.displayName || '');
+            localStorage.setItem('userPhotoURL', currentUser.photoURL || '');
           } else {
             await setLocalStorageItem('auth_user', {
               uid: currentUser.uid,
@@ -151,14 +170,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
           console.error('ローカルストレージへの保存に失敗:', e);
         }
       } 
-      // 4. ストレージからユーザーIDが取得できていて、Firebaseにはない場合
-      else if (storedUserId) {
+      // 4. ストレージからユーザー情報が取得できていて、Firebaseにはない場合
+      else if (storedUser) {
         console.log("⚠️ ストレージにユーザー情報がありますが、Firebase認証セッションが見つかりません");
         console.log("🔄 ユーザーを暫定的に復元し、onAuthStateChangedの結果を待機します");
         
-        // 暫定的にユーザー情報をセット（最小限の情報）
+        // ローカルストレージからの情報でユーザー状態を設定
         set({ 
-          user: { uid: storedUserId, email: null, displayName: null, photoURL: null },
+          user: storedUser,
           isAuthenticated: true,
           isLoading: true // onAuthStateChangedを待機中という意味で
         });
@@ -177,70 +196,83 @@ export const useAuthStore = create<AuthState>((set, get) => {
   
   // 安全に初期チェックを実行 (setTimeout経由で非同期に実行)
   setTimeout(() => {
-    checkInitialAuth();
+    checkInitialAuth().catch(error => {
+      console.error('認証状態初期化エラー:', error);
+      // エラー時は明示的に未認証状態に設定
+      set({ user: null, isAuthenticated: false, isLoading: false });
+    });
   }, 0);
 
-  // 認証状態を監視
-  onAuthStateChanged(auth, async (user) => {
-    console.log("🔐 認証状態変更:", user ? `ユーザー ${user.uid} がログイン中` : "未ログイン");
-    set({ user: user || null, isAuthenticated: !!user, isLoading: false });
-    
-    // ユーザー情報をストレージに保存
-    if (user) {
+  // 認証状態を監視（一度だけリスナーを設定）
+  useEffect(() => {
+    console.log('🔐 認証状態監視を開始します');
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       try {
-        if (Platform.OS === 'web') {
-          localStorage.setItem('userAuth', 'true');
-          localStorage.setItem('userId', user.uid);
-        } else {
-          await setLocalStorageItem('auth_user', {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            photoURL: user.photoURL
-          });
-        }
-        console.log("✅ ユーザー情報をストレージに保存しました");
-      } catch (e) {
-        console.error('ストレージへの認証情報保存に失敗:', e);
-      }
-    } else {
-      // ログアウト時にストレージからも削除
-      try {
-        if (Platform.OS === 'web') {
-          localStorage.removeItem('userAuth');
-          localStorage.removeItem('userId');
-        } else {
-          await removeLocalStorageItem('auth_user');
-        }
-        console.log("✅ ストレージから認証情報を削除しました");
-      } catch (e) {
-        console.error('ストレージからの認証情報削除に失敗:', e);
-      }
-    }
-
-    // ユーザーがログインしている場合の処理
-    if (user) {
-      try {
-        // オンボーディング状態を確認
-        const isOnboardingCompleted = await checkOnboardingStatus();
+        console.log('🔐 認証状態変更:', user ? `ユーザー ${user.uid} がログイン中` : "未ログイン");
         
-        // 新規ユーザーフラグを設定 (ナビゲーションはレイアウトコンポーネントに任せる)
-        if (get().isNewUser) {
-          console.log("🆕 新規ユーザー - オンボーディングが必要");
-        } 
-        // オンボーディング未完了の場合も状態を記録
-        else if (!isOnboardingCompleted) {
-          console.log("🔄 既存ユーザー - オンボーディングが未完了");
-        }
-        // 通常ユーザーの場合のログ
-        else {
-          console.log("✅ 認証済みユーザー - 全設定完了");
+        if (user) {
+          // ユーザー情報をストアに保存
+          set({ 
+            user: {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              photoURL: user.photoURL
+            }, 
+            isAuthenticated: true, 
+            isLoading: false 
+          });
+          
+          // ストレージに保存
+          try {
+            if (Platform.OS === 'web') {
+              localStorage.setItem('userAuth', 'true');
+              localStorage.setItem('userId', user.uid);
+              localStorage.setItem('userEmail', user.email || '');
+              localStorage.setItem('userDisplayName', user.displayName || '');
+              localStorage.setItem('userPhotoURL', user.photoURL || '');
+            } else {
+              await setLocalStorageItem('auth_user', {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL
+              });
+            }
+          } catch (e) {
+            console.error('ストレージへの認証情報保存に失敗:', e);
+          }
+        } else {
+          // 未ログイン状態に設定
+          set({ user: null, isAuthenticated: false, isLoading: false });
+          
+          // ストレージから削除
+          try {
+            if (Platform.OS === 'web') {
+              localStorage.removeItem('userAuth');
+              localStorage.removeItem('userId');
+              localStorage.removeItem('userEmail');
+              localStorage.removeItem('userDisplayName');
+              localStorage.removeItem('userPhotoURL');
+            } else {
+              await removeLocalStorageItem('auth_user');
+            }
+          } catch (e) {
+            console.error('ストレージからの認証情報削除に失敗:', e);
+          }
         }
       } catch (error) {
-        console.error('ユーザープロファイル確認エラー:', error);
+        console.error('認証状態監視エラー:', error);
+        set({ user: null, isAuthenticated: false, isLoading: false });
       }
-    }
-  });
+    });
+    
+    // クリーンアップ関数を返す
+    return () => {
+      console.log('🔐 認証状態監視を終了します');
+      unsubscribe();
+    };
+  }, []);
 
   return {
     user: null,

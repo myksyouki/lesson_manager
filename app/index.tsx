@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View, ActivityIndicator } from 'react-native';
-import { Redirect } from 'expo-router';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/auth';
 import { auth } from '../config/firebase';
+import { checkOnboardingStatus } from '../services/userProfileService';
 
 // Firebase Functionsのエミュレータ設定（開発時に必要な場合）
 // import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
@@ -11,51 +12,87 @@ import { auth } from '../config/firebase';
 //   connectFunctionsEmulator(functions, 'localhost', 5001);
 // }
 
-export default function Root() {
+export default function IndexScreen() {
+  const router = useRouter();
   const { user, isLoading } = useAuthStore();
-  const [authChecked, setAuthChecked] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-  // 認証状態を確認だけ行い、ナビゲーションはRedirectコンポーネントに任せる
+  const [initializing, setInitializing] = useState(true);
+  
+  // 適切な画面に遷移
   useEffect(() => {
-    const checkAuth = async () => {
-      console.log('🔍 ルートページで認証状態を確認しています...');
+    let isMounted = true;
+    
+    const checkAuthAndRedirect = async () => {
+      // 少し遅延を入れて他のコンポーネントのマウントを待つ
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       try {
-        // Firebaseの現在の認証状態を確認
-        const currentUser = auth.currentUser;
+        console.log('🔍 認証状態確認中...');
         
-        if (!currentUser && !isLoading) {
-          console.log('❌ 認証されていないユーザー - ログイン画面に移動します');
-          setIsAuthenticated(false);
-        } else if (currentUser && !isLoading) {
-          console.log('✅ 認証済みユーザー:', currentUser.uid, '- ホームに移動します');
-          setIsAuthenticated(true);
+        // ユーザーが認証されていない場合
+        if (!auth.currentUser && !isLoading) {
+          console.log('➡️ ログインへリダイレクト');
+          if (isMounted) {
+            router.replace('/auth/login');
+          }
+          return;
+        }
+        
+        // ユーザーが認証されている場合
+        if (auth.currentUser) {
+          // オンボーディング状態を確認
+          const onboardingCompleted = await checkOnboardingStatus();
+          
+          if (!onboardingCompleted) {
+            console.log('➡️ オンボーディングへリダイレクト');
+            if (isMounted) {
+              router.replace('/onboarding');
+            }
+          } else {
+            console.log('➡️ メイン画面へリダイレクト');
+            if (isMounted) {
+              router.replace('/tabs');
+            }
+          }
         }
       } catch (error) {
         console.error('認証確認エラー:', error);
-        setIsAuthenticated(false);
+        if (isMounted) {
+          router.replace('/auth/login');
+        }
       } finally {
-        setAuthChecked(true);
+        if (isMounted) {
+          setInitializing(false);
+        }
       }
     };
     
-    if (!isLoading && !authChecked) {
-      checkAuth();
-    }
-  }, [isLoading, authChecked]);
-
-  if (isLoading || !authChecked || isAuthenticated === null) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
-  }
-
-  // 認証状態に基づいて適切なルートにリダイレクト
-  if (isAuthenticated) {
-    return <Redirect href="/tabs" />;
-  } else {
-    return <Redirect href="/auth/login" />;
-  }
+    checkAuthAndRedirect();
+    
+    // クリーンアップ関数
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoading, router]);
+  
+  // ローディング中の表示
+  return (
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color="#007BFF" />
+      <Text style={styles.loadingText}>読み込み中...</Text>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#333',
+  },
+});

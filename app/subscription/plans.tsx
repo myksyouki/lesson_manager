@@ -7,9 +7,10 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
-  Platform
+  Platform,
+  Dimensions
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { getAuth } from 'firebase/auth';
@@ -21,7 +22,20 @@ import {
   setupPurchaseListeners,
   endIAPConnection
 } from '../../services/subscriptions';
-import { Subscription } from 'react-native-iap';
+
+// react-native-iapのインポートをコメントアウト
+// import { Subscription } from 'react-native-iap';
+
+// 代わりにローカルの型定義を使用
+interface Subscription {
+  productId: string;
+  title: string;
+  description: string;
+  price: string;
+  currency: string;
+  subscriptionPeriodNumberIOS?: number;
+  subscriptionPeriodUnitIOS?: string;
+}
 
 export default function SubscriptionPlansScreen() {
   const [loading, setLoading] = useState(true);
@@ -36,11 +50,7 @@ export default function SubscriptionPlansScreen() {
         setLoading(true);
         
         // IAPを初期化
-        const initialized = await initializeIAP();
-        if (!initialized) {
-          Alert.alert('エラー', '課金システムの初期化に失敗しました。');
-          return;
-        }
+        await initializeIAP();
         
         // 利用可能なサブスクリプションを取得
         const availableSubs = await getAvailableSubscriptions();

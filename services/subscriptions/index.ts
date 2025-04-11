@@ -1,25 +1,58 @@
 import { Platform } from 'react-native';
-import {
-  initConnection,
-  endConnection,
-  getProducts,
-  getSubscriptions,
-  finishTransaction,
-  purchaseErrorListener,
-  purchaseUpdatedListener,
-  requestSubscription,
-  ProductPurchase,
-  PurchaseError,
-  Purchase,
-  SubscriptionPurchase,
-  Subscription,
-  validateReceiptIos,
-  validateReceiptAndroid,
-  flushFailedPurchasesCachedAsPendingAndroid,
-  isIosStorekit2,
-  clearTransactionIOS,
-  getAvailablePurchases
-} from 'react-native-iap';
+// react-native-iapのインポートをモックに置き換え
+// import {
+//   initConnection,
+//   endConnection,
+//   getProducts,
+//   getSubscriptions,
+//   finishTransaction,
+//   purchaseErrorListener,
+//   purchaseUpdatedListener,
+//   requestSubscription,
+//   ProductPurchase,
+//   PurchaseError,
+//   Purchase,
+//   SubscriptionPurchase,
+//   Subscription,
+//   validateReceiptIos,
+//   validateReceiptAndroid,
+//   flushFailedPurchasesCachedAsPendingAndroid,
+//   isIosStorekit2,
+//   clearTransactionIOS,
+//   getAvailablePurchases
+// } from 'react-native-iap';
+
+// モック型定義
+interface Purchase {
+  productId: string;
+  transactionId: string;
+  transactionReceipt: string;
+}
+
+interface PurchaseError {
+  code: string;
+  message: string;
+}
+
+interface Subscription {
+  productId: string;
+  title: string;
+  description: string;
+  price: string;
+  currency: string;
+  subscriptionPeriodNumberIOS?: number;
+  subscriptionPeriodUnitIOS?: string;
+}
+
+// react-native-iapのモック関数
+const endConnection = () => {};
+const purchaseUpdatedListener = (callback: (purchase: Purchase) => void) => ({ remove: () => {} });
+const purchaseErrorListener = (callback: (error: PurchaseError) => void) => ({ remove: () => {} });
+const finishTransaction = async (params: any) => {};
+const isIosStorekit2 = (transactionId: string) => false;
+const clearTransactionIOS = async (transactionId: string) => {};
+const getAvailablePurchases = async () => [] as Purchase[];
+
 import { getAuth } from 'firebase/auth';
 import { doc, setDoc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -65,24 +98,10 @@ export interface SubscriptionStatus {
 let purchaseUpdateSubscription: { remove: () => void } | null = null;
 let purchaseErrorSubscription: { remove: () => void } | null = null;
 
-/**
- * IAP接続を初期化
- */
-export const initializeIAP = async (): Promise<boolean> => {
-  try {
-    const result = await initConnection();
-    console.log('IAP接続初期化結果:', result);
-
-    // キャッシュされた失敗した購入をクリア（Androidのみ）
-    if (Platform.OS === 'android') {
-      await flushFailedPurchasesCachedAsPendingAndroid();
-    }
-
-    return true;
-  } catch (error) {
-    console.error('IAP接続初期化エラー:', error);
-    return false;
-  }
+// 一時的にサブスクリプション機能を無効化（ビルド用）
+export const initializeIAP = async (): Promise<void> => {
+  console.log('IAP initialization skipped');
+  return Promise.resolve();
 };
 
 /**
@@ -102,34 +121,21 @@ export const endIAPConnection = (): void => {
   endConnection();
 };
 
-/**
- * 利用可能なサブスクリプションを取得
- */
 export const getAvailableSubscriptions = async (): Promise<Subscription[]> => {
-  try {
-    const subscriptionIds = Object.values(SubscriptionIds);
-    const subscriptions = await getSubscriptions({ skus: subscriptionIds });
-    console.log('利用可能なサブスクリプション:', subscriptions);
-    return subscriptions;
-  } catch (error) {
-    console.error('サブスクリプション取得エラー:', error);
-    throw error;
-  }
+  console.log('getAvailableSubscriptions skipped');
+  return Promise.resolve([]);
 };
 
-/**
- * サブスクリプションを購入
- */
-export const purchaseSubscription = async (productId: string): Promise<void> => {
-  try {
-    await requestSubscription({
-      sku: productId,
-      andDangerouslyFinishTransactionAutomaticallyIOS: false,
-    });
-  } catch (error) {
-    console.error('サブスクリプション購入エラー:', error);
-    throw error;
-  }
+export const purchaseSubscription = async (
+  productId: string
+): Promise<void> => {
+  console.log('purchaseSubscription skipped', productId);
+  return Promise.resolve();
+};
+
+export const restorePurchases = async (): Promise<void> => {
+  console.log('restorePurchases skipped');
+  return Promise.resolve();
 };
 
 /**

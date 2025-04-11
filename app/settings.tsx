@@ -229,6 +229,12 @@ export default function SettingsScreen() {
             text="ヘルプとサポート" 
             onPress={openSupport}
           />
+
+          <MenuItem 
+            icon="bug-report" 
+            text="エラー報告" 
+            onPress={() => router.push('/error-report')}
+          />
         </View>
 
         {/* ログアウトセクション */}

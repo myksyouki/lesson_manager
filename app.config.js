@@ -11,7 +11,7 @@ module.exports = {
       resizeMode: "contain",
       backgroundColor: "#121212"
     },
-    scheme: "lessonmanager",
+    scheme: "lesson-manager",
     userInterfaceStyle: "automatic",
     sdkVersion: "52.0.0",
     runtimeVersion: "1.0.0",

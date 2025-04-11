@@ -38,10 +38,10 @@ functions/src/
       ├── storage.ts           # ストレージ操作
       ├── firestore.ts           # Firestore操作
       ├── audio.ts             # 音声ファイル操作
-      ├── llm.ts               # AI/LLM共通処理
+      ├── llm.ts             # AI/LLM共通処理
       ├── errors.ts            # エラー処理
       ├── secret.ts            # シークレット管理
-      └── dify.ts              # Dify API連携機能
+      └── dify.ts             # Dify API連携処理
 ```
 
 ### アプリフォルダ構造
@@ -83,13 +83,16 @@ app/
 - **デプロイ**: Firebase Hosting, Expo EAS
 - **ランタイム**: Node.js 20 (注意: Node.js 18 は 2025-04-30 に非推奨、2025-10-31 に廃止予定)
 - **テスト**: Jest, React Native Testing Library, @testing-library/jest-native, jest-expo, detox, react-native-iap
-- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg
+- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg, react-native-iap, react-native-error-boundary, react-native-fs, react-native-get-random-values, @react-native-google-signin/google-signin, react-native-keyboard-aware-scroll-view, react-native-view-shot
 - **アイコン生成**: Canva, Figma
 - **スプラッシュスクリーン**: (追加)
 - **アプリのバージョン**: 0.0.2 (更新)
 - **バンドルID**: com.regnition.appli (追加)
 - **パッケージ名**: com.regnition.appli (Android)
 - react-native-iap
+- expo-router@4.0.20
+- react-native-error-boundary@1.2.3
+- expo-router@^4.0.19
 
 
 ## PROJECT-SPECIFIC STANDARDS
@@ -116,6 +119,7 @@ app/
 - アプリバージョン：0.0.2 (更新)
 - アプリのバンドルIDを `com.regnition.appli` に変更する。(追加)
 - バンドルID: com.regnition.appli
+- 音声アップロード中のキャンセル機能を追加する
 
 
 ## REFERENCE EXAMPLES
@@ -138,6 +142,11 @@ app/
 
 - AsyncStorageの確認方法：アプリのログ出力、またはAsyncStorage専用のデバッグツールを使用する。
 - 認証エラーのデバッグ：Firebaseコンソールで認証ログを確認する。
+- React Hooksルール違反の修正: `useEffect`の依存配列に`router`を追加する
+- useEffectの依存配列に`router`を追加する必要があるケースがあります。`app/navigation/types.ts`ファイルを参照してください。
+- Firestoreのセキュリティルールを確認する：Firebaseコンソールの「Firestore Database」→「ルール」タブで確認し、エラー報告の書き込み権限を確認・付与する。
+- ContextNavigatorコンポーネントのエラーはExpo Routerの内部エラーであり、アプリコードでの修正は困難です。デバッグモードでのみ表示され、本番環境には影響しません。エラーバウンダリにより、問題発生時の適切なハンドリングが確保されています。次のExpo Routerアップデートを待ちましょう。
+-  `ContextNavigator`コンポーネントに関するエラーはExpo Routerの内部エラーであり、アプリコードでの修正は困難です。デバッグモードでのみ表示され、本番環境には影響しません。エラーバウンダリを追加することで、問題発生時の適切なハンドリングが確保されています。次のExpo Routerアップデートを待ちましょう。
 
 
 ## FINAL DOs AND DON'Ts
@@ -234,19 +243,19 @@ app/
 -----  backgroundColor: "#ffffff"
 -----}
 -```
-- アプリのバージョンを 0.0.1 に設定する
-- アプリのバンドルIDを `com.regnition.appli` に変更する。
-- GoogleクライアントIDの更新が必要
-- バンドルIDを `com.regnition.appli` に変更しました。
-- アプリバージョン: 0.0.2 (更新)
-- バンドルID: com.regnition.appli
-- パッケージ名: com.regnition.appli (Android)
-- スプラッシュスクリーン設定追加: app.config.jsに`splash`セクションを追加
-- アプリバージョン: 0.0.2 (更新)
-- バンドルID: com.regnition.appli
-- パッケージ名: com.regnition.appli (Android)
-- スプラッシュスクリーンを追加しました。`assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。
-- GoogleクライアントIDの更新が必要
+--- アプリのバージョンを 0.0.1 に設定する
+--- アプリのバンドルIDを `com.regnition.appli` に変更する。
+--- GoogleクライアントIDの更新が必要
+--- バンドルIDを `com.regnition.appli` に変更しました。
+--- アプリバージョン: 0.0.2 (更新)
+--- バンドルID: com.regnition.appli
+--- パッケージ名: com.regnition.appli (Android)
+--- スプラッシュスクリーン設定追加: app.config.jsに`splash`セクションを追加
+--- アプリバージョン: 0.0.2 (更新)
+--- バンドルID: com.regnition.appli
+--- パッケージ名: com.regnition.appli (Android)
+--- スプラッシュスクリーンを追加しました。`assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。
+--- GoogleクライアントIDの更新が必要
 ----- アプリバージョン: 0.0.2 (更新)
 ----- バンドルID: com.regnition.appli
 ----- パッケージ名: com.regnition.appli (Android)
@@ -267,9 +276,6 @@ app/
 -+ バンドルID: com.regnition.appli
 -+ パッケージ名: com.regnition.appli (Android)
 -+ スプラッシュスクリーンを追加しました。 `assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。GoogleクライアントIDの更新が必要。
-+ アプリバージョン: 0.0.2 (更新)
-+ バンドルID: com.regnition.appli
-+ パッケージ名: com.regnition.appli (Android)
 + スプラッシュスクリーンを追加しました。`assets/splash.png` を作成し、`app.config.js` に設定を追加しました。背景色は`#121212`に設定。GoogleクライアントIDの更新が必要。  アプリアイコンも更新済み。
 + アプリのバージョンを 0.0.2 に設定する
 + アプリのバンドルIDを `com.regnition.appli` に変更する
@@ -289,3 +295,29 @@ app/
 + Googleログインボタンのディセンダーが切れている問題を修正する
 + GoogleログインボタンにGoogleアイコンを追加
 + ログイン画面のアプリ名とテストユーザーボタンを更新
++ 設定画面の「サブスクリプション管理」セクションを非表示にする
++ Firebase認証の永続化を設定し、AsyncStorageを使用する。
++ 設定画面にエラー報告機能を追加する。エラー報告内容はFirestoreに保存する。
++ レッスン登録画面で利用規約への同意を必須にする
++ 音声アップロードのキャンセル機能を追加する
+
+- レッスン登録画面で利用規約への同意を必須にする
+- 音声アップロードのキャンセル機能を追加する
++ レッスン登録画面で利用規約への同意を必須にする
++ 音声アップロードのキャンセル機能を追加する
++ 設定画面の「サブスクリプション管理」を非表示にする
++ ログイン画面のアプリ名を「Resonote」に変更する
++ ログイン画面の「テストユーザー」ボタンを一時的に非表示にする
++ 設定画面にエラー報告機能を追加する。エラー報告内容はFirestoreに保存する。
++ アプリアイコンが反映されていなかった問題を修正する。
++ 文字起こしエラーを修正する。
++ 認証ヘッダーに不正な文字が含まれていた問題を修正する。
++ OpenAI APIのクォータ制限に達していた問題を修正する。
++ サブスクリプション管理機能を実装する。
++ 各ストア（App StoreとGoogle Play）のサブスクリプション管理へのリンクを追加する。
++ Firebase認証の永続化を設定し、アプリを閉じてもログイン状態が維持されるようにする。
+
++ **`app/navigation/types.ts`ファイルの更新**: `useRouter`が依存関係に追加されました。
+
++ Firestoreのセキュリティルールにエラー報告コレクションへの書き込み権限を追加する必要があります。
++ Firestoreセキュリティルールを更新しました。エラー報告コレクションへの書き込み権限を追加しました。
