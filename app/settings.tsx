@@ -161,12 +161,14 @@ export default function SettingsScreen() {
             onPress={() => router.push('/profile')}
           />
           
+          {/* サブスクリプション管理を非表示
           <MenuItem 
             icon="payments" 
             text="サブスクリプション管理" 
             onPress={() => router.push('/subscription')}
             iconColor="#4caf50"
           />
+          */}
         </View>
 
         {/* アプリ設定セクション */}
@@ -253,7 +255,7 @@ export default function SettingsScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>バージョン</Text>
-              <Text style={styles.infoValue}>0.0.1</Text>
+              <Text style={styles.infoValue}>0.0.2</Text>
             </View>
             <View style={[styles.infoItem, styles.noBorder]}>
               <Text style={styles.infoLabel}>開発者</Text>

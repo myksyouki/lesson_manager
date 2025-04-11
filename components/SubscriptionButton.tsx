@@ -1,26 +1,37 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
-import * as WebBrowser from 'expo-web-browser';
+import { initializeIAP, purchaseSubscription, SubscriptionIds, getAvailableSubscriptions } from '../services/subscriptions';
 
-import { db } from '../config/firebase';
-
-interface PortalLinkResponse {
-  url: string;
+interface SubscriptionButtonProps {
+  plan: 'standard' | 'premium';
+  price?: string;
+  title?: string;
 }
 
-interface CheckoutSessionResponse {
-  url: string;
-}
-
-export default function SubscriptionButton() {
+export default function SubscriptionButton({ plan, price, title }: SubscriptionButtonProps) {
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const router = useRouter();
   const auth = getAuth();
-  const functions = getFunctions();
+
+  // コンポーネントマウント時にIAPを初期化
+  useEffect(() => {
+    const setupIAP = async () => {
+      try {
+        const result = await initializeIAP();
+        setInitialized(result);
+        if (!result) {
+          console.error('IAP初期化に失敗しました');
+        }
+      } catch (error) {
+        console.error('IAP初期化エラー:', error);
+      }
+    };
+
+    setupIAP();
+  }, []);
 
   const handleSubscription = async () => {
     if (!auth.currentUser) {
@@ -29,34 +40,35 @@ export default function SubscriptionButton() {
       return;
     }
 
+    if (!initialized) {
+      Alert.alert('エラー', '購入システムの初期化中です。しばらくお待ちください。');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // ユーザーの購読状態を確認
-      const customerRef = doc(db, 'customers', auth.currentUser.uid);
-      const customerDoc = await getDoc(customerRef);
+      // 利用可能なサブスクリプションを取得
+      const subscriptions = await getAvailableSubscriptions();
       
-      if (customerDoc.exists() && customerDoc.data()?.subscriptions) {
-        // すでに購読している場合はポータルリンクを取得
-        const createPortalLink = httpsCallable<any, PortalLinkResponse>(functions, 'ext-firestore-stripe-payments-createPortalLink');
-        const { data } = await createPortalLink({ returnUrl: window.location.origin });
-        
-        // ポータルリンクに移動
-        await WebBrowser.openBrowserAsync(data.url);
-      } else {
-        // 購読していない場合はチェックアウトセッションを作成
-        const createCheckoutSession = httpsCallable<any, CheckoutSessionResponse>(functions, 'ext-firestore-stripe-payments-createCheckoutSession');
-        
-        // プラン指定（Stripeで作成したプランID）
-        const { data } = await createCheckoutSession({
-          price: 'price_YOUR_PRICE_ID', // ここにStripeで作成した価格IDを入力
-          success_url: window.location.origin,
-          cancel_url: window.location.origin,
-        });
-        
-        // チェックアウトページに移動
-        await WebBrowser.openBrowserAsync(data.url);
+      if (subscriptions.length === 0) {
+        Alert.alert('エラー', 'サブスクリプション情報を取得できませんでした。');
+        return;
       }
+      
+      // 選択されたプランのIDを取得
+      const productId = plan === 'premium' 
+        ? SubscriptionIds.PREMIUM 
+        : SubscriptionIds.STANDARD;
+      
+      console.log(`サブスクリプション購入を開始: ${productId}`);
+      
+      // サブスクリプションを購入
+      await purchaseSubscription(productId);
+      
+      // 注意: 実際の購入完了はリスナーで処理される
+      console.log('購入プロセスを開始しました');
+      
     } catch (error) {
       console.error('Subscription error:', error);
       Alert.alert('エラー', '購読処理中にエラーが発生しました。');
@@ -65,17 +77,23 @@ export default function SubscriptionButton() {
     }
   };
 
+  // ボタンのタイトルを決定
+  const buttonTitle = title || (plan === 'premium' ? 'プレミアムプランに登録' : 'スタンダードプランに登録');
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        style={styles.button}
+        style={[styles.button, plan === 'premium' ? styles.premiumButton : styles.standardButton]}
         onPress={handleSubscription}
-        disabled={loading}
+        disabled={loading || !initialized}
       >
         {loading ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
-          <Text style={styles.buttonText}>プレミアムプランに登録</Text>
+          <>
+            <Text style={styles.buttonText}>{buttonTitle}</Text>
+            {price && <Text style={styles.priceText}>{price}</Text>}
+          </>
         )}
       </TouchableOpacity>
     </View>
@@ -87,14 +105,24 @@ const styles = StyleSheet.create({
     margin: 20,
   },
   button: {
-    backgroundColor: '#6772e5',
     borderRadius: 8,
     padding: 15,
     alignItems: 'center',
+  },
+  standardButton: {
+    backgroundColor: '#4A90E2',
+  },
+  premiumButton: {
+    backgroundColor: '#6772e5',
   },
   buttonText: {
     color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  priceText: {
+    color: '#ffffff',
+    fontSize: 14,
+    marginTop: 5,
   },
 }); 
