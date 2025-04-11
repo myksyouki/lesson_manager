@@ -47,7 +47,6 @@ module.exports = {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         CFBundleAllowMixedLocalizations: true,
-        NSMicrophoneUsageDescription: "音声録音のためにマイクへのアクセスが必要です",
         UIBackgroundModes: ["audio"],
         LSSupportsOpeningDocumentsInPlace: true,
         UIFileSharingEnabled: true,
@@ -62,9 +61,7 @@ module.exports = {
         foregroundImage: "./assets/images/icon.png",
         backgroundColor: "#ffffff"
       },
-      permissions: [
-        "android.permission.RECORD_AUDIO"
-      ]
+      permissions: []
     },
     web: {
       bundler: "metro",

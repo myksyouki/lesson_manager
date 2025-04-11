@@ -5,7 +5,7 @@ globs: *
 
 ## PROJECT OVERVIEW
 
-このプロジェクトは、音楽レッスンの記録と練習をサポートする総合AIアシスタントです。ユーザーはレッスン音声をアップロードすると、AI技術により文字起こし・要約・タグ付けが自動生成され、レッスン内容を効率的に管理できます。さらに、レッスン内容や個人の技術レベルに基づいた最適な練習メニューをAIが提案し、ユーザーの日々の練習をサポートします。練習に関する相談もAIに行えるなど、レッスンから日常練習までをトータルにサポートするプラットフォームです。
+このプロジェクトは、音楽レッスンの記録と練習をサポートする総合AIアシスタントです。ユーザーはレッスン音声をアップロードすると、AI技術により文字起こし・要約・タグ付けが自動生成され、レッスン内容を効率的に管理できます。さらに、レッスン内容や個人の技術レベルに基づいた最適な練習メニューをAIが提案し、ユーザーの日々の練習をサポートします。練習に関する相談もAIに行えるなど、レッスンから日常練習までをトータルにサポートするプラットフォームです。アプリ名は「Resonote」に変更済みです。
 
 
 ## CODE STYLE
@@ -93,6 +93,7 @@ app/
 - expo-router@4.0.20
 - react-native-error-boundary@1.2.3
 - expo-router@^4.0.19
+- expo-av@15.0.2
 
 
 ## PROJECT-SPECIFIC STANDARDS
@@ -129,7 +130,7 @@ app/
 
 ## PROJECT DOCUMENTATION & CONTEXT SYSTEM
 
-- **プライバシーポリシー**: 2025/03/21に第一版が作成されました。  `app/privacy-policy.tsx`ファイルを参照してください。  最終更新日：第一版 [2025/03/21]
+- **プライバシーポリシー**: 2025/03/21に第一版が作成されました。  `app/privacy-policy.tsx`ファイルを参照してください。  最終更新日：第二版 [2025/04/11]
 - **利用規約**: 2025/03/21に第一版が作成されました。 `app/terms-of-service.tsx`ファイルを参照してください。  最終更新日：第一版 [2025/03/21]
 - **データ構造**: レッスンデータと練習メニューデータのスキーマは`project-rules.md`を参照。
 - **ヘルプとサポート**: `app/help-support.tsx`ファイルを参照してください。
@@ -340,3 +341,196 @@ app/
 
 + レッスン登録画面で利用規約への同意を必須にする
 + 音声アップロードのキャンセル機能を追加する
++ アプリの名称を「Resonote」に変更しました。
+
++ アプリ名は「Resonote」に変更済み。
+
+
+### レッスン管理システムのプロジェクトルール
+
+```markdown
+# 音楽レッスン・練習総合AIアシスタント
+
+# プロジェクト概要
+
+このプロジェクトは、音楽レッスンの記録と練習をサポートする総合AIアシスタントです。ユーザーはレッスン音声をアップロードすると、AI技術により文字起こし・要約・タグ付けが自動生成され、レッスン内容を効率的に管理できます。さらに、レッスン内容や個人の技術レベルに基づいた最適な練習メニューをAIが提案し、ユーザーの日々の練習をサポートします。練習に関する相談もAIに行えるなど、レッスンから日常練習までをトータルにサポートするプラットフォームです。
+
+## 技術スタック
+
+- **文字起こし**: OpenAI Whisper API
+- **要約生成**: Dify API
+- **AI対話**: Dify API
+- **バックエンド**: Firebase (Functions, Firestore, Storage)
+- **フロントエンド**: React Native with Expo
+- **デプロイ**: Firebase Hosting, Expo EAS
+- **ランタイム**: Node.js 20 (注意: Node.js 18 は 2025-04-30 に非推奨、2025-10-31 に廃止予定)
+
+## データ構造
+
+### レッスンデータ
+
+```typescript
+interface Lesson {
+  // 基本情報
+  id: string;
+  title: string;
+  date: Timestamp;
+  instrument: string;
+  teacherName?: string;
+  user_id: string;
+  
+  // 音声処理関連
+  audioUrl?: string;
+  audioPath?: string;
+  audioFileName?: string;
+  fileName?: string;
+  audioDuration?: number;
+  audioSize?: number;
+  transcription?: string;
+  summary?: string;
+  tags?: string[];
+  
+  // 処理状態管理
+  status?: "pending" | "processing" | "completed" | "error";
+  summaryRequired: boolean;
+  summaryInProgress: boolean;
+  processingProgress?: number;
+  processingMessage?: string;
+  processingTimeSeconds?: number;
+  transcriptionCompleteTime?: Timestamp;
+  transcriptionId?: string;
+  processingId?: string;
+  lockAcquiredAt?: Timestamp;
+  
+  // アーカイブ関連
+  isArchived: boolean;
+  archivedDate?: Timestamp;
+  isFavorite?: boolean;
+  
+  // その他
+  pieces?: string; // JSON文字列として保存
+  aiInstructions?: string; // 最大100文字
+  notes?: string;
+  
+  // 時間情報
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+### 練習メニューデータ
+
+```typescript
+// 練習メニューコレクション
+interface PracticeMenu {
+  id: string;                // ドキュメントID
+  title: string;             // メニュータイトル
+  description: string;       // 詳細説明
+  instrument: string;        // 対象楽器
+  category: string;          // カテゴリ（基礎練習/テクニック/表現など）
+  difficulty: string;        // 難易度（初級/中級/上級）
+  duration: number;          // 所要時間（分）
+  sheetMusicUrl?: string;    // 楽譜URL
+  videoUrl?: string;         // 解説動画URL（オプション）
+  steps: PracticeStep[];     // 練習ステップ
+  tags: string[];            // 検索用タグ
+  createdAt: Timestamp;      // 作成日時
+  updatedAt: Timestamp;      // 更新日時
+}
+
+// 練習ステップ
+interface PracticeStep {
+  id: string;                // ステップID
+  title: string;             // ステップ名
+  description: string;       // 詳細説明
+  duration: number;          // 所要時間（分）
+  orderIndex: number;        // 順序
+}
+
+// 楽譜データモデル
+interface SheetMusic {
+  id: string;                // 楽譜ID
+  title: string;             // タイトル
+  svgContent: string;        // SVG形式の楽譜データ
+  instrumentId: string;      // 対象楽器ID
+  difficulty: string;        // 難易度
+  tags: string[];            // 検索用タグ
+  createdAt: Timestamp;      // 作成日時
+  updatedAt: Timestamp;      // 更新日時
+}
+```
+
+## 機能制限とガイドライン
+
+### 音声処理
+
+- **最大音声時間**: 90分
+- **最大ファイルサイズ**: 100MB
+- **大きなファイル処理**:
+  - 25MB以上: ファイルを10分単位（20秒オーバーラップ）で分割処理
+  - 30MB以上: Wi-Fi接続でない場合はユーザーに警告表示
+- **タグ生成**: 3つの個別単語（不足する場合は楽器名で補完）
+
+### Firebase関数設定
+
+- **リージョン**: asia-northeast1 (必須)
+- **processAudioOnUpload関数**:
+  - メモリ: 4GB
+  - タイムアウト: 60分
+  - 最大インスタンス数: 50
+- **generateTasksFromLessons関数**:
+  - メモリ: 4GB
+  - タイムアウト: 300秒
+  - 最大インスタンス数: 10
+- **エラー処理**:
+  - APIコールには堅牢なエラーハンドリングとロギング
+  - 失敗したAPI呼び出しには指数バックオフによる再試行メカニズム
+
+## UI/UXガイドライン
+
+### 画面構成
+
+- **ホーム画面**:
+  - スクロール可能なデザイン
+  - 「タスク完了」セクションは「月間タスク完了数: X」に置き換え
+  - スクロール可能なバッジセクションとして表示
+  - 自動レコメンドされた練習メニューを表示
+
+- **レッスン画面**:
+  - 「アーカイブ」タブを追加（月別表示）
+  - アーカイブ/アーカイブ解除機能
+  - レッスン詳細画面からタスク生成機能へアクセス可能
+
+- **AI レッスンタブ**:
+  - 練習セクションのチャットルーム（楽器別に変更）:
+    - サックスの場合: 音色、高音域、低音域、タンギング、ビブラート
+  - Dify APIと統合された相談セクション
+  - チャット画面からタスク生成機能へアクセス可能
+
+- **タスクタブ**:
+  - 練習メニュー生成機能
+  - 練習メニュー一覧表示
+  - 詳細表示と完了機能
+
+- **進捗（旧スケジュール）タブ**:
+  - カレンダービュー
+  - グラフビュー（月間タスク完了数、練習日数、レッスン数）
+  - タップで詳細表示、スワイプで期間ナビゲーション
+
+- **管理画面**:
+  - 管理者権限設定機能
+  - 練習メニュー登録・管理機能
+  - システム設定管理機能
+
+## コード構造
+
+### 関数フォルダ構造
+
+```
+functions/src/
+  ├── index.ts                 # メインエントリーポイント
+  ├── config/                  # 設定
+  │   └── index.ts             # 設定
+  ├── summaries/               # 要約関連機能
+  │   ├── index.ts             # 要約機能のエクスポート
+  │   ├── triggers.ts          # ストレージ/Firestoreトリガー

@@ -5247,9 +5247,9 @@ expo-auth-session@~6.0.3:
     expo-web-browser "~14.0.2"
     invariant "^2.2.4"
 
-expo-av@~15.0.2:
+expo-av@^15.0.2:
   version "15.0.2"
-  resolved "https://registry.npmjs.org/expo-av/-/expo-av-15.0.2.tgz"
+  resolved "https://registry.yarnpkg.com/expo-av/-/expo-av-15.0.2.tgz#65bb08658a7fe3a67aa47da614abbfae9adb684e"
   integrity sha512-AHIHXdqLgK1dfHZF0JzX3YSVySGMrWn9QtPzaVjw54FAzvXfMt4sIoq4qRL/9XWCP9+ICcCs/u3EcvmxQjrfcA==
 
 expo-blur@^14.0.3:
@@ -5348,18 +5348,6 @@ expo-haptics@^14.0.1:
   version "14.0.1"
   resolved "https://registry.npmjs.org/expo-haptics/-/expo-haptics-14.0.1.tgz"
   integrity sha512-V81FZ7xRUfqM6uSI6FA1KnZ+QpEKnISqafob/xEfcx1ymwhm4V3snuLWWFjmAz+XaZQTqlYa8z3QbqEXz7G63w==
-
-expo-image-loader@~5.0.0:
-  version "5.0.0"
-  resolved "https://registry.npmjs.org/expo-image-loader/-/expo-image-loader-5.0.0.tgz"
-  integrity sha512-Eg+5FHtyzv3Jjw9dHwu2pWy4xjf8fu3V0Asyy42kO+t/FbvW/vjUixpTjPtgKQLQh+2/9Nk4JjFDV6FwCnF2ZA==
-
-expo-image-picker@^16.0.6:
-  version "16.0.6"
-  resolved "https://registry.npmjs.org/expo-image-picker/-/expo-image-picker-16.0.6.tgz"
-  integrity sha512-HN4xZirFjsFDIsWFb12AZh19fRzuvZjj2ll17cGr19VNRP06S/VPQU3Tdccn5vwUzQhOBlLu704CnNm278boiQ==
-  dependencies:
-    expo-image-loader "~5.0.0"
 
 expo-intent-launcher@~12.0.2:
   version "12.0.2"
