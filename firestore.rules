@@ -22,6 +22,17 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
     
+    // エラー報告のアクセスルール
+    match /errorReports/{reportId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.userId == 'anonymous'
+      );
+      // 認証済みユーザーまたは匿名ユーザーの作成を許可
+      allow create: if true;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
     // レッスンへのアクセスルール
     match /lessons/{lessonId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.shared == true);

@@ -141,8 +141,8 @@ const LessonCard: React.FC<LessonCardProps> = ({
         <View style={styles.selectionIndicator}>
           <MaterialIcons 
             name={isSelected ? "check-circle" : "radio-button-unchecked"} 
-            size={22} 
-            color={isSelected ? theme.colors.primary : theme.colors.textTertiary} 
+            size={32} 
+            color={isSelected ? "#4285F4" : "rgba(0,0,0,0.15)"} 
           />
         </View>
       )}
@@ -171,7 +171,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
           )}
           
           <TouchableOpacity 
-            style={styles.iconButton}
+            style={[styles.iconButton, styles.deleteButton]}
             onPress={handleDeletePress}
             hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
           >
@@ -264,11 +264,17 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
+    marginLeft: 'auto',
+    minWidth: 80,  // さらに幅を広げる
   },
   iconButton: {
-    padding: 6,
-    marginLeft: 8,
+    padding: 8,    // パディングを増やす
+    marginLeft: 6,
+  },
+  deleteButton: {
+    marginLeft: 12,  // さらに余白を増やす
   },
   pieceTitle: {
     fontSize: 18,
@@ -302,9 +308,12 @@ const styles = StyleSheet.create({
   },
   selectionIndicator: {
     position: 'absolute',
-    right: 16,
-    top: 16,
+    right: 12,
+    bottom: 12,   // 上から下へ移動
     zIndex: 10,
+    backgroundColor: 'transparent',
+    padding: 4,   // タップ領域を広げる
+    borderRadius: 20,
   },
 });
 

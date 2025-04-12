@@ -69,7 +69,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             タグ
           </Text>
           <MaterialIcons 
-            name={isTagsVisible ? "expand-more" : "expand-less"} 
+            name={isTagsVisible ? "expand-less" : "expand-more"} 
             size={20} 
             color={theme.colors.textSecondary} 
           />

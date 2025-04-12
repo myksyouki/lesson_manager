@@ -22,6 +22,7 @@ import { MaterialIcons, Feather, MaterialCommunityIcons } from '@expo/vector-ico
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import LoadingScreen from '../../components/LoadingScreen';
+import GoogleIcon from '../../components/GoogleIcon';
 
 const { width, height } = Dimensions.get('window');
 
@@ -263,7 +264,7 @@ export default function LoginScreen() {
                 />
               </LinearGradient>
             </View>
-            <Text style={styles.appName}>Lesson Manager</Text>
+            <Text style={styles.appName}>Resonote</Text>
             <Text style={styles.appTagline}>音楽の旅をもっと楽しく</Text>
           </View>
 
@@ -371,13 +372,11 @@ export default function LoginScreen() {
                   onPress={handleGoogleSignIn}
                   disabled={isLoading}
                 >
-                  <Image 
-                    source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg' }} 
-                    style={styles.googleIcon} 
-                  />
+                  <GoogleIcon width={24} height={24} style={styles.googleIcon} />
                   <Text style={styles.socialButtonText}>Googleでログイン</Text>
                 </TouchableOpacity>
 
+                {/* テストユーザーボタンを一時的に非表示
                 <TouchableOpacity
                   style={[
                     styles.socialButton, 
@@ -393,6 +392,7 @@ export default function LoginScreen() {
                   />
                   <Text style={styles.testUserButtonText}>テストユーザー</Text>
                 </TouchableOpacity>
+                */}
               </View>
 
               <View style={styles.switchContainer}>
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    height: 50,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#A8D1EB',
@@ -629,8 +629,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#4A6B8A',
   },
   googleIcon: {
-    width: 20,
-    height: 20,
     marginRight: 8,
   },
   socialButtonText: {
@@ -638,6 +636,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    lineHeight: 20,
+    paddingVertical: 2,
   },
   testUserButtonText: {
     color: '#FFFFFF',

@@ -38,6 +38,7 @@ interface LessonFormData {
   tags: string[];
   userPrompt?: string; // AI用の指示（要約生成時のヒント）
   priority?: 'high' | 'medium'; // 優先度（重要/基本）
+  agreedToTerms: boolean; // 利用規約同意
 }
 
 // ユーザープロファイル情報の型定義
@@ -67,6 +68,7 @@ export default function LessonForm() {
     notes: '',
     pieces: [],
     tags: [],
+    agreedToTerms: false, // 利用規約同意の初期値はfalse
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState('');
@@ -77,6 +79,9 @@ export default function LessonForm() {
     selectedInstrument: 'standard',
     selectedModel: 'standard'
   });
+  
+  const [isCancellable, setIsCancellable] = useState(false);
+  const uploadController = useRef<AbortController | null>(null);
   
   // ユーザープロファイルから楽器情報を取得
   useEffect(() => {
@@ -133,7 +138,9 @@ export default function LessonForm() {
 
   // フォームのバリデーション
   const isFormValid = () => {
-    return formData.teacherName.trim() !== '' && formData.date.trim() !== '';
+    return formData.teacherName.trim() !== '' && 
+           formData.date.trim() !== '' && 
+           formData.agreedToTerms; // 利用規約に同意している必要がある
   };
 
   // 日本語形式の日付に変換
@@ -179,6 +186,57 @@ export default function LessonForm() {
     
     return `lesson_${hash}`;
   };
+
+  // アップロードをキャンセルする処理
+  const handleCancelUpload = useCallback(async () => {
+    try {
+      // AbortControllerを使ってアップロードをキャンセル
+      if (uploadController.current) {
+        uploadController.current.abort();
+        uploadController.current = null;
+      }
+
+      // すでに作成されたレッスンデータをクリーンアップ
+      setProcessingStep('キャンセル中...');
+      const userId = auth.currentUser?.uid;
+      if (!userId) return;
+
+      // 最後に作成されたレッスンを取得
+      const q = query(
+        collection(db, `users/${userId}/lessons`),
+        where('status', '==', 'processing'),
+        where('updatedAt', '>=', new Date(Date.now() - 30 * 60 * 1000)) // 最近30分以内に作られたもの
+      );
+      
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        // 処理中のレッスンを削除または状態を更新
+        querySnapshot.forEach(async (doc) => {
+          await updateDoc(doc.ref, {
+            status: 'cancelled',
+            updatedAt: serverTimestamp()
+          });
+          console.log('レッスン処理をキャンセルしました:', doc.id);
+        });
+      }
+
+      // フォーム状態をリセット
+      setTimeout(() => {
+        setIsSaving(false);
+        savingRef.current = false;
+        setIsProcessing(false);
+        setProcessingStep('');
+        setProcessingStatus(null);
+        setIsCancellable(false);
+        setUploadProgress(0);
+      }, 500);
+
+      Alert.alert('キャンセル完了', 'アップロードをキャンセルしました');
+    } catch (error) {
+      console.error('キャンセル処理エラー:', error);
+      Alert.alert('エラー', 'キャンセル処理中にエラーが発生しました');
+    }
+  }, []);
 
   // シンプル化した保存ハンドラー
   const onSave = useCallback(async () => {
@@ -265,6 +323,7 @@ export default function LessonForm() {
         try {
           setProcessingStep('音声ファイルをアップロード中...');
           setProcessingStatus('uploading');
+          setIsCancellable(true); // キャンセル可能に設定
           
           // レッスンのステータスを更新
           const lessonRef = doc(db, `users/${userId}/lessons`, lessonId);
@@ -277,15 +336,28 @@ export default function LessonForm() {
           // Storage パス - audioで始まるパスにする（Functionsトリガーに合わせるため）
           const storagePath = `audio/${userId}/${lessonId}/${selectedFile.name}`;
           
-          // 音声ファイルをアップロード
+          // 新しいAbortControllerを作成
+          uploadController.current = new AbortController();
+          
+          // 音声ファイルをアップロード (引数順序の修正)
           const uploadResult = await uploadAudioFile(
             selectedFile.uri, 
             storagePath,
             (progress) => {
               console.log('アップロード進捗:', progress.progress);
               setUploadProgress(progress.progress);
+            },
+            uploadController.current.signal, // signal を渡す
+            { // レッスンデータを最後の引数として渡す
+              instrumentName: userInstrumentInfo.selectedInstrument,
+              instrumentCategory: userInstrumentInfo.selectedCategory,
+              pieces: formData.pieces || [],
+              userPrompt: formData.userPrompt || ''
             }
           );
+          
+          // アップロード完了後はキャンセル不可に戻す
+          setIsCancellable(false);
           
           if (uploadResult.success) {
             console.log('ファイルアップロード成功:', uploadResult.url);
@@ -319,6 +391,12 @@ export default function LessonForm() {
             throw new Error('ファイルのアップロードに失敗しました');
           }
         } catch (audioError: unknown) {
+          // AbortErrorの場合は既にキャンセル処理済みなのでスキップ
+          if (audioError instanceof Error && audioError.name === 'AbortError') {
+            console.log('アップロードがキャンセルされました');
+            return;
+          }
+          
           console.error('音声処理エラー:', audioError);
           
           // レッスンステータスをエラーに設定
@@ -355,8 +433,9 @@ export default function LessonForm() {
         setProcessingStep('');
         setProcessingStatus(null);
       }, 1000);
+      setIsCancellable(false);
     }
-  }, [formData, selectedFile, isSaving, userInstrumentInfo]);
+  }, [formData, selectedFile, isSaving, userInstrumentInfo, handleCancelUpload]);
 
   // カレンダー表示トグル
   const toggleCalendar = useCallback(() => {
@@ -384,6 +463,33 @@ export default function LessonForm() {
           openDatePicker={toggleCalendar}
         />
         
+        {/* 利用規約同意チェックボックス */}
+        <View style={styles.termsContainer}>
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => updateFormData({ agreedToTerms: !formData.agreedToTerms })}
+          >
+            <View style={[
+              styles.checkbox,
+              formData.agreedToTerms ? styles.checkboxChecked : {}
+            ]}>
+              {formData.agreedToTerms && (
+                <MaterialIcons name="check" size={16} color="#FFFFFF" />
+              )}
+            </View>
+            <View style={styles.termsTextContainer}>
+              <Text style={styles.termsText}>
+                利用規約に同意します
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push('/terms-of-service')}
+              >
+                <Text style={styles.termsLink}>利用規約を読む</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </View>
+        
         <View style={styles.uploadSection}>
           <AudioUploader
             selectedFile={selectedFile}
@@ -410,6 +516,8 @@ export default function LessonForm() {
           message={processingStep}
           progress={uploadProgress}
           showProgress={processingStatus === 'uploading'}
+          showCancelButton={isCancellable && processingStatus === 'uploading'}
+          onCancel={handleCancelUpload}
         />
       )}
     </SafeAreaView>
@@ -468,5 +576,56 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
     fontStyle: 'italic',
-  }
+  },
+  termsContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#4285F4',
+    borderRadius: 4,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#4285F4',
+  },
+  termsTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  termsText: {
+    fontSize: 14,
+    color: '#202124',
+    marginRight: 5,
+  },
+  termsLink: {
+    fontSize: 14,
+    color: '#4285F4',
+    textDecorationLine: 'underline',
+  },
 });

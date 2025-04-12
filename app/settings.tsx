@@ -96,11 +96,15 @@ export default function SettingsScreen() {
   };
 
   const openPrivacyPolicy = () => {
-    Linking.openURL('https://example.com/privacy-policy');
+    router.push('/privacy-policy');
+  };
+
+  const openTermsOfService = () => {
+    router.push('/terms-of-service');
   };
 
   const openSupport = () => {
-    Linking.openURL('https://example.com/support');
+    router.push('/help-support');
   };
   
   // ユーザーが管理者かどうかをチェック
@@ -201,12 +205,14 @@ export default function SettingsScreen() {
             onPress={() => router.push('/profile')}
           />
           
+          {/* サブスクリプション管理を非表示
           <MenuItem 
             icon="payments" 
             text="サブスクリプション管理" 
             onPress={() => router.push('/subscription')}
             iconColor="#4caf50"
           />
+          */}
         </View>
 
         {/* アプリ設定セクション */}
@@ -220,21 +226,35 @@ export default function SettingsScreen() {
           />
           
           <MenuItem 
+            icon="school" 
+            text="オンボーディング画面" 
+            onPress={() => router.push('/onboarding')}
+          />
+          
+          <MenuItem 
             icon="color-lens" 
             text="テーマ設定" 
             onPress={() => router.push('/theme-settings')}
           />
           
+          {/* 通知設定は一時的にクローズ
           <MenuItem 
             icon="notifications" 
             text="通知設定" 
             onPress={() => router.push('/notifications')}
           />
+          */}
 
           <MenuItem 
             icon="privacy-tip" 
-            text="データとプライバシー" 
+            text="プライバシーポリシー" 
             onPress={openPrivacyPolicy}
+          />
+
+          <MenuItem 
+            icon="description" 
+            text="利用規約" 
+            onPress={openTermsOfService}
           />
 
           <MenuItem 
@@ -252,6 +272,12 @@ export default function SettingsScreen() {
             icon="help-outline" 
             text="ヘルプとサポート" 
             onPress={openSupport}
+          />
+
+          <MenuItem 
+            icon="bug-report" 
+            text="エラー報告" 
+            onPress={() => router.push('/error-report')}
           />
         </View>
 
@@ -279,11 +305,11 @@ export default function SettingsScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>バージョン</Text>
-              <Text style={styles.infoValue}>1.0.0</Text>
+              <Text style={styles.infoValue}>0.0.2</Text>
             </View>
             <View style={[styles.infoItem, styles.noBorder]}>
               <Text style={styles.infoLabel}>開発者</Text>
-              <Text style={styles.infoValue}>Lesson Manager Team</Text>
+              <Text style={styles.infoValue}>Regnition inc.</Text>
             </View>
           </View>
         </View>
@@ -426,6 +452,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 16,
+    paddingVertical: 18,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
@@ -441,6 +468,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#8E8E93',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    lineHeight: 22,
   },
   homeButton: {
     flexDirection: 'row',

@@ -1,16 +1,20 @@
 import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, Platform, ProgressBarAndroid } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 
 interface LoadingOverlayProps {
   message?: string;
   progress?: number;
   showProgress?: boolean;
+  onCancel?: () => void;
+  showCancelButton?: boolean;
 }
 
 const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ 
   message = '保存中...', 
   progress = 0, 
-  showProgress = false 
+  showProgress = false,
+  onCancel,
+  showCancelButton = false
 }) => {
   return (
     <View style={styles.container}>
@@ -33,6 +37,15 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
         {message}
         {showProgress && ` (${Math.round(progress)}%)`}
       </Text>
+
+      {showCancelButton && onCancel && (
+        <TouchableOpacity 
+          style={styles.cancelButton}
+          onPress={onCancel}
+        >
+          <Text style={styles.cancelButtonText}>キャンセル</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -65,6 +78,20 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     backgroundColor: '#007AFF',
+  },
+  cancelButton: {
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  cancelButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
   }
 });
 

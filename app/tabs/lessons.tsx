@@ -45,6 +45,11 @@ export default function LessonsScreen() {
   // パラメータを取得（トップレベルに移動）
   const params = useLocalSearchParams();
   
+  // LINE風のタブバー高さ設定
+  const TAB_BAR_HEIGHT = 50;
+  const BOTTOM_INSET = Platform.OS === 'ios' ? insets.bottom : 0;
+  const TOTAL_TAB_HEIGHT = TAB_BAR_HEIGHT + BOTTOM_INSET;
+  
   // 画面サイズの状態を管理
   const [dimensions, setDimensions] = useState({
     width: Dimensions.get('window').width,
@@ -52,7 +57,7 @@ export default function LessonsScreen() {
   });
   
   // 画面の高さに基づいてパディングを計算
-  const bottomPadding = Math.max(70, dimensions.height * 0.15);
+  const bottomPadding = Math.max(TOTAL_TAB_HEIGHT + 20, dimensions.height * 0.1);
   
   // デバイスの向き変更時に画面サイズを更新
   useEffect(() => {
@@ -412,10 +417,8 @@ export default function LessonsScreen() {
   };
 
   // コンテンツの表示部分の高さを計算（ヘッダーとフッターの高さを考慮）
-  // タブバーの高さは約50px（Expo Router/React Navigation）
-  const TAB_BAR_HEIGHT = 50;
   const HEADER_HEIGHT = 130; // 検索バーとセグメントコントロールの高さの概算
-  const contentHeight = dimensions.height - HEADER_HEIGHT - TAB_BAR_HEIGHT - insets.top - insets.bottom;
+  const contentHeight = dimensions.height - HEADER_HEIGHT - TOTAL_TAB_HEIGHT - insets.top;
   
   // アーカイブ一覧のレンダリング
   const renderArchivedLessons = () => {
@@ -710,34 +713,39 @@ export default function LessonsScreen() {
           )}
           
           {isSelectionMode && selectedLessons.length > 0 && (
-            <View style={[
-              styles.selectionActionsContainer, 
-              { 
-                paddingBottom: Math.max(20, insets.bottom + 50),
-                paddingTop: 16,
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                zIndex: 9999,
-                width: dimensions.width,
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                borderTopLeftRadius: 24,
-                borderTopRightRadius: 24,
-              }
-            ]}>
+            <View style={{
+              position: 'absolute',
+              bottom: 90,
+              left: 0,
+              right: 0,
+              backgroundColor: 'transparent',
+              borderTopWidth: 0,
+              borderTopColor: 'transparent',
+              borderTopLeftRadius: 0,
+              borderTopRightRadius: 0,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              shadowColor: 'transparent',
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0,
+              shadowRadius: 0,
+              elevation: 0,
+              zIndex: 9999,
+            }}>
               <View style={{ 
                 flexDirection: 'row',
                 justifyContent: 'space-around',
                 width: '100%',
-                paddingHorizontal: 20
+                marginBottom: 8,
               }}>
                 <TouchableOpacity 
-                  style={[styles.selectionActionButton, { backgroundColor: '#4CAF50' }]}
-                  onPress={generateTasksFromSelectedLessons}
+                  style={[styles.selectionActionButton, { 
+                    backgroundColor: '#999999',
+                  }]}
+                  disabled={true}
                 >
                   <MaterialIcons name="assignment" size={20} color="#FFFFFF" />
-                  <Text style={styles.selectionActionText}>タスク生成</Text>
+                  <Text style={styles.selectionActionText}>練習生成</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
@@ -1070,37 +1078,13 @@ const styles = StyleSheet.create({
     }),
   },
   // 選択アクション
-  selectionActionsContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.05)',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 9999,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingVertical: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: 'rgba(0, 0, 0, 0.15)',
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
   selectionActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 10,
     marginHorizontal: 4,
     flex: 1,
     ...Platform.select({
@@ -1116,10 +1100,10 @@ const styles = StyleSheet.create({
     }),
   },
   selectionActionText: {
-    marginLeft: 8,
+    marginLeft: 6,
     color: '#FFFFFF',
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: 12,
   },
   folderItemContainer: {
     marginLeft: 12,

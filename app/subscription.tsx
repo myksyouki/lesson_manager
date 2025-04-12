@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, View, Text, ScrollView, SafeAreaView, StatusBar } from 'react-native';
-import { Stack } from 'expo-router';
+import { StyleSheet, View, Text, ScrollView, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
+import { Ionicons } from '@expo/vector-icons';
 
 import SubscriptionButton from '../components/SubscriptionButton';
 import SubscriptionStatus from '../components/SubscriptionStatus';
@@ -9,6 +10,7 @@ import SubscriptionStatus from '../components/SubscriptionStatus';
 export default function SubscriptionScreen() {
   const auth = getAuth();
   const isLoggedIn = !!auth.currentUser;
+  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -23,6 +25,15 @@ export default function SubscriptionScreen() {
       }} />
       
       <ScrollView style={styles.scrollView}>
+        {/* 戻るボタン */}
+        <TouchableOpacity
+          style={styles.backButtonContainer}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          <Text style={styles.backButtonText}>戻る</Text>
+        </TouchableOpacity>
+        
         <View style={styles.content}>
           <Text style={styles.title}>プレミアムプラン</Text>
           
@@ -170,5 +181,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     color: '#444',
+  },
+  backButtonContainer: {
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#007AFF',
+    marginLeft: 10,
   },
 }); 

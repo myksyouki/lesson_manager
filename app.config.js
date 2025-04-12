@@ -1,12 +1,17 @@
 module.exports = {
   expo: {
     owner: "myksyouki",
-    name: "Lesson Manager",
+    name: "Resonote",
     slug: "lesson-manager",
-    version: "1.0.0",
+    version: "0.0.2",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "lessonmanager",
+    splash: {
+      image: "./assets/splash.png",
+      resizeMode: "contain",
+      backgroundColor: "#121212"
+    },
+    scheme: "lesson-manager",
     userInterfaceStyle: "automatic",
     sdkVersion: "52.0.0",
     runtimeVersion: "1.0.0",
@@ -38,11 +43,10 @@ module.exports = {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.yourcompany.lessonmanager",
+      bundleIdentifier: "com.regnition.appli",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         CFBundleAllowMixedLocalizations: true,
-        NSMicrophoneUsageDescription: "音声録音のためにマイクへのアクセスが必要です",
         UIBackgroundModes: ["audio"],
         LSSupportsOpeningDocumentsInPlace: true,
         UIFileSharingEnabled: true,
@@ -52,14 +56,12 @@ module.exports = {
       }
     },
     android: {
-      package: "com.yourcompany.lessonmanager",
+      package: "com.regnition.appli",
       adaptiveIcon: {
         foregroundImage: "./assets/images/icon.png",
         backgroundColor: "#ffffff"
       },
-      permissions: [
-        "android.permission.RECORD_AUDIO"
-      ]
+      permissions: []
     },
     web: {
       bundler: "metro",
@@ -85,4 +87,4 @@ module.exports = {
       }
     }
   }
-}; 
+};  

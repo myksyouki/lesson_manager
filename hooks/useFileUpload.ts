@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { getDocumentAsync, DocumentPickerOptions } from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { Alert, Platform } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import NetInfo from '@react-native-community/netinfo';
 
 // 上限ファイルサイズ: 100MB
@@ -152,7 +151,7 @@ export const useFileUpload = (
     }
   };
 
-  // ファイル選択ハンドラー - iOS向けDocument Picker優先
+  // ファイル選択ハンドラー
   const selectFile = async (fileTypes?: string | string[]) => {
     try {
       console.log('ファイル選択を開始します...', Platform.OS);
@@ -228,63 +227,13 @@ export const useFileUpload = (
       } catch (e) {
         console.error('Document Picker失敗:', e);
         handleError(e, 'ファイル選択ダイアログでエラーが発生しました');
-        
-        // Android向けにのみフォールバック
-        if (Platform.OS !== 'ios') {
-          console.log('Androidでフォールバック処理を実行');
-          await fallbackToImagePicker();
-        }
         return;
       }
     } catch (error) {
       handleError(error);
     }
   };
-  
-  // Android向けのフォールバック処理
-  const fallbackToImagePicker = async () => {
-    try {
-      console.log('フォールバック: ImagePickerを使用');
-      
-      // 権限チェック
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('権限エラー', 'メディアライブラリへのアクセス権限が必要です');
-        return;
-      }
-      
-      // ImagePickerを実行
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
-        allowsEditing: false,
-        quality: 1,
-      });
-      
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        
-        const fileInfo = await normalizeFileInfo(
-          asset.uri,
-          asset.uri.split('/').pop(),
-          'audio/*',
-          undefined
-        );
-        
-        // ファイルサイズチェック
-        if (!checkFileSize(fileInfo.size)) {
-          return;
-        }
-        
-        setSelectedFile(fileInfo);
-        if (onFileSelected) onFileSelected(fileInfo);
-      }
-    } catch (e) {
-      console.error('ImagePicker失敗:', e);
-      handleError(e, 'メディアライブラリでのファイル選択に失敗しました');
-    }
-  };
 
-  // ファイルクリアハンドラー
   const clearFile = () => {
     setSelectedFile(null);
     setUploadProgress(0);

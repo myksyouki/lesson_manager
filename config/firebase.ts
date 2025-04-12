@@ -1,10 +1,12 @@
 // app/config/firebase.ts
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence, browserSessionPersistence, inMemoryPersistence, initializeAuth, getReactNativePersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
 // Firebase の設定を直接指定
 export const firebaseConfig = {
@@ -19,8 +21,30 @@ export const firebaseConfig = {
 // Firebase アプリの初期化
 export const firebaseApp = initializeApp(firebaseConfig);
 
-// Auth の初期化
-export const auth = getAuth(firebaseApp);
+// Auth の初期化 (プラットフォームに応じて最適な方法を選択)
+export const auth = Platform.OS === 'web' 
+  ? getAuth(firebaseApp)
+  : initializeAuth(firebaseApp, {
+      persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+    });
+
+// 認証の永続性を設定 (Webプラットフォームの場合のみ)
+try {
+  if (Platform.OS === 'web') {
+    setPersistence(auth, browserLocalPersistence)
+      .then(() => {
+        console.log('✅ 認証の永続性がブラウザローカルストレージに設定されました');
+      })
+      .catch((error) => {
+        console.error('❌ 認証の永続性設定エラー:', error);
+      });
+  } else {
+    // ネイティブアプリではAsyncStorageによる永続化が有効
+    console.log('✅ ネイティブアプリ: AsyncStorageによる認証永続性が設定されました');
+  }
+} catch (error) {
+  console.error('認証の永続性設定中にエラーが発生しました:', error);
+}
 
 // Firebase の各サービスをエクスポート
 export const db = getFirestore(firebaseApp);

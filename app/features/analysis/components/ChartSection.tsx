@@ -48,7 +48,7 @@ const getMonthFromDate = (dateString: string) => {
 };
 
 export default function ChartSection() {
-  const [selectedChart, setSelectedChart] = useState<'tasks' | 'practice' | 'lessons'>('tasks');
+  const [selectedChart, setSelectedChart] = useState<'practice' | 'lessons'>('practice');
   const { tasks, taskCompletionHistory } = useTaskStore();
   const { lessons } = useLessonStore();
   const theme = useTheme();
@@ -60,24 +60,9 @@ export default function ChartSection() {
     
     // 月ごとのデータを初期化
     const monthlyData = {
-      tasks: Array(months.length).fill(0),
       practice: Array(months.length).fill(0),
       lessons: Array(months.length).fill(0)
     };
-    
-    // 完了したタスクを月ごとに集計
-    taskCompletionHistory.forEach(history => {
-      if (!history.completedAt) return;
-      
-      const completionDate = new Date(history.completedAt);
-      const monthIndex = months.findIndex(
-        m => parseInt(m) === completionDate.getMonth() + 1
-      );
-      
-      if (monthIndex !== -1) {
-        monthlyData.tasks[monthIndex]++;
-      }
-    });
     
     // ユニークな練習日を月ごとに集計
     const practiceDays = new Set<string>();
@@ -133,16 +118,10 @@ export default function ChartSection() {
     labels: months,
     datasets: [
       {
-        data: selectedChart === 'tasks' 
-          ? data.tasks 
-          : selectedChart === 'practice' 
-            ? data.practice 
-            : data.lessons,
-        color: (opacity = 1) => selectedChart === 'tasks' 
-          ? `rgba(81, 91, 212, ${opacity})` 
-          : selectedChart === 'practice' 
-            ? `rgba(76, 175, 80, ${opacity})` 
-            : `rgba(255, 152, 0, ${opacity})`,
+        data: selectedChart === 'practice' ? data.practice : data.lessons,
+        color: (opacity = 1) => selectedChart === 'practice' 
+          ? `rgba(76, 175, 80, ${opacity})` 
+          : `rgba(255, 152, 0, ${opacity})`,
       }
     ]
   };
@@ -151,27 +130,7 @@ export default function ChartSection() {
     <View style={styles.container}>
       <Text style={styles.title}>月間統計</Text>
       
-      <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[
-            styles.tabButton, 
-            selectedChart === 'tasks' && styles.selectedTab
-          ]}
-          onPress={() => setSelectedChart('tasks')}
-        >
-          <MaterialIcons 
-            name="checklist" 
-            size={16} 
-            color={selectedChart === 'tasks' ? theme.colors.primary : '#757575'} 
-          />
-          <Text style={[
-            styles.tabText, 
-            selectedChart === 'tasks' && styles.selectedTabText
-          ]}>
-            タスク
-          </Text>
-        </TouchableOpacity>
-        
+      <View style={styles.tabContainer}>        
         <TouchableOpacity 
           style={[
             styles.tabButton, 
@@ -231,16 +190,12 @@ export default function ChartSection() {
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>
-            {selectedChart === 'tasks' 
-              ? data.tasks.reduce((sum, val) => sum + val, 0) 
-              : selectedChart === 'practice'
+            {selectedChart === 'practice'
                 ? data.practice.reduce((sum, val) => sum + val, 0)
                 : data.lessons.reduce((sum, val) => sum + val, 0)}
           </Text>
           <Text style={styles.statLabel}>
-            {selectedChart === 'tasks' 
-              ? '半年間の達成タスク' 
-              : selectedChart === 'practice'
+            {selectedChart === 'practice'
                 ? '半年間の練習日数'
                 : '半年間のレッスン数'}
           </Text>
@@ -248,9 +203,7 @@ export default function ChartSection() {
         
         <View style={styles.statItem}>
           <Text style={styles.statValue}>
-            {selectedChart === 'tasks' 
-              ? Math.max(...data.tasks)
-              : selectedChart === 'practice'
+            {selectedChart === 'practice'
                 ? Math.max(...data.practice)
                 : Math.max(...data.lessons)}
           </Text>
@@ -263,19 +216,19 @@ export default function ChartSection() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 2,
       },
       android: {
-        elevation: 3,
+        elevation: 2,
       },
     }),
   },
@@ -283,21 +236,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 16,
+    color: '#333333',
   },
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
+    backgroundColor: '#F0F0F0',
     borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    padding: 4,
+    marginBottom: 16,
   },
   tabButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    width: '50%', // 2つのタブなので50%
   },
   selectedTab: {
     backgroundColor: '#ffffff',
