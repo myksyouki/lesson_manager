@@ -1,6 +1,6 @@
 import { ref, uploadBytesResumable, getDownloadURL, updateMetadata } from 'firebase/storage';
 import { collection, addDoc, doc, updateDoc, getDoc, query, where, getDocs, setDoc } from 'firebase/firestore';
-import { db, storage, auth } from '../app/config/firebase';
+import { db, storage, auth } from '../config/firebase';
 import { processAudioFile } from './audioProcessing';
 
 export interface LessonFormData {
@@ -204,4 +204,4 @@ export const saveLesson = async (
     console.error('レッスン保存エラー:', error);
     throw error;
   }
-}; 
+};  

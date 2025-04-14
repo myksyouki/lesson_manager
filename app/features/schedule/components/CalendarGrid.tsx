@@ -9,7 +9,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Lesson } from '../../../../store/lessons';
-import { Task } from '../../../types/task';
+import { Task } from '../../../../types/_task';
 import { Ionicons } from '@expo/vector-icons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -209,19 +209,19 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   const hasPracticeTask = useCallback((date: Date) => {
     // 日付が一致するタスクを検索
     return tasks.some(task => {
-      if (!task.practiceDate) return false;
+      if (!task.dueDate) return false;
       
       // 練習日の形式に応じて比較
-      if (typeof task.practiceDate === 'string') {
+      if (typeof task.dueDate === 'string') {
         // 文字列形式の場合
-        if (task.practiceDate === formatDate(date)) {
+        if (task.dueDate === formatDate(date)) {
           return true;
         }
         
         // 日付形式が異なる可能性があるため、日付オブジェクトに変換して比較
         try {
           // "YYYY年MM月DD日" 形式の文字列をパース
-          const dateParts = task.practiceDate.match(/(\d+)年(\d+)月(\d+)日/);
+          const dateParts = (task.dueDate as string).match(/(\d+)年(\d+)月(\d+)日/); // Assuming dueDate can be string here
           if (dateParts) {
             const practiceDate = new Date(
               parseInt(dateParts[1]), // 年
@@ -238,9 +238,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         } catch (e) {
           console.error('日付のパースエラー:', e);
         }
-      } else if ('seconds' in (task.practiceDate as any)) {
+      } else if (typeof task.dueDate === 'object' && task.dueDate !== null && 'seconds' in task.dueDate) { // Check for Firestore Timestamp
         // Firestore Timestamp形式の場合
-        const timestamp = (task.practiceDate as any).seconds * 1000;
+        const timestamp = (task.dueDate as { seconds: number }).seconds * 1000;
         const practiceDate = new Date(timestamp);
         
         return (
@@ -248,9 +248,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
           practiceDate.getMonth() === date.getMonth() &&
           practiceDate.getDate() === date.getDate()
         );
-      } else if (task.practiceDate instanceof Date) {
+      } else if (task.dueDate instanceof Date) {
         // Date型の場合
-        const practiceDate = task.practiceDate as Date;
+        const practiceDate = task.dueDate as Date;
         
         return (
           practiceDate.getFullYear() === date.getFullYear() &&

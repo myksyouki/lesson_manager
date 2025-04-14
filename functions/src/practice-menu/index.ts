@@ -325,7 +325,7 @@ async function callDifyWorkflow(apiKey: string, appId: string, data: any, instru
         pieces: "",
         roomId: data.roomId || "",
         summaries: data.summaries || "",
-        model: "standard" // 標準モデルを使用
+        model: "standard", // 標準モデルを使用
       },
       query: data.message,
       user: userId,
@@ -378,7 +378,7 @@ async function callDifyChat(apiKey: string, appId: string, data: any, instrument
         pieces: "",
         roomId: data.roomId || "",
         summaries: data.summaries || "",
-        model: "standard" // 標準モデルを使用
+        model: "standard", // 標準モデルを使用
       },
       query: data.message,
       response_mode: "blocking",

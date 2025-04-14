@@ -18,8 +18,6 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { checkOnboardingStatus } from "../services/userProfileService";
-import { getLocalStorageItem, setLocalStorageItem, removeLocalStorageItem } from '../utils/_storage';
-
 console.log("✅ Expo Config Extra:", Constants.expoConfig?.extra);
 console.log("🔗 Redirect URI:", Constants.expoConfig?.extra?.expoPublicGoogleRedirectUri);
 

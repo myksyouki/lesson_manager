@@ -455,6 +455,9 @@ export const RippleButton = ({
   children: React.ReactNode;
   rippleColor?: string;
 }) => {
+  const scale = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
   if (Platform.OS === 'android') {
     // Androidの場合はネイティブリップルを使用
     return (
@@ -469,8 +472,6 @@ export const RippleButton = ({
   }
 
   // iOSの場合はカスタムリップルエフェクト
-  const scale = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
 
   const onPressIn = () => {
     Animated.parallel([

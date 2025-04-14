@@ -7,7 +7,7 @@ import {
   Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Task } from '../../../types/task';
+import { Task } from '../../../../types/_task';
 
 interface CategorySummaryProps {
   tasks: Task[];
@@ -15,7 +15,7 @@ interface CategorySummaryProps {
 
 // カテゴリごとの達成回数を計算する関数
 const calculateCategoryAchievements = (tasks: Task[]) => {
-  const completedTasks = tasks.filter(task => task.isCompleted || task.completed);
+  const completedTasks = tasks.filter(task => task.completed);
   
   // カテゴリごとにグループ化
   const categories: Record<string, number> = {};
@@ -211,4 +211,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CategorySummary; 
+export default CategorySummary;    

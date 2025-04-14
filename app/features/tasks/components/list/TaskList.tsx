@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, View, Text, RefreshControl, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import TaskCard from '../TaskCard';
-import { Task } from '../../../../types/task';
+import { Task } from '../../../../../types/_task';
 
 interface TaskListProps {
   tasks: Task[];
@@ -21,7 +21,7 @@ export const TaskList: React.FC<TaskListProps> = ({
     const completionCounts: Record<string, Record<string, number>> = {};
     
     tasks.forEach(task => {
-      if (task.isCompleted || task.completed) {
+      if (task.completed) {
         const category = task.tags && task.tags.length > 0 ? task.tags[0] : 'その他';
         
         if (!completionCounts[task.title]) {
@@ -65,10 +65,7 @@ export const TaskList: React.FC<TaskListProps> = ({
             <TaskCard 
               key={task.id} 
               task={task} 
-              index={index}
-              category={category}
-              completionCount={completionCount}
-              onComplete={onTaskComplete ? () => onTaskComplete(task.id) : undefined}
+              onToggleComplete={onTaskComplete ? () => onTaskComplete(task.id) : undefined}
             />
           );
         })

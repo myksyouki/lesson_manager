@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useLessonStore } from '../../store/lessons';
+import { useLessonStore } from '../store/lessons';
 
 // 定数
 const COLORS = {

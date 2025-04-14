@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, RefreshControl, Alert } from 'react-native';
-import { Task } from '../../../types/task';
+import { Task } from '../../../../types/_task';
 import TaskCard from './TaskCard';
 import { useTaskStore } from '../../../../store/tasks';
 import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
@@ -39,34 +39,35 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
     });
     
     // ピン留めされたタスクを上位に表示するためにソート
-    const sortByPin = (a: Task, b: Task) => {
-      // まずピン留め状態で比較
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      
-      // ピン留め状態が同じ場合は更新日時の新しい順
+    const sortByUpdatedAt = (a: Task, b: Task) => {
       const getTimestamp = (task: Task) => {
         if (!task.updatedAt) return 0;
-        
+
         // Firestore Timestamp型の場合
-        if (typeof task.updatedAt === 'object' && 'seconds' in task.updatedAt) {
-          return task.updatedAt.seconds * 1000;
+        if (typeof task.updatedAt === 'object' && task.updatedAt !== null && 'seconds' in task.updatedAt) {
+          return (task.updatedAt as { seconds: number }).seconds * 1000;
         }
-        
+
         // Date型の場合
         if (task.updatedAt instanceof Date) {
           return task.updatedAt.getTime();
         }
-        
-        // 文字列の場合
-        return new Date(String(task.updatedAt)).getTime();
+
+        try {
+          if (typeof task.updatedAt === 'string') {
+             return new Date(task.updatedAt).getTime();
+          }
+        } catch {
+        }
+        return 0; 
       };
-      
+
       return getTimestamp(b) - getTimestamp(a);
     };
+
     
-    setCompletedTasks(completed.sort(sortByPin));
-    setIncompleteTasks(incomplete.sort(sortByPin));
+    setCompletedTasks(completed.sort(sortByUpdatedAt));
+    setIncompleteTasks(incomplete.sort(sortByUpdatedAt));
   }, [tasks]);
 
   const handleToggleComplete = (taskId: string) => {
@@ -565,4 +566,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TaskList; 
+export default TaskList;          

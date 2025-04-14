@@ -2,7 +2,7 @@
 // in a production environment. These functions demonstrate how to process audio files
 // on the server side when they are uploaded to Firebase Storage.
 
-import { db } from '../app/config/firebase';
+import { db } from '../config/firebase';
 import { transcribeAudio, generateSummary, extractTags } from './openai';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 

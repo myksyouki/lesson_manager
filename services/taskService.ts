@@ -38,7 +38,7 @@ export const createTask = async (
   title: string,
   description: string,
   dueDate?: string,
-  attachments?: Array<{ type: 'text' | 'pdf'; url: string }>
+  attachments?: { type: 'text' | 'pdf'; url: string }[]
 ): Promise<Task> => {
   try {
     const taskData = {
@@ -322,8 +322,8 @@ export const createTaskFromLessonSummary = async (
 /**
  * マークダウン形式のタスクテキストをパースして個別のタスクに分割する
  */
-function parseTasksFromMarkdown(markdown: string): Array<{ title: string; description: string }> {
-  const tasks: Array<{ title: string; description: string }> = [];
+function parseTasksFromMarkdown(markdown: string): { title: string; description: string }[] {
+  const tasks: { title: string; description: string }[] = [];
   
   // # で始まる行でタスクを分割
   const taskBlocks = markdown.split(/(?=^# )/gm);

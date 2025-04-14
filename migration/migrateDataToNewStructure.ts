@@ -1,6 +1,6 @@
 import { db, auth } from '../config/firebase';
 import { collection, query, where, getDocs, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
-import { ChatRoom } from '../types/chatRoom';
+import { ChatRoom } from '../services/chatRoomService';
 import { Alert } from 'react-native';
 
 /**
@@ -142,4 +142,4 @@ export const checkChatRoomExists = async (roomId: string): Promise<boolean> => {
     console.error('チャットルーム存在確認中にエラーが発生しました:', error);
     return false;
   }
-}; 
+};    

@@ -20,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { initializeIAP, checkSubscriptionStatus } from '../services/iapService'; // Import IAP service
+
 
 // TabBarIconコンポーネント（インラインで定義）
 function TabBarIcon({ name, color }: { name: string; color: string }) {
@@ -68,6 +70,8 @@ export default function RootLayout() {
     // コンポーネントがマウントされたことを記録
     setIsMounted(true);
   }, []);
+    initializeIAP();
+
 
   // アプリロード時にユーザープロファイルを読み込む
   useEffect(() => {
@@ -141,6 +145,8 @@ export default function RootLayout() {
         
         // ユーザーのデータベース構造を初期化 - 引数なしで呼び出す
         await initializeDatabaseStructure();
+        checkSubscriptionStatus();
+
       } else {
         // ユーザーがログアウトした場合
         authStore.setUser(null);

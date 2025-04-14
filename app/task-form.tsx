@@ -17,7 +17,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useTaskStore } from '../store/tasks';
 import { useAuthStore } from '../store/auth';
-import { Task } from './types/task';
+import { Task } from '../types/_task';
 import { getCurrentUserProfile } from '../services/userProfileService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -105,18 +105,12 @@ export default function PracticeMenuGenerator() {
         const taskData: Task = {
           id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // 一意のIDを生成
           title: menuItem.title,
-          description: menuItem.description,
-          dueDate: new Date().toISOString(),
-          isCompleted: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          content: menuItem.description, // Assuming description maps to content
+          dueDate: new Date(),
+          completed: false, // Corrected property name
+          createdAt: new Date(),
+          updatedAt: new Date(),
           tags: menuItem.category ? [menuItem.category] : [],
-          attachments: params.chatRoomId ? [
-            {
-              type: 'text' as const,
-              url: `/chatRooms/${params.chatRoomId}`
-            }
-          ] : undefined
         };
 
         await addTask(taskData);

@@ -8,7 +8,7 @@ import {
   signOut as firebaseSignOut,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { auth, db } from '../app/config/firebase';
+import { auth, db } from '../config/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useAuthStore } from '../store/auth';
 
@@ -141,7 +141,7 @@ export const useAuth = () => {
     setIsNewUser: authStore.setIsNewUser,
     signIn: async (email: string, password: string) => {
       try {
-        await authStore.signIn(email, password);
+        await authStore.login(email, password);
         return { success: true };
       } catch (error: any) {
         return { success: false, error: error.message };
@@ -149,7 +149,7 @@ export const useAuth = () => {
     },
     signUp: async (email: string, password: string) => {
       try {
-        await authStore.signUp(email, password);
+        await authStore.register(email, password);
         return { success: true };
       } catch (error: any) {
         return { success: false, error: error.message };

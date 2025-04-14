@@ -26,7 +26,7 @@ import { MaterialCommunityIcons, Ionicons, MaterialIcons } from '@expo/vector-ic
 import { FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getUserChatRooms, ChatRoom as ChatRoomType } from '../../services/chatRoomService';
-import { auth } from '../config/firebase';
+import { auth } from '../../config/firebase';
 import { getRecommendedTasks } from '../../services/difyService';
 
 export default function HomeScreen() {
@@ -116,7 +116,7 @@ export default function HomeScreen() {
       if (task.dueDate) {
         // Firebaseのタイムスタンプかどうかチェック
         if (typeof task.dueDate === 'object' && 'seconds' in task.dueDate) {
-          taskDate = new Date(task.dueDate.seconds * 1000);
+          taskDate = new Date((task.dueDate as { seconds: number }).seconds * 1000);
         } else {
           taskDate = new Date(task.dueDate);
         }
@@ -462,7 +462,7 @@ export default function HomeScreen() {
         icon: "chat",
         label: "チャット",
         onPress: () => router.push('/chat-room-form'),
-        color: theme.colors.tertiary || '#7C4DFF',
+        color: theme.colors.accent || '#7C4DFF', // Use accent color as tertiary is not defined
       },
     ];
 
@@ -580,7 +580,7 @@ export default function HomeScreen() {
             {latestLesson && (
               <QuickAccessCard
                 title="最新のレッスン"
-                subtitle={latestLesson.title}
+                subtitle={latestLesson?.piece || latestLesson?.teacher || 'No Details'}
                 icon={<MaterialIcons name="music-note" size={24} color={theme.colors.primary} />}
                 onPress={() => router.push(`/lesson-detail/${latestLesson.id}`)}
               />

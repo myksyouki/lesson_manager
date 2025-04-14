@@ -2190,6 +2190,11 @@
   dependencies:
     nanoid "3.3.8"
 
+"@revenuecat/purchases-typescript-internal@13.28.0":
+  version "13.28.0"
+  resolved "https://registry.yarnpkg.com/@revenuecat/purchases-typescript-internal/-/purchases-typescript-internal-13.28.0.tgz#cc91a29811cb7377687755295c5f30082f9c92df"
+  integrity sha512-LeQyN4C4J0SOOKIk4qduWReMqe2L/sUFaUNyc6jy9M3LCvQkdr0KX//qPJT541yTiY0UAhNJdqp0VpUb9v4xYg==
+
 "@rtsao/scc@^1.1.0":
   version "1.1.0"
   resolved "https://registry.npmjs.org/@rtsao/scc/-/scc-1.1.0.tgz"
@@ -7476,6 +7481,13 @@ react-native-paper@^5.13.1:
     "@callstack/react-theme-provider" "^3.0.9"
     color "^3.1.2"
     use-latest-callback "^0.1.5"
+
+react-native-purchases@^8.9.4:
+  version "8.9.4"
+  resolved "https://registry.yarnpkg.com/react-native-purchases/-/react-native-purchases-8.9.4.tgz#8b8d7655b3043515f14c7e7923d45f65f7bfa3e1"
+  integrity sha512-/wcxDblbsQdUPS11IKVa8AQGQT8o9TH/qZOJHBiPvuZUTtdF434fPhs28tslkYUmua5pMMJ+rIEy4i6Jn5QimQ==
+  dependencies:
+    "@revenuecat/purchases-typescript-internal" "13.28.0"
 
 react-native-reanimated@~3.16.1:
   version "3.16.7"

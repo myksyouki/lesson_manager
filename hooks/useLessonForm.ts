@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { saveLesson } from '../../services/lessonService';
-import { useLessonStore } from '../../store/lessons';
+import { saveLesson } from '../services/lessonService';
+import { useLessonStore } from '../store/lessons';
 import { auth } from '../config/firebase';
 import { router } from 'expo-router';
 
@@ -230,4 +230,4 @@ export const useLessonForm = (initialData?: Partial<LessonFormData>): UseLessonF
     handleSave,
     isFormValid
   };
-}; 
+};  

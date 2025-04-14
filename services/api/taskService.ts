@@ -1,6 +1,6 @@
 import { doc, setDoc, updateDoc, getDoc, collection, query, where, orderBy, getDocs, deleteDoc } from 'firebase/firestore';
-import { db } from '../../app/config/firebase';
-import { Task } from '../../types/task';
+import { db } from '../../config/firebase';
+import { Task } from '../../types/_task';
 
 /**
  * タスク関連のAPI操作を行うサービスクラス

@@ -14,7 +14,7 @@ import {
   MaterialIcons,
 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Task } from '../../../types/task';
+import { Task } from '../../../../types/_task';
 import { useTaskStore } from '../../../../store/tasks';
 import Animated, { 
   useSharedValue, 
@@ -203,11 +203,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
               </View>
             )}
             
-            {!isSelected && task.isPinned && (
-              <View style={styles.pinnedIndicator}>
-                <MaterialIcons name="push-pin" size={16} color="#FFD700" />
-              </View>
-            )}
+            {/* Pinned indicator removed as 'isPinned' is not in Task type */}
+
           </View>
           
           {/* カテゴリラベル */}
@@ -227,7 +224,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             ]}
             numberOfLines={3}
           >
-            {task.description}
+            {task.content}
           </Text>
           
           {/* カード下部 - 完了ボタンと完了回数 */}
