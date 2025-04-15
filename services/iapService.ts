@@ -2,7 +2,7 @@ import Purchases, { LOG_LEVEL, PurchasesOffering, PurchasesPackage, CustomerInfo
 import { Platform } from 'react-native';
 import { useAuthStore, PremiumStatus } from '../store/auth'; // Import the auth store and PremiumStatus type
 
-const REVENUECAT_API_KEY_IOS = 'YOUR_REVENUECAT_IOS_API_KEY'; // Placeholder - User needs to provide this
+const REVENUECAT_API_KEY_IOS = 'appl_jksijmuupFmNEVuLTuJyJezTHxU'; // Provided by user
 const STANDARD_PLAN_ID = 'standard'; // Updated ID from user
 const PRO_PLAN_ID = 'professional'; // Updated ID from user
 const PREMIUM_ENTITLEMENT_ID = 'premium'; // Example ID, replace with actual entitlement identifier from RevenueCat if different
@@ -10,9 +10,9 @@ const PREMIUM_ENTITLEMENT_ID = 'premium'; // Example ID, replace with actual ent
 export const initializeIAP = () => {
   if (Platform.OS === 'ios') {
     Purchases.setLogLevel(LOG_LEVEL.DEBUG); // Use DEBUG for development
-    if (!REVENUECAT_API_KEY_IOS || REVENUECAT_API_KEY_IOS === 'YOUR_REVENUECAT_IOS_API_KEY') {
-        console.warn('RevenueCat API Key for iOS is not set. Please provide it in services/iapService.ts');
-        return; // Do not configure if key is missing
+    if (!REVENUECAT_API_KEY_IOS) {
+        console.warn('RevenueCat API Key for iOS is missing or empty.');
+        return; // Do not configure if key is missing or empty
     }
     Purchases.configure({ apiKey: REVENUECAT_API_KEY_IOS });
     console.log('RevenueCat SDK configured for iOS.');
