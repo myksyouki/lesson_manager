@@ -4,7 +4,38 @@ import { MaterialIcons } from '@expo/vector-icons';
 import Metronome from './Metronome';
 import Tuner from './Tuner';
 import { Audio } from 'expo-av';
-import * as ScreenOrientation from 'expo-screen-orientation';
+
+// 条件付きインポートとエラーハンドリングのためのダミーモジュール
+let ScreenOrientation: any = null;
+// 画面回転用の定数
+const OrientationLock = {
+  PORTRAIT_UP: 1,
+  LANDSCAPE_RIGHT: 3
+};
+
+try {
+  // 動的インポート
+  if (Platform.OS !== 'web') {
+    // @ts-ignore
+    const ExpoScreenOrientation = require('expo-screen-orientation');
+    ScreenOrientation = ExpoScreenOrientation;
+  } else {
+    // Webの場合、ダミー実装を提供
+    ScreenOrientation = {
+      lockAsync: async () => Promise.resolve(),
+      unlockAsync: async () => Promise.resolve(),
+      OrientationLock: OrientationLock
+    };
+  }
+} catch (error) {
+  console.warn('expo-screen-orientation モジュールを読み込めませんでした', error);
+  // ダミーの実装を提供
+  ScreenOrientation = {
+    lockAsync: async () => Promise.resolve(),
+    unlockAsync: async () => Promise.resolve(),
+    OrientationLock: OrientationLock
+  };
+}
 
 interface PracticeToolsProps {
   isVisible: boolean;
@@ -33,6 +64,39 @@ const PracticeTools: React.FC<PracticeToolsProps> = ({
   // 光るエフェクト用のAnimated値
   const pulseAnim = useRef(new Animated.Value(0)).current;
   
+  // 画面の向きを設定する関数
+  const configureScreenOrientation = async (isLandscape: boolean) => {
+    try {
+      // ScreenOrientationが存在するが不完全な場合のチェック
+      const isValidModule = ScreenOrientation && 
+                            typeof ScreenOrientation.lockAsync === 'function' && 
+                            typeof ScreenOrientation.unlockAsync === 'function' &&
+                            ScreenOrientation.OrientationLock;
+                            
+      if (!isValidModule) {
+        console.log('画面回転機能は利用できません');
+        return Promise.resolve();
+      }
+      
+      if (isLandscape) {
+        // 横向き優先に設定
+        await ScreenOrientation.unlockAsync();
+        await ScreenOrientation.lockAsync(
+          ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT
+        );
+      } else {
+        // 縦向きに設定
+        await ScreenOrientation.lockAsync(
+          ScreenOrientation.OrientationLock.PORTRAIT_UP
+        );
+      }
+      return Promise.resolve();
+    } catch (error) {
+      console.error('画面回転設定エラー:', error);
+      return Promise.resolve(); // エラーが発生しても成功したとみなす
+    }
+  };
+  
   // 画面サイズの変化を監視
   useEffect(() => {
     // 初期向きを設定
@@ -43,26 +107,19 @@ const PracticeTools: React.FC<PracticeToolsProps> = ({
     
     // 練習モードの場合は自動回転を有効にする
     if (isPracticeMode) {
-      // 練習モード開始時に回転を許可し、ランドスケープを優先する
-      ScreenOrientation.unlockAsync()
-        .then(() => {
-          // 横向き優先に設定
-          return ScreenOrientation.lockAsync(
-            ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT
-          );
-        })
-        .catch(error => {
-          console.error('画面回転設定エラー:', error);
-        });
+      configureScreenOrientation(true).catch(error => {
+        console.error('画面回転設定エラー:', error);
+      });
     }
     
     return () => {
       subscription.remove();
       // コンポーネントのアンマウント時に自動回転を元に戻す
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP)
-        .catch(error => {
+      if (isPracticeMode) {
+        configureScreenOrientation(false).catch(error => {
           console.error('画面回転リセットエラー:', error);
         });
+      }
     };
   }, [isPracticeMode]);
   
@@ -76,25 +133,36 @@ const PracticeTools: React.FC<PracticeToolsProps> = ({
   
   // 全画面モード時にステータスバーを非表示にする
   useEffect(() => {
-    if (isPracticeMode) {
-      StatusBar.setHidden(true);
-    } else {
-      StatusBar.setHidden(false);
+    try {
+      if (isPracticeMode) {
+        StatusBar.setHidden(true);
+      } else {
+        StatusBar.setHidden(false);
+      }
+      
+      return () => {
+        try {
+          StatusBar.setHidden(false);
+        } catch (error) {
+          console.error('StatusBar操作エラー:', error);
+        }
+      };
+    } catch (error) {
+      console.error('StatusBar操作エラー:', error);
     }
-    
-    return () => {
-      StatusBar.setHidden(false);
-    };
   }, [isPracticeMode]);
 
   // 練習モードを終了する関数
   const exitPracticeMode = () => {
     console.log('練習モード終了中...');
-    // 練習モード終了時に縦向きに戻す
-    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP)
+    
+    // 状態を先に更新して UI 反応性を改善
+    setIsPracticeMode(false);
+    
+    // 画面向きを縦向きに戻す処理
+    configureScreenOrientation(false)
       .then(() => {
         console.log('画面向きをリセットしました');
-        setIsPracticeMode(false);
         if (onClose) {
           console.log('onClose関数を呼び出します');
           onClose();
@@ -102,8 +170,7 @@ const PracticeTools: React.FC<PracticeToolsProps> = ({
       })
       .catch(error => {
         console.error('画面回転リセットエラー:', error);
-        // エラーがあっても終了処理は続行
-        setIsPracticeMode(false);
+        // エラーがあってもコールバックを呼び出す
         if (onClose) {
           console.log('エラー後にonClose関数を呼び出します');
           onClose();
