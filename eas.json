@@ -40,7 +40,7 @@
         "simulator": false,
         "buildConfiguration": "Release",
         "cocoapods": "1.14.3",
-        "scheme": "LessonManager"
+        "scheme": "Resonote"
       },
       "prebuildCommand": "find ./ios -name Podfile && cd ios && pod install"
     },

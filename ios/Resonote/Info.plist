@@ -57,6 +57,8 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSCameraUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your camera</string>
     <key>NSDocumentsFolderUsageDescription</key>
     <string>音声ファイルを保存・読み込みするために必要です</string>
     <key>NSMicrophoneUsageDescription</key>
