@@ -11,6 +11,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ErrorBoundary from 'react-native-error-boundary';
+import { checkOnboardingStatus } from '../services/userProfileService';
 
 // スプラッシュ画面を非表示にするのを遅らせる
 SplashScreen.preventAutoHideAsync();
@@ -42,7 +43,7 @@ const ErrorFallback = ({ error, resetError }: ErrorFallbackProps) => {
 
 export default function RootLayout() {
   const { theme: themeName } = useSettingsStore();
-  const { user, isOnboardingCompleted } = useAuthStore();
+  const { user, isOnboardingCompleted, setOnboardingCompleted } = useAuthStore();
   const theme = useTheme();
   const [loaded] = useFonts(FontAwesome.font);
 
@@ -52,6 +53,23 @@ export default function RootLayout() {
       SplashScreen.hideAsync().catch(console.error);
     }
   }, [loaded]);
+
+  // ユーザーログイン時にオンボーディング状態を確認
+  useEffect(() => {
+    if (user && user.uid) {
+      checkOnboardingStatus()
+        .then(completed => {
+          console.log('オンボーディング状態:', completed ? '完了済み' : '未完了');
+          setOnboardingCompleted(completed);
+        })
+        .catch(error => {
+          console.error('オンボーディング状態確認エラー:', error);
+          // エラーが発生しても、デフォルトでオンボーディング完了状態を設定
+          // これにより、エラーが表示されてもアプリは通常通り動作する
+          setOnboardingCompleted(true);
+        });
+    }
+  }, [user, setOnboardingCompleted]);
 
   // フォントがロードされていない場合は何も表示しない
   if (!loaded) {

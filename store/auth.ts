@@ -72,6 +72,7 @@ export interface AuthState {
   isLoading: boolean;
   error: string | null;
   isNewUser: boolean;
+  isOnboardingCompleted: boolean;
   premiumStatus: PremiumStatus | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
@@ -81,6 +82,7 @@ export interface AuthState {
   setError: (error: string) => void;
   clearError: () => void;
   setIsNewUser: (value: boolean) => void;
+  setOnboardingCompleted: (value: boolean) => void;
   setUser: (user: AppUser | null) => void;
   setLoading: (loading: boolean) => void;
   setPremiumStatus: (status: PremiumStatus | null) => void;
@@ -94,6 +96,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     isLoading: true,
     error: null,
     isNewUser: false,
+    isOnboardingCompleted: false,
     premiumStatus: null,
   };
   
@@ -275,13 +278,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
   }, []);
 
   return {
-    user: null,
-    isAuthenticated: false,
-    isLoading: true,
-    error: null,
-    isNewUser: false,
-    premiumStatus: null,
-
+    ...initialState,
     login: async (email, password) => {
       try {
         set({ isLoading: true, error: null });
@@ -466,7 +463,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await signOut(auth);
         set({ user: null, isAuthenticated: false, isLoading: false, isNewUser: false });
         console.log("✅ サインアウト成功");
-        // サインアウト後のナビゲーションはレイアウトの条件付きレンダリングに任せる
+        // ログイン画面に遷移
+        const router = require('expo-router').router;
+        router.replace('/auth/login');
       } catch (error: any) {
         console.error("❌ サインアウト失敗:", error.message);
         set({ error: error.message, isLoading: false });
@@ -478,6 +477,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
     clearError: () => set({ error: null }),
     
     setIsNewUser: (value) => set({ isNewUser: value }),
+
+    setOnboardingCompleted: (value) => set({ isOnboardingCompleted: value }),
 
     setUser: (user) => set({ user, isAuthenticated: !!user, isLoading: false }),
 

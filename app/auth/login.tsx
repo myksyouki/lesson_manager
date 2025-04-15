@@ -376,7 +376,6 @@ export default function LoginScreen() {
                   <Text style={styles.socialButtonText}>Googleでログイン</Text>
                 </TouchableOpacity>
 
-                {/* テストユーザーボタンを一時的に非表示
                 <TouchableOpacity
                   style={[
                     styles.socialButton, 
@@ -392,7 +391,6 @@ export default function LoginScreen() {
                   />
                   <Text style={styles.testUserButtonText}>テストユーザー</Text>
                 </TouchableOpacity>
-                */}
               </View>
 
               <View style={styles.switchContainer}>
