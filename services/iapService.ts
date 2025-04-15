@@ -3,8 +3,8 @@ import { Platform } from 'react-native';
 import { useAuthStore, PremiumStatus } from '../store/auth'; // Import the auth store and PremiumStatus type
 
 const REVENUECAT_API_KEY_IOS = 'YOUR_REVENUECAT_IOS_API_KEY'; // Placeholder - User needs to provide this
-const STANDARD_PLAN_ID = 'standard_monthly'; // Example ID, replace with actual from RevenueCat/App Store Connect
-const PRO_PLAN_ID = 'pro_monthly'; // Example ID, replace with actual from RevenueCat/App Store Connect
+const STANDARD_PLAN_ID = 'standard'; // Updated ID from user
+const PRO_PLAN_ID = 'professional'; // Updated ID from user
 const PREMIUM_ENTITLEMENT_ID = 'premium'; // Example ID, replace with actual entitlement identifier from RevenueCat if different
 
 export const initializeIAP = () => {
