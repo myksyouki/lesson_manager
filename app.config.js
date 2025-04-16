@@ -1,6 +1,6 @@
 module.exports = {
   expo: {
-    owner: "myksyouki",
+    owner: "regnition-ai",
     name: "Resonote",
     slug: "lesson-manager",
     version: "0.0.2",
@@ -11,7 +11,7 @@ module.exports = {
       resizeMode: "contain",
       backgroundColor: "#121212"
     },
-    scheme: "lesson-manager",
+    scheme: "resonote",
     userInterfaceStyle: "automatic",
     sdkVersion: "52.0.0",
     runtimeVersion: "1.0.0",
@@ -20,7 +20,7 @@ module.exports = {
       fallbackToCacheTimeout: 0,
       checkAutomatically: "ON_LOAD"
     },
-    newArchEnabled: true,
+    newArchEnabled: false,
     extra: {
       expoPublicFirebaseApiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyA6GCKN48UZNnWQmU0LDIu7tn0jLRrJ4Ik",
       expoPublicFirebaseAuthDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "lesson-manager-99ab9.firebaseapp.com",
@@ -31,9 +31,9 @@ module.exports = {
       expoPublicGoogleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "21424871541-1ujlpfdrapifrvbn0hup1hah1q84avuo.apps.googleusercontent.com",
       expoPublicGoogleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "21424871541-j9mudt7r229fk77j6rie1oasvs70e377.apps.googleusercontent.com",
       expoPublicGoogleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "21424871541-1553of634jsc7gj8qe8ljpkpv8u4cq77.apps.googleusercontent.com",
-      expoPublicGoogleRedirectUri: process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI || "https://auth.expo.io/@myksyouki/lesson-manager",
+      expoPublicGoogleRedirectUri: process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI || "https://auth.expo.io/@regnition-ai/lesson-manager",
       eas: {
-        projectId: "c06d6977-ea10-44b9-8086-f41aea2ba31d"
+        projectId: "303ee673-c9ce-4969-84fd-9776438b4468"
       },
       difyApiEndpoint: process.env.EXPO_PUBLIC_DIFY_API_ENDPOINT,
       difyServiceToken: process.env.EXPO_PUBLIC_DIFY_API_SERVICE_TOKEN,

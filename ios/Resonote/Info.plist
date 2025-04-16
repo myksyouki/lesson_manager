@@ -29,7 +29,7 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>lesson-manager</string>
+          <string>resonote</string>
           <string>com.regnition.appli</string>
         </array>
       </dict>

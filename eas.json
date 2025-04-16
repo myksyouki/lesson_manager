@@ -16,6 +16,16 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "LANG": "en_US.UTF-8",
+        "RCT_NEW_ARCH_ENABLED": "0",
+        "EAS_SKIP_AUTO_FINGERPRINT": "1"
+      },
+      "ios": {
+        "simulator": true,
+        "image": "latest",
+        "buildConfiguration": "Debug"
+      },
       "android": {
         "buildType": "apk"
       }
