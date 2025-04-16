@@ -1,6 +1,6 @@
 {
   "cli": {
-    "version": ">= 10.0.0",
+    "version": ">= 0.60.0",
     "appVersionSource": "remote"
   },
   "build": {
@@ -11,11 +11,29 @@
         "gradleCommand": ":app:assembleDebug"
       },
       "ios": {
-        "buildConfiguration": "Debug"
+        "buildConfiguration": "Debug",
+        "simulator": true
+      }
+    },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "LANG": "en_US.UTF-8",
+        "RCT_NEW_ARCH_ENABLED": "0",
+        "EAS_SKIP_AUTO_FINGERPRINT": "1"
+      },
+      "ios": {
+        "simulator": true,
+        "image": "latest",
+        "buildConfiguration": "Debug"
+      },
       "android": {
         "buildType": "apk"
       }
