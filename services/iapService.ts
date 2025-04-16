@@ -1,6 +1,38 @@
-import Purchases, { LOG_LEVEL, PurchasesOffering, PurchasesPackage, CustomerInfo } from 'react-native-purchases';
 import { Platform } from 'react-native';
 import { useAuthStore, PremiumStatus } from '../store/auth'; // Import the auth store and PremiumStatus type
+
+// Expoの開発環境でのエラーを回避するための条件付きインポート
+let Purchases: any = null;
+let LOG_LEVEL: any = null;
+
+// 型定義
+type PurchasesOffering = {
+  identifier: string;
+  availablePackages: PurchasesPackage[];
+};
+
+type PurchasesPackage = {
+  identifier: string;
+  offeringIdentifier: string;
+  product: any;
+};
+
+type CustomerInfo = {
+  entitlements: {
+    active: Record<string, {
+      expirationDate?: string;
+      // その他の必要なプロパティ
+    }>;
+  };
+};
+
+try {
+  const PurchasesModule = require('react-native-purchases');
+  Purchases = PurchasesModule.default;
+  LOG_LEVEL = PurchasesModule.LOG_LEVEL;
+} catch (error) {
+  console.warn('react-native-purchases could not be loaded:', error);
+}
 
 const REVENUECAT_API_KEY_IOS = 'appl_jksijmuupFmNEVuLTuJyJezTHxU'; // Provided by user
 const STANDARD_PLAN_ID = 'standard'; // Updated ID from user
@@ -8,8 +40,8 @@ const PRO_PLAN_ID = 'professional'; // Updated ID from user
 const PREMIUM_ENTITLEMENT_ID = 'premium'; // Example ID, replace with actual entitlement identifier from RevenueCat if different
 
 export const initializeIAP = () => {
-  if (Platform.OS === 'ios') {
-    Purchases.setLogLevel(LOG_LEVEL.DEBUG); // Use DEBUG for development
+  if (Platform.OS === 'ios' && Purchases) {
+    Purchases.setLogLevel(LOG_LEVEL?.DEBUG || 0); // Use DEBUG for development
     if (!REVENUECAT_API_KEY_IOS) {
         console.warn('RevenueCat API Key for iOS is missing or empty.');
         return; // Do not configure if key is missing or empty
@@ -17,7 +49,7 @@ export const initializeIAP = () => {
     Purchases.configure({ apiKey: REVENUECAT_API_KEY_IOS });
     console.log('RevenueCat SDK configured for iOS.');
 
-    Purchases.addCustomerInfoUpdateListener(async (info) => {
+    Purchases.addCustomerInfoUpdateListener(async (info: CustomerInfo) => {
       console.log('Received updated customer info:', info);
       await updatePremiumStatus(info);
     });
@@ -25,6 +57,8 @@ export const initializeIAP = () => {
 };
 
 export const getOfferings = async (): Promise<PurchasesOffering | null> => {
+  if (!Purchases) return null;
+  
   try {
     const offerings = await Purchases.getOfferings();
     if (offerings.current !== null && offerings.current.availablePackages.length !== 0) {
@@ -40,6 +74,8 @@ export const getOfferings = async (): Promise<PurchasesOffering | null> => {
 };
 
 export const purchasePackage = async (pack: PurchasesPackage): Promise<boolean> => {
+  if (!Purchases) return false;
+  
   try {
     const { customerInfo } = await Purchases.purchasePackage(pack);
     console.log('Purchase successful:', customerInfo);
@@ -56,6 +92,8 @@ export const purchasePackage = async (pack: PurchasesPackage): Promise<boolean> 
 };
 
 export const restorePurchases = async (): Promise<boolean> => {
+   if (!Purchases) return false;
+   
    try {
      const restoreInfo = await Purchases.restorePurchases();
      console.log('Restore purchases successful:', restoreInfo);
@@ -68,6 +106,8 @@ export const restorePurchases = async (): Promise<boolean> => {
 };
 
 export const checkSubscriptionStatus = async () => {
+  if (!Purchases) return;
+  
   try {
     const customerInfo = await Purchases.getCustomerInfo();
     console.log('Checked customer info:', customerInfo);
