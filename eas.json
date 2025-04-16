@@ -1,6 +1,6 @@
 {
   "cli": {
-    "version": ">= 10.0.0",
+    "version": ">= 0.60.0",
     "appVersionSource": "remote"
   },
   "build": {
@@ -11,7 +11,15 @@
         "gradleCommand": ":app:assembleDebug"
       },
       "ios": {
-        "buildConfiguration": "Debug"
+        "buildConfiguration": "Debug",
+        "simulator": true
+      }
+    },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
       }
     },
     "preview": {

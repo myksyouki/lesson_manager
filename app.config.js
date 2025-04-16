@@ -21,6 +21,7 @@ module.exports = {
       checkAutomatically: "ON_LOAD"
     },
     newArchEnabled: false,
+    developmentClient: false,
     extra: {
       expoPublicFirebaseApiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyA6GCKN48UZNnWQmU0LDIu7tn0jLRrJ4Ik",
       expoPublicFirebaseAuthDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "lesson-manager-99ab9.firebaseapp.com",
@@ -34,6 +35,19 @@ module.exports = {
       expoPublicGoogleRedirectUri: process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI || "https://auth.expo.io/@regnition-ai/lesson-manager",
       eas: {
         projectId: "303ee673-c9ce-4969-84fd-9776438b4468"
+      },
+      client: {
+        android: {
+          previews: {
+            androidStudio: false
+          }
+        },
+        ios: {
+          previews: {
+            xcode: false
+          },
+          experimentalNativeConfigurationPath: undefined,
+        }
       },
       difyApiEndpoint: process.env.EXPO_PUBLIC_DIFY_API_ENDPOINT,
       difyServiceToken: process.env.EXPO_PUBLIC_DIFY_API_SERVICE_TOKEN,
@@ -85,6 +99,9 @@ module.exports = {
           "firebase-admin": "./empty-module.js"
         }
       }
+    },
+    packagerOpts: {
+      dev: true
     }
   }
 };  
