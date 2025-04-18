@@ -776,6 +776,7 @@ export {
 export const getPracticeMenuRecommendations = practiceMenuFunctions.getPracticeMenuRecommendations;
 export const getSheetMusic = practiceMenuFunctions.getSheetMusic;
 export const createPracticeMenu = practiceMenuFunctions.createPracticeMenu;
+export const generatePracticeMenuFromInput = practiceMenuFunctions.generatePracticeMenuFromInput;
 export const uploadSheetMusic = practiceMenuFunctions.uploadSheetMusic;
 export { testOpenAIConnection, generatePracticeRecommendation };
 

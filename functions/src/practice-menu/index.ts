@@ -1157,6 +1157,179 @@ export const uploadSheetMusic = onCall(
   }
 );
 
+/**
+ * ユーザー入力から練習メニューを生成するCloud Function
+ */
+export const generatePracticeMenuFromInput = onCall(
+  {
+    region: FUNCTION_REGION,
+    timeoutSeconds: DEFAULT_TIMEOUT,
+  },
+  async (request) => {
+    // 認証チェック
+    if (!request.auth) {
+      throw createError(
+        ErrorType.UNAUTHENTICATED,
+        "この機能を使用するにはログインが必要です"
+      );
+    }
+
+    const data = request.data;
+    logger.info("練習メニュー生成リクエスト:", data);
+
+    // 必須パラメータチェック
+    if (!data.instrument) {
+      throw createError(
+        ErrorType.INVALID_ARGUMENT,
+        "楽器が指定されていません"
+      );
+    }
+
+    try {
+      // パラメータ取得
+      const instrument = data.instrument;
+      const level = data.level || "中級者";
+      const practiceDuration = data.practice_duration || 60;
+      const practiceContent = data.practice_content || "";
+      const specificGoals = data.specific_goals || "";
+
+      // OpenAI APIキーの取得
+      const apiKey = await getOpenAIApiKey();
+      if (!apiKey) {
+        throw createError(
+          ErrorType.INTERNAL,
+          "APIキーの取得に失敗しました"
+        );
+      }
+
+      // プロンプトの作成
+      const prompt = `
+音楽の練習メニューを作成してください。
+
+## 条件
+- 楽器: ${instrument}
+- レベル: ${level}
+- 練習時間: ${practiceDuration}分
+- 練習内容: ${practiceContent}
+- 目標: ${specificGoals}
+
+## 出力形式
+以下の形式でJSONデータとして返してください:
+
+\`\`\`json
+[
+  {
+    "title": "メニュータイトル",
+    "description": "詳細な説明",
+    "category": "カテゴリ名",
+    "duration": 練習時間（分）,
+    "steps": [
+      {
+        "id": "step1",
+        "title": "ステップ名",
+        "description": "ステップの説明",
+        "duration": 所要時間（分）,
+        "orderIndex": 0
+      }
+    ],
+    "tags": ["タグ1", "タグ2"]
+  }
+]
+\`\`\`
+`;
+
+      // OpenAI APIの呼び出し
+      const response = await axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content: "あなたは音楽教師であり、効果的な練習メニューを作成するエキスパートです。"
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+          }
+        }
+      );
+
+      // レスポンスの解析
+      const aiResponse = response.data.choices[0].message.content;
+      
+      // JSONを抽出（```json や ``` で囲まれている可能性がある）
+      const jsonMatch = aiResponse.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || [null, aiResponse];
+      const jsonContent = jsonMatch[1];
+      
+      try {
+        // JSON文字列をパース
+        const practiceMenus = JSON.parse(jsonContent);
+        
+        // バリデーションと整形
+        const formattedMenus = practiceMenus.map((menu: any) => {
+          return {
+            id: `pm_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+            title: menu.title || '練習メニュー',
+            description: menu.description || '',
+            category: menu.category || 'その他',
+            difficulty: level,
+            duration: menu.duration || 30,
+            steps: Array.isArray(menu.steps) ? menu.steps.map((step: any, index: number) => ({
+              ...step,
+              id: step.id || `step_${Date.now()}_${index}`,
+              orderIndex: index
+            })) : [],
+            tags: Array.isArray(menu.tags) ? menu.tags : [],
+            instrument: instrument,
+            createdAt: admin.firestore.Timestamp.now(),
+            updatedAt: admin.firestore.Timestamp.now()
+          };
+        });
+
+        // 要約を生成
+        const summary = `${instrument}の${level}レベル向け練習メニューが${formattedMenus.length}件生成されました。`;
+
+        // 結果を返す
+        return {
+          success: true,
+          menu: formattedMenus,
+          summary: summary
+        };
+      } catch (parseError) {
+        logger.error('練習メニューJSONのパースエラー:', parseError);
+        throw createError(
+          ErrorType.INTERNAL,
+          'AIレスポンスの解析に失敗しました',
+          { originalError: parseError instanceof Error ? parseError.message : String(parseError) }
+        );
+      }
+    } catch (error) {
+      logger.error('練習メニュー生成エラー:', error);
+      
+      // エラーの種類に応じて適切な応答を返す
+      if (error instanceof Error) {
+        throw error; // createErrorで作成されたエラーはそのまま返す
+      }
+      
+      // その他の予期せぬエラー
+      throw createError(
+        ErrorType.INTERNAL,
+        "練習メニューの生成中にエラーが発生しました"
+      );
+    }
+  }
+);
+
 // 関数をエクスポート
 export const practiceMenuFunctions = {
   getPracticeMenuRecommendations,

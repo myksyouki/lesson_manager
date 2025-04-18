@@ -67,33 +67,12 @@ const PracticeTools: React.FC<PracticeToolsProps> = ({
   // 画面の向きを設定する関数
   const configureScreenOrientation = async (isLandscape: boolean) => {
     try {
-      // ScreenOrientationが存在するが不完全な場合のチェック
-      const isValidModule = ScreenOrientation && 
-                            typeof ScreenOrientation.lockAsync === 'function' && 
-                            typeof ScreenOrientation.unlockAsync === 'function' &&
-                            ScreenOrientation.OrientationLock;
-                            
-      if (!isValidModule) {
-        console.log('画面回転機能は利用できません');
-        return Promise.resolve();
-      }
-      
-      if (isLandscape) {
-        // 横向き優先に設定
-        await ScreenOrientation.unlockAsync();
-        await ScreenOrientation.lockAsync(
-          ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT
-        );
-      } else {
-        // 縦向きに設定
-        await ScreenOrientation.lockAsync(
-          ScreenOrientation.OrientationLock.PORTRAIT_UP
-        );
-      }
+      // 画面向きを固定せず、ユーザーの自由に任せる
+      console.log('画面向きはユーザーの選択に従います');
       return Promise.resolve();
     } catch (error) {
       console.error('画面回転設定エラー:', error);
-      return Promise.resolve(); // エラーが発生しても成功したとみなす
+      return Promise.resolve();
     }
   };
   
@@ -105,20 +84,22 @@ const PracticeTools: React.FC<PracticeToolsProps> = ({
     // 画面回転の検出
     const subscription = Dimensions.addEventListener('change', updateOrientation);
     
-    // 練習モードの場合は自動回転を有効にする
+    // 強制回転コードを削除し、ステータスバーの非表示のみ維持
     if (isPracticeMode) {
-      configureScreenOrientation(true).catch(error => {
-        console.error('画面回転設定エラー:', error);
-      });
+      try {
+        StatusBar.setHidden(true);
+      } catch (error) {
+        console.error('StatusBar操作エラー:', error);
+      }
     }
     
     return () => {
       subscription.remove();
-      // コンポーネントのアンマウント時に自動回転を元に戻す
-      if (isPracticeMode) {
-        configureScreenOrientation(false).catch(error => {
-          console.error('画面回転リセットエラー:', error);
-        });
+      // コンポーネントのアンマウント時にはステータスバーを元に戻す
+      try {
+        StatusBar.setHidden(false);
+      } catch (error) {
+        console.error('StatusBar操作リセットエラー:', error);
       }
     };
   }, [isPracticeMode]);
@@ -128,54 +109,52 @@ const PracticeTools: React.FC<PracticeToolsProps> = ({
     const { width, height } = Dimensions.get('window');
     const isLandscape = width > height;
     setOrientation(isLandscape ? 'landscape' : 'portrait');
-    console.log('画面向き変更:', isLandscape ? 'landscape' : 'portrait');
+    console.log('画面向き変更検出:', isLandscape ? 'landscape' : 'portrait', width, height);
   };
   
-  // 全画面モード時にステータスバーを非表示にする
-  useEffect(() => {
-    try {
-      if (isPracticeMode) {
-        StatusBar.setHidden(true);
-      } else {
-        StatusBar.setHidden(false);
-      }
-      
-      return () => {
-        try {
-          StatusBar.setHidden(false);
-        } catch (error) {
-          console.error('StatusBar操作エラー:', error);
-        }
-      };
-    } catch (error) {
-      console.error('StatusBar操作エラー:', error);
-    }
-  }, [isPracticeMode]);
-
-  // 練習モードを終了する関数
-  const exitPracticeMode = () => {
+  // 練習モードを終了する関数を修正
+  const exitPracticeMode = async () => {
     console.log('練習モード終了中...');
     
-    // 状態を先に更新して UI 反応性を改善
-    setIsPracticeMode(false);
-    
-    // 画面向きを縦向きに戻す処理
-    configureScreenOrientation(false)
-      .then(() => {
-        console.log('画面向きをリセットしました');
-        if (onClose) {
-          console.log('onClose関数を呼び出します');
-          onClose();
-        }
-      })
-      .catch(error => {
-        console.error('画面回転リセットエラー:', error);
-        // エラーがあってもコールバックを呼び出す
-        if (onClose) {
-          console.log('エラー後にonClose関数を呼び出します');
-          onClose();
-        }
-      });
+    try {
+      // 横向きから縦向きに戻す処理を追加
+      if (ScreenOrientation && 
+          typeof ScreenOrientation.lockAsync === 'function') {
+        
+        // まず画面の向きのロックを解除
+        await ScreenOrientation.unlockAsync();
+        
+        // 縦向きに固定
+        await ScreenOrientation.lockAsync(
+          ScreenOrientation.OrientationLock.PORTRAIT_UP
+        );
+        
+        console.log('画面を縦向きに戻しました');
+      }
+      
+      // ステータスバーを表示
+      StatusBar.setHidden(false);
+      
+      // 状態を更新
+      setIsPracticeMode(false);
+      
+      // 親コンポーネントのコールバックを呼び出す
+      if (onClose) {
+        console.log('onClose関数を呼び出します');
+        onClose();
+      }
+    } catch (error) {
+      console.error('画面回転リセットエラー:', error);
+      
+      // エラーが発生しても状態は更新する
+      setIsPracticeMode(false);
+      StatusBar.setHidden(false);
+      
+      if (onClose) {
+        console.log('エラー後にonClose関数を呼び出します');
+        onClose();
+      }
+    }
   };
 
   // メトロノームの表示/非表示を切り替える
@@ -200,6 +179,39 @@ const PracticeTools: React.FC<PracticeToolsProps> = ({
     setMetronomeBpm(bpm);
   };
 
+  // PracticeTools コンポーネント内に横向き切り替え関数を追加
+  const toggleLandscapeMode = async () => {
+    try {
+      // 有効なScreenOrientationモジュールのチェック
+      if (ScreenOrientation && 
+          typeof ScreenOrientation.lockAsync === 'function') {
+        console.log('横向きモードに切り替えます');
+        // 現在の向きをチェック
+        const { width, height } = Dimensions.get('window');
+        const isCurrentlyLandscape = width > height;
+        
+        if (!isCurrentlyLandscape) {
+          // 横向きに切り替え
+          await ScreenOrientation.lockAsync(
+            ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT
+          );
+        } else {
+          // すでに横向きの場合は縦向きに戻す
+          await ScreenOrientation.lockAsync(
+            ScreenOrientation.OrientationLock.PORTRAIT_UP
+          );
+        }
+        
+        // 向きの更新
+        updateOrientation();
+      } else {
+        console.log('画面回転機能は利用できません');
+      }
+    } catch (error) {
+      console.error('画面回転設定エラー:', error);
+    }
+  };
+
   if (!isVisible) return null;
 
   console.log('PracticeTools再レンダリング - 練習モード状態:', isPracticeMode);
@@ -222,6 +234,7 @@ const PracticeTools: React.FC<PracticeToolsProps> = ({
           url={sheetMusicUrl} 
           onClose={exitPracticeMode}
           orientation={orientation}
+          onToggleLandscape={toggleLandscapeMode}
         />
 
         {/* 練習ツールボタン - 向きに応じて位置を調整 */}
@@ -243,14 +256,16 @@ const PracticeTools: React.FC<PracticeToolsProps> = ({
             <MaterialIcons name="music-note" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           
-          {/* メトロノームを表示/非表示に関わらず常にアイコンの隣に表示 */}
-          <View style={styles.metronomeContainer}>
-            <SimpleMetronome 
-              isPlaying={metronomeIsPlaying}
-              onPlayingChange={handleMetronomePlayingChange}
-              onBpmChange={handleMetronomeBpmChange}
-            />
-          </View>
+          {/* メトロノームを条件付きで表示 */}
+          {showMetronome && (
+            <View style={styles.metronomeContainer}>
+              <SimpleMetronome 
+                isPlaying={metronomeIsPlaying}
+                onPlayingChange={handleMetronomePlayingChange}
+                onBpmChange={handleMetronomeBpmChange}
+              />
+            </View>
+          )}
         </View>
 
         {/* チューナーを表示 - 向きに応じて位置を調整 */}
@@ -279,12 +294,14 @@ interface ImprovedSheetMusicViewerProps {
   url: string;
   onClose?: () => void;
   orientation: 'portrait' | 'landscape';
+  onToggleLandscape?: () => void;
 }
 
 const ImprovedSheetMusicViewer: React.FC<ImprovedSheetMusicViewerProps> = ({ 
   url, 
   onClose,
-  orientation
+  orientation,
+  onToggleLandscape
 }) => {
   const { width, height } = Dimensions.get('window');
   const [imageLoading, setImageLoading] = useState(true);
@@ -342,20 +359,22 @@ const ImprovedSheetMusicViewer: React.FC<ImprovedSheetMusicViewerProps> = ({
       : { width: '100%', height: '100%' } as const;
   };
 
-  // 画像のサイズを計算（横向き対応）
+  // 画像のサイズを計算するとき、向きに応じて適切な値を返すよう修正
   const getImageSize = () => {
+    const { width, height } = Dimensions.get('window');
+    
     if (orientation === 'landscape') {
-      // 横向きの場合は高さを優先
+      // 横向きの場合
       return {
-        width: height * 0.85,
-        height: width * 0.85,
+        width: width * 0.95,
+        height: height * 0.95,
       };
     }
     
-    // 縦向きの場合は幅を優先
+    // 縦向きの場合
     return {
       width: width * 0.95,
-      height: height * 0.95,
+      height: width * 1.3, // アスペクト比を保持
     };
   };
   
@@ -431,8 +450,27 @@ const ImprovedSheetMusicViewer: React.FC<ImprovedSheetMusicViewerProps> = ({
           orientation === 'landscape' && styles.closeButtonLandscape
         ]}
         onPress={onClose}
+        activeOpacity={0.6}
+        hitSlop={{ top: 30, bottom: 30, left: 30, right: 30 }}
       >
-        <MaterialIcons name="close" size={24} color="#FFFFFF" />
+        <MaterialIcons name="close" size={32} color="#FFFFFF" />
+      </TouchableOpacity>
+      
+      {/* 画面回転ボタンのタッチ領域と視認性を改善 */}
+      <TouchableOpacity 
+        style={[
+          styles.rotateButton,
+          orientation === 'landscape' && styles.rotateButtonLandscape
+        ]}
+        onPress={onToggleLandscape}
+        activeOpacity={0.6}
+        hitSlop={{ top: 30, bottom: 30, left: 30, right: 30 }}
+      >
+        <MaterialIcons 
+          name="screen-rotation" 
+          size={32} 
+          color="#FFFFFF" 
+        />
       </TouchableOpacity>
     </View>
   );
@@ -798,19 +836,24 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    top: 24,
+    right: 24,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10000,
+    zIndex: 999999,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
   },
   closeButtonLandscape: {
-    top: 10,
-    right: 10,
+    top: 24,
+    right: 24,
   },
   
   // ツールボタンのスタイル
@@ -1012,6 +1055,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 6,
+  },
+  rotateButton: {
+    position: 'absolute',
+    top: 24,
+    left: 24, // 左側に配置
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999999,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+  },
+  rotateButtonLandscape: {
+    top: 24,
+    left: 24,
   },
 });
 

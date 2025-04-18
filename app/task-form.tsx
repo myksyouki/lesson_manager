@@ -18,6 +18,7 @@ import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useTaskStore } from '../store/tasks';
 import { useAuthStore } from '../store/auth';
 import { getCurrentUserProfile } from '../services/userProfileService';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -67,6 +68,9 @@ export default function PracticeMenuGenerator() {
     practice_content: '',
     specific_goals: ''
   });
+
+  // Firebaseのfunctions参照を取得
+  const functions = getFunctions();
 
   // ユーザープロフィールから楽器情報を取得
   useEffect(() => {
@@ -143,12 +147,52 @@ export default function PracticeMenuGenerator() {
 
   // 練習メニューの生成
   const handleGenerateMenu = async () => {
-    // この機能は現在利用できないことを通知
-    Alert.alert(
-      '機能停止のお知らせ',
-      '申し訳ありませんが、練習メニュー生成機能は現在ご利用いただけません。開発者にお問い合わせください。',
-      [{ text: 'OK' }]
-    );
+    if (!formData.practice_content) {
+      Alert.alert('入力エラー', '練習したい内容を入力してください');
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+      
+      // リクエストデータを準備
+      const requestData = {
+        source: 'form', // フォームからの検索であることを明示
+        keywords: [formData.practice_content], // フォームの練習内容をキーワードとして使用
+        specificGoals: formData.specific_goals || '', // 具体的な目標
+        limit: 3 // 取得するメニュー数
+      };
+      
+      // Firebase Functionsの getPracticeMenuRecommendations を呼び出して
+      // 既存の練習メニューから最適なものを取得
+      const getPracticeMenus = httpsCallable(functions, 'getPracticeMenuRecommendations');
+      
+      const result = await getPracticeMenus(requestData);
+      const response = result.data as any;
+      
+      if (response && response.success && response.menus && response.menus.length > 0) {
+        // 取得した練習メニューを設定
+        setGeneratedMenu(response.menus.map((menu: any) => ({
+          title: menu.title,
+          description: menu.description,
+          duration: menu.duration,
+          category: menu.category
+        })));
+        
+        // メニューの概要を設定
+        const instrument = response.context?.instrument || formData.instrument || userInstrument || '楽器';
+        const level = response.context?.level || formData.skill_level;
+        setMenuSummary(`${instrument}の${level}レベル向け「${formData.practice_content}」の練習メニューです。最適な練習方法を取り入れてみましょう。`);
+      } else {
+        throw new Error('適切な練習メニューが見つかりませんでした');
+      }
+      
+      setIsGenerating(false);
+    } catch (error) {
+      console.error('練習メニュー生成エラー:', error);
+      Alert.alert('エラー', '練習メニューの取得に失敗しました');
+      setIsGenerating(false);
+    }
   };
 
   // スキルレベルを選択
@@ -165,15 +209,17 @@ export default function PracticeMenuGenerator() {
       const taskData = {
         title: formData.practice_content || '',
         description: formData.specific_goals || '',
-        dueDate: new Date().toISOString(),
-        tags: formData.practice_content ? [formData.practice_content] : [],
+        dueDate: new Date(),
         isCompleted: false,
+        completed: false,
+        content: formData.specific_goals || '',
+        tags: formData.practice_content ? [formData.practice_content] : [],
         practiceDate: new Date().toISOString(),
         priority: 'medium',
         steps: [],
         attachments: [{
           type: 'image' as const,
-          url: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAAyAEsDAREAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD+/igAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgD//Z',
+          url: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAAyAEsDAREAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD+/igAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgAoAKACgD//Z',
           format: 'image/jpeg'
         }]
       };
@@ -214,6 +260,7 @@ export default function PracticeMenuGenerator() {
     }
   };
 
+  // サンプルタスクを作成する処理
   const handleCreateSampleTask = async () => {
     try {
       // サンプルの練習ステップを作成
@@ -245,16 +292,18 @@ export default function PracticeMenuGenerator() {
       const taskData = {
         title: 'ムーンライト・ソナタの練習',
         description: '第1楽章の冒頭部分を中心に、ペダリングと音色の変化に注意して練習しましょう。特に右手のアルペジオ部分はなめらかさを意識し、左手の低音部は音が膨らみすぎないように注意してください。',
-        dueDate: new Date().toISOString(),
-        tags: ['ピアノ', 'クラシック', '表現'],
+        content: '第1楽章の冒頭部分を中心に、ペダリングと音色の変化に注意して練習',
+        dueDate: new Date(),
+        completed: false,
         isCompleted: false,
+        tags: ['ピアノ', 'クラシック', '表現'],
         practiceDate: new Date().toISOString(),
-        priority: 'high',
+        priority: 'medium',
         steps: sampleSteps,
         attachments: [{
           type: 'image' as const,
-          url: 'https://firebasestorage.googleapis.com/v0/b/lesson-manager-99ab9.firebasestorage.app/o/sheetMusic%2Fmenu_1744199223315.jpg?alt=media&token=8cdb200b-bb90-4972-aaad-e00a03a3f631',
-          format: 'image/jpeg'
+          url: '/assets/images/music-note.png',
+          format: 'image/png'
         }]
       };
 
@@ -319,29 +368,28 @@ export default function PracticeMenuGenerator() {
             // 練習メニュー生成フォーム
             <View style={styles.form}>
               <View style={styles.formCard}>
-                <View style={styles.noticeContainer}>
-                  <FontAwesome5 name="exclamation-triangle" size={24} color="#ff9500" />
-                  <Text style={styles.noticeText}>
-                    この機能は現在開発中です。申し訳ありませんが、しばらくお待ちください。
-                  </Text>
-                </View>
+                <Text style={styles.sectionTitle}>練習メニュー作成</Text>
                 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>スキルレベル <Text style={styles.required}>*</Text></Text>
-                  <View style={styles.pillContainer}>
-                    {SKILL_LEVELS.map(level => (
+                <Text style={styles.subtitle}>練習情報を入力</Text>
+                
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>スキルレベル<Text style={styles.required}>*</Text></Text>
+                  <View style={styles.skillLevelContainer}>
+                    {SKILL_LEVELS.map((level) => (
                       <TouchableOpacity
                         key={level}
                         style={[
-                          styles.pill,
-                          formData.skill_level === level && styles.pillSelected
+                          styles.skillLevelButton,
+                          formData.skill_level === level && styles.skillLevelButtonActive
                         ]}
                         onPress={() => selectSkillLevel(level)}
                       >
-                        <Text style={[
-                          styles.pillText,
-                          formData.skill_level === level && styles.pillTextSelected
-                        ]}>
+                        <Text
+                          style={[
+                            styles.skillLevelText,
+                            formData.skill_level === level && styles.skillLevelTextActive
+                          ]}
+                        >
                           {level}
                         </Text>
                       </TouchableOpacity>
@@ -388,12 +436,22 @@ export default function PracticeMenuGenerator() {
 
               <View style={styles.buttonContainer}>
                 <TouchableOpacity
-                  style={[styles.generateButton, { backgroundColor: '#E0E0E0' }]}
+                  style={[styles.generateButton, { backgroundColor: isGenerating ? '#CCCCCC' : '#4CAF50' }]}
                   onPress={handleGenerateMenu}
+                  disabled={isGenerating}
                 >
-                  <Text style={[styles.generateButtonText, { color: '#757575' }]}>
-                    自動で練習メニューを作成（現在利用できません）
-                  </Text>
+                  {isGenerating ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <Text style={[styles.generateButtonText, { color: '#FFFFFF', marginLeft: 10 }]}>
+                        作成中...
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.generateButtonText, { color: '#FFFFFF' }]}>
+                      自動で練習メニューを作成
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -560,10 +618,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    justifyContent: 'center',
   },
   loadingText: {
     marginTop: 16,
@@ -724,5 +781,52 @@ const styles = StyleSheet.create({
     color: '#333',
     lineHeight: 24,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  subtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 24,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  formGroup: {
+    marginBottom: 24,
+  },
+  skillLevelContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  skillLevelButton: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginRight: 10,
+    marginBottom: 10,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+  },
+  skillLevelButtonActive: {
+    backgroundColor: '#007AFF',
+  },
+  skillLevelText: {
+    fontSize: 14,
+    color: '#555',
+    fontWeight: '500',
+  },
+  skillLevelTextActive: {
+    color: 'white',
+    fontWeight: '600',
   },
 });
