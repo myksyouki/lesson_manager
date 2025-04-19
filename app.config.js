@@ -62,7 +62,6 @@ module.exports = {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         CFBundleAllowMixedLocalizations: true,
-        UIBackgroundModes: ["audio"],
         LSSupportsOpeningDocumentsInPlace: true,
         UIFileSharingEnabled: true,
         UISupportsDocumentBrowser: true,

@@ -20,6 +20,7 @@ import Constants from "expo-constants";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { checkOnboardingStatus } from "../services/userProfileService";
 import { getLocalStorageItem, setLocalStorageItem, removeLocalStorageItem } from '../utils/_storage';
+import { Alert } from "react-native";
 
 console.log("✅ Expo Config Extra:", Constants.expoConfig?.extra);
 console.log("🔗 Redirect URI:", Constants.expoConfig?.extra?.expoPublicGoogleRedirectUri);
@@ -67,6 +68,13 @@ export interface PremiumStatus {
   expiryDate?: Date | null;
 }
 
+// 削除予約ステータスの型定義
+export interface DeletionStatus {
+  isScheduledForDeletion: boolean;
+  scheduledForDeletion: Date | null;
+  remainingDays: number;
+}
+
 export interface AuthState {
   user: AppUser | null;
   isAuthenticated: boolean;
@@ -75,12 +83,17 @@ export interface AuthState {
   isNewUser: boolean;
   isOnboardingCompleted: boolean;
   premiumStatus: PremiumStatus | null;
+  deletionStatus: DeletionStatus | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (promptAsync: () => Promise<any>) => Promise<void>;
   signInWithApple: (credential: any) => Promise<void>;
   signInAsTestUser: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
+  scheduleAccountDeletion: (password: string) => Promise<void>;
+  cancelAccountDeletion: () => Promise<void>;
+  checkDeletionStatus: () => Promise<void>;
   setError: (error: string) => void;
   clearError: () => void;
   setIsNewUser: (value: boolean) => void;
@@ -100,6 +113,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     isNewUser: false,
     isOnboardingCompleted: false,
     premiumStatus: null,
+    deletionStatus: null,
   };
   
   // 起動時にonAuthStateChangedより先に実行されるチェック
@@ -471,6 +485,170 @@ export const useAuthStore = create<AuthState>((set, get) => {
       } catch (error: any) {
         console.error("❌ サインアウト失敗:", error.message);
         set({ error: error.message, isLoading: false });
+      }
+    },
+
+    // アカウント削除予約機能
+    scheduleAccountDeletion: async (password: string = '') => {
+      try {
+        set({ isLoading: true, error: null });
+        
+        // 再認証を行う - パスワードが空でない場合のみ実行
+        if (password) {
+          const authService = await import('../services/authService');
+          await authService.reauthenticate(password);
+        }
+        
+        // アカウント削除を予約
+        const authService = await import('../services/authService');
+        const result = await authService.scheduleAccountDeletion();
+        
+        // 削除ステータスを更新
+        set({ 
+          isLoading: false,
+          deletionStatus: {
+            isScheduledForDeletion: true,
+            scheduledForDeletion: result.scheduledForDeletion,
+            remainingDays: 30
+          }
+        });
+        
+        // 成功メッセージを表示
+        Alert.alert(
+          'アカウント削除を予約しました',
+          '30日後にアカウントが完全に削除されます。その前にログインすれば削除をキャンセルできます。'
+        );
+        
+      } catch (error: any) {
+        console.error('アカウント削除予約エラー:', error);
+        set({ 
+          isLoading: false, 
+          error: error.message || 'アカウント削除予約中にエラーが発生しました'
+        });
+        throw error;
+      }
+    },
+    
+    // 削除予約キャンセル
+    cancelAccountDeletion: async () => {
+      try {
+        set({ isLoading: true, error: null });
+        
+        // 削除予約をキャンセル
+        const authService = await import('../services/authService');
+        await authService.cancelAccountDeletion();
+        
+        // 削除ステータスをリセット
+        set({ 
+          isLoading: false,
+          deletionStatus: {
+            isScheduledForDeletion: false,
+            scheduledForDeletion: null,
+            remainingDays: 0
+          }
+        });
+        
+        // 成功メッセージを表示
+        Alert.alert(
+          '削除予約をキャンセルしました',
+          'アカウント削除がキャンセルされました。引き続きサービスをご利用いただけます。'
+        );
+        
+      } catch (error: any) {
+        console.error('削除予約キャンセルエラー:', error);
+        set({ 
+          isLoading: false, 
+          error: error.message || '削除予約のキャンセル中にエラーが発生しました'
+        });
+        throw error;
+      }
+    },
+    
+    // 削除ステータスを確認
+    checkDeletionStatus: async () => {
+      try {
+        // 現在のユーザーがあるか確認
+        const { user } = get();
+        if (!user) return;
+        
+        // 削除ステータスを取得
+        const authService = await import('../services/authService');
+        const status = await authService.getAccountDeletionStatus(user.uid);
+        
+        // エラーが発生した場合でもデフォルト値を設定
+        if (status.error) {
+          console.error('削除ステータス確認エラー:', status.error);
+          set({ 
+            deletionStatus: {
+              isScheduledForDeletion: false,
+              scheduledForDeletion: null,
+              remainingDays: 0
+            }
+          });
+          return;
+        }
+        
+        // ステータスを更新
+        set({ deletionStatus: status });
+        
+      } catch (error: any) {
+        console.error('削除ステータス確認エラー:', error);
+        // エラー発生時もデフォルト値を設定
+        set({ 
+          deletionStatus: {
+            isScheduledForDeletion: false,
+            scheduledForDeletion: null,
+            remainingDays: 0
+          }
+        });
+      }
+    },
+    
+    // 即時アカウント削除（パスワード必須）
+    deleteAccount: async (password: string) => {
+      try {
+        set({ isLoading: true, error: null });
+        
+        // 再認証を行う
+        const authService = await import('../services/authService');
+        await authService.reauthenticate(password);
+        
+        // アカウントを削除
+        await authService.deleteAccount();
+        
+        // ストレージからユーザー情報を削除
+        if (Platform.OS === 'web') {
+          localStorage.removeItem('userAuth');
+          localStorage.removeItem('userId');
+          localStorage.removeItem('userEmail');
+          localStorage.removeItem('userDisplayName');
+          localStorage.removeItem('userPhotoURL');
+        } else {
+          await removeLocalStorageItem('auth_user');
+        }
+        
+        // ストアをリセット
+        set({ 
+          user: null, 
+          isAuthenticated: false, 
+          isLoading: false,
+          isNewUser: false,
+          isOnboardingCompleted: false,
+          premiumStatus: null,
+          deletionStatus: null,
+          error: null
+        });
+        
+        // ホーム画面へリダイレクト
+        router.replace('/');
+        
+      } catch (error: any) {
+        console.error('アカウント削除エラー:', error);
+        set({ 
+          isLoading: false, 
+          error: error.message || 'アカウント削除中にエラーが発生しました'
+        });
+        throw error;
       }
     },
 

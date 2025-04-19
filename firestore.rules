@@ -137,5 +137,18 @@ service cloud.firestore {
         }
       }
     }
+
+    // アカウント削除予約コレクション
+    match /accountDeletions/{userId} {
+      // 自分のユーザーIDの削除予約のみ読み書き可能
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // 管理者は全ての削除予約を閲覧可能（簡素化）
+      allow read: if isAdmin(); // 既存の関数を使用
+      
+      // 以下は元のルール（問題があったため削除）
+      // allow read: if request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+      //             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
   }
 } 
