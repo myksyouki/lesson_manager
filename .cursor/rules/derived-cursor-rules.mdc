@@ -82,8 +82,8 @@ app/
 - **フロントエンド**: React Native with Expo
 - **デプロイ**: Firebase Hosting, Expo EAS
 - **ランタイム**: Node.js 20 (注意: Node.js 18 は 2025-04-30 に非推奨、2025-10-31 に廃止予定)
-- **テスト**: Jest, React Native Testing Library, @testing-library/jest-native, jest-expo, detox, react-native-iap
-- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg, react-native-iap, react-native-error-boundary, react-native-fs, react-native-get-random-values, @react-native-google-signin/google-signin, react-native-keyboard-aware-scroll-view, react-native-view-shot, expo-apple-authentication, react-native-tracking-transparency, react-native-tracking-transparency
+- **テスト**: Jest, React Native Testing Library, @testing-library/jest-native, jest-expo, detox, react-native-iap, react-native-tracking-transparency
+- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg, react-native-iap, react-native-error-boundary, react-native-fs, react-native-get-random-values, @react-native-google-signin/google-signin, react-native-keyboard-aware-scroll-view, react-native-view-shot, expo-apple-authentication, react-native-tracking-transparency, react-native-tracking-transparency, react-native-tracking-transparency
 - **アイコン生成**: Canva, Figma
 - **スプラッシュスクリーン**: (追加)
 - **アプリのバージョン**: 0.0.2 (更新)
@@ -95,6 +95,9 @@ app/
 - expo-router@^4.0.19
 - expo-av@15.0.2
 - expo-apple-authentication@7.1.3
+- react-native-tracking-transparency
+- react-native-tracking-transparency
+- react-native-tracking-transparency
 - react-native-tracking-transparency
 
 
@@ -134,6 +137,7 @@ app/
 - Androidビルドはaabバンドルで作成する
 - アカウント削除機能の実装には、30日間の猶予期間を設け、その間はデータを保持し、期間内であれば復元可能にする必要があります。
 - App Tracking Transparencyの実装：アプリ起動時に`react-native-tracking-transparency`ライブラリを使用してトラッキング許可をリクエストします。`Info.plist`に`NSUserTrackingUsageDescription`を追加します。
+- Info.plistファイルの`UIBackgroundModes`キーから`audio`を削除する。これはバックグラウンドオーディオが不要な場合のApple審査対応です。
 
 
 ## REFERENCE EXAMPLES
@@ -150,8 +154,7 @@ app/
 - **設定画面バージョン**: 0.0.2 (更新)
 - **設定画面開発者**: Regnition inc.
 - **テスト環境構築**: TESTING.md, E2E-TESTING.mdを参照
-- Apple App Account Deletion Guidelines (2025-04-19 12:42:56): Guideline 5.1.1(v) - Data Collection and Storage.  See `2025-04-19_03-42-apple-app-account-deletion-guidelines.md` for details.
-- Guideline 5.1.2 - Legal - Privacy - Data Use and Sharing:  See App Store Connect for details.
+- Apple App Account Deletion Guidelines (2025-04-19 12:42:56): Guideline 5.1.1(v) - Data Collection and Storage.  See `2025-04-19_03-42-apple-app-account-deletion-guidelines.md` for details. Guideline 5.1.2 - Legal - Privacy - Data Use and Sharing:  See App Store Connect for details.
 - レッスン管理システムのプロジェクトルール: `lesson-management-system-project-rules.md`
 
 
@@ -365,7 +368,7 @@ app/
 + アカウント削除機能の実装：Appleのガイドライン5.1.1(v)に従い、アカウント削除機能を実装する必要があります。ユーザーはアカウントを完全に削除でき、誤削除防止のための確認ステップを含めることができます。
 + アカウント削除機能の実装には、30日間の猶予期間を設け、その間はデータを保持し、期間内であれば復元可能にする必要があります。
 
-+ Info.plistファイルの`UIBackgroundModes`キーから`audio`を削除する。これはバックグラウンドオーディオが不要な場合のApple審査対応です。
++ UIBackgroundModesキーからaudioを削除しました。
 
 ### レッスン管理システムのプロジェクトルール
 
@@ -473,12 +476,4 @@ interface SheetMusic {
   id: string;                // 楽譜ID
   title: string;             // タイトル
   svgContent: string;        // SVG形式の楽譜データ
-  instrumentId: string;      // 対象楽器ID
-  difficulty: string;        // 難易度
-  tags: string[];            // 検索用タグ
-  createdAt: Timestamp;      // 作成日時
-  updatedAt: Timestamp;      // 更新日時
-}
-```
-
-## 機能制限とガイドライン
+  instrumentId: string;      // 対象
