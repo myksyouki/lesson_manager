@@ -9,6 +9,7 @@ import {
   signOut,
   GoogleAuthProvider,
   signInWithCredential,
+  OAuthProvider,
 } from "firebase/auth";
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from "expo-web-browser";
@@ -77,6 +78,7 @@ export interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (promptAsync: () => Promise<any>) => Promise<void>;
+  signInWithApple: (credential: any) => Promise<void>;
   signInAsTestUser: () => Promise<void>;
   signOut: () => Promise<void>;
   setError: (error: string) => void;
@@ -485,5 +487,104 @@ export const useAuthStore = create<AuthState>((set, get) => {
     setLoading: (loading) => set({ isLoading: loading }),
 
     setPremiumStatus: (status) => set({ premiumStatus: status }),
+
+    signInWithApple: async (appleCredential) => {
+      try {
+        set({ isLoading: true, error: null, isNewUser: false });
+        console.log("🍎 Appleサインイン試行");
+        
+        const { identityToken, nonce } = appleCredential;
+        
+        if (!identityToken) {
+          throw new Error("Apple認証からIDトークンが返されませんでした");
+        }
+        
+        // OAuthプロバイダーを設定
+        const provider = new OAuthProvider('apple.com');
+        const credential = provider.credential({
+          idToken: identityToken,
+          rawNonce: nonce, // nonceがある場合はそれを渡す
+        });
+        
+        try {
+          // Firebase認証を実行
+          const userCredential = await signInWithCredential(auth, credential);
+          
+          // ユーザーが既に存在するか確認
+          const userRef = doc(db, 'users', userCredential.user.uid);
+          const userDoc = await getDoc(userRef);
+          
+          if (!userDoc.exists()) {
+            // 新規ユーザーの場合、プロフィールを作成
+            const userData = {
+              email: userCredential.user.email,
+              createdAt: new Date(),
+              selectedInstrument: '',
+              selectedModel: '',
+              isPremium: false,
+              isOnboardingCompleted: false
+            };
+            
+            // Firestore にユーザー情報を保存
+            await setDoc(userRef, userData);
+            
+            // ユーザーのプロファイルも作成（新しい構造対応）
+            const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
+            await setDoc(profileRef, {
+              name: userCredential.user.displayName || '',
+              email: userCredential.user.email,
+              selectedCategory: '',
+              selectedInstrument: '',
+              selectedModel: '',
+              isPremium: false,
+              isOnboardingCompleted: false,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+            
+            // 新規ユーザーフラグを設定
+            set({ isNewUser: true });
+          } else {
+            // 既存ユーザーの場合、オンボーディング完了状態を確認
+            const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
+            const profileDoc = await getDoc(profileRef);
+            
+            if (profileDoc.exists()) {
+              const profileData = profileDoc.data();
+              // オンボーディングが未完了の場合も新規ユーザーと同様に扱う
+              if (profileData.isOnboardingCompleted === false) {
+                set({ isNewUser: true });
+              }
+            } else {
+              // プロファイルが存在しない場合、新規作成
+              await setDoc(profileRef, {
+                name: userCredential.user.displayName || '',
+                email: userCredential.user.email,
+                selectedCategory: '',
+                selectedInstrument: '',
+                selectedModel: '',
+                isPremium: false,
+                isOnboardingCompleted: false,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              });
+              
+              // 新規ユーザーフラグを設定
+              set({ isNewUser: true });
+            }
+          }
+          
+          console.log("✅ Appleサインイン成功");
+        } catch (error) {
+          console.error("❌ Appleサインイン処理失敗:", error);
+          set({ error: "Appleログイン処理中にエラーが発生しました", isLoading: false });
+          throw error;
+        }
+      } catch (error: any) {
+        console.error("❌ Appleサインイン失敗:", error.message);
+        set({ error: error.message, isLoading: false });
+        throw error;
+      }
+    },
   };
 });

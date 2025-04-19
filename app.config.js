@@ -58,6 +58,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.regnition.appli",
+      usesAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         CFBundleAllowMixedLocalizations: true,

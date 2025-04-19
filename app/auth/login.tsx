@@ -23,11 +23,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import LoadingScreen from '../../components/LoadingScreen';
 import GoogleIcon from '../../components/GoogleIcon';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
-  const { login, register, signInWithGoogle, signInAsTestUser, user, isLoading, error, clearError } = useAuthStore();
+  const { login, register, signInWithGoogle, signInWithApple, signInAsTestUser, user, isLoading, error, clearError } = useAuthStore();
   const { request, response, promptAsync } = useGoogleAuth();
 
   const [email, setEmail] = useState('');
@@ -36,6 +37,7 @@ export default function LoginScreen() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
 
   // アニメーションのための値
   const waveAnim = useRef(new Animated.Value(0)).current;
@@ -144,6 +146,21 @@ export default function LoginScreen() {
     }
   }, [user]);
 
+  // Appleサインインの利用可能状態を確認
+  useEffect(() => {
+    const checkAppleAuthAvailability = async () => {
+      try {
+        const isAvailable = await AppleAuthentication.isAvailableAsync();
+        setAppleAuthAvailable(isAvailable);
+      } catch (error) {
+        console.log('Apple認証の確認エラー:', error);
+        setAppleAuthAvailable(false);
+      }
+    };
+    
+    checkAppleAuthAvailability();
+  }, []);
+
   const handleAuth = async () => {
     if (!email || !password) return;
     isSignUp ? await register(email, password) : await login(email, password);
@@ -163,6 +180,27 @@ export default function LoginScreen() {
     } catch (error) {
       console.error('テストユーザーログインエラー:', error);
       setErrorMessage('テストユーザーログインに失敗しました');
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      
+      // appleの認証情報を使ってSignInWithAppleを呼び出す
+      await signInWithApple(credential);
+    } catch (error: any) {
+      if (error.code === 'ERR_REQUEST_CANCELED') {
+        console.log('ユーザーがAppleサインインをキャンセルしました');
+      } else {
+        console.error('Appleサインインエラー:', error);
+        setErrorMessage('Appleサインインに失敗しました');
+      }
     }
   };
 
@@ -392,6 +430,25 @@ export default function LoginScreen() {
                   <Text style={styles.testUserButtonText}>テストユーザー</Text>
                 </TouchableOpacity>
               </View>
+              
+              {Platform.OS === 'ios' && (
+                <View style={styles.appleButtonWrapper}>
+                  <TouchableOpacity
+                    style={styles.customAppleButton}
+                    onPress={handleAppleSignIn}
+                  >
+                    <MaterialCommunityIcons
+                      name="apple"
+                      size={24}
+                      color="#FFFFFF"
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text style={styles.customAppleButtonText}>
+                      Appleでログイン
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <View style={styles.switchContainer}>
                 <Text style={styles.switchText}>
@@ -606,7 +663,8 @@ const styles = StyleSheet.create({
   socialButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 16,
+    flexWrap: 'wrap',
   },
   socialButton: {
     flex: 1,
@@ -622,6 +680,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
     marginHorizontal: 6,
+    marginBottom: 8,
   },
   testUserButton: {
     backgroundColor: '#4A6B8A',
@@ -658,6 +717,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  appleButtonWrapper: {
+    marginBottom: 24,
+    alignItems: 'center',
+    width: '100%',
+  },
+  appleButton: {
+    width: '100%',
+    height: 56,
+    marginBottom: 8,
+  },
+  customAppleButton: {
+    width: '100%',
+    height: 56,
+    backgroundColor: '#000000',
+    borderRadius: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  customAppleButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 }); 
