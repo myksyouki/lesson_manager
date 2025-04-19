@@ -369,46 +369,6 @@ export default function ProfileScreen() {
               <Text style={styles.errorText}>楽器情報を取得できませんでした</Text>
             )}
           </View>
-
-          {/* アカウント削除セクション */}
-          <View style={styles.deleteAccountSection}>
-            <Text style={styles.deleteAccountTitle}>アカウント管理</Text>
-            <Text style={styles.deleteAccountDescription}>
-              アカウントを削除すると、すべてのデータ（レッスン、課題、設定など）が完全に削除され、復元できません。
-              削除予約後、30日間の猶予期間があり、この期間内であればキャンセルが可能です。
-            </Text>
-            {!deletionStatus?.isScheduledForDeletion ? (
-              <TouchableOpacity 
-                style={styles.deleteAccountButton}
-                onPress={openDeleteModal}
-              >
-                <MaterialIcons name="delete-forever" size={18} color="#fff" />
-                <Text style={styles.deleteAccountButtonText}>アカウントを削除する</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.deletionScheduledContainer}>
-                <View style={styles.countdownDisplay}>
-                  <MaterialIcons name="timer" size={22} color="#d32f2f" />
-                  <Text style={styles.deletionScheduledText}>
-                    {formatDeletionDate(deletionStatus.scheduledForDeletion)}に削除されます
-                  </Text>
-                  <Text style={styles.countdownDays}>
-                    （残り{deletionStatus.remainingDays}日）
-                  </Text>
-                </View>
-                <TouchableOpacity 
-                  style={styles.cancelDeletionButtonAlt}
-                  onPress={handleCancelAccountDeletion}
-                  disabled={isProcessingCancel}
-                >
-                  <MaterialIcons name="restore" size={18} color="#007AFF" />
-                  <Text style={styles.cancelDeletionButtonAltText}>
-                    {isProcessingCancel ? '処理中...' : '削除をキャンセルする'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
         </View>
 
         {/* お気に入りレッスン */}
@@ -433,6 +393,46 @@ export default function ProfileScreen() {
               <Text style={styles.emptyFavoritesSubtext}>
                 レッスン一覧から♡マークをタップして追加できます
               </Text>
+            </View>
+          )}
+        </View>
+        
+        {/* アカウント削除セクション - ここに移動 */}
+        <View style={[styles.deleteAccountSection, styles.bottomSection]}>
+          <Text style={styles.deleteAccountTitle}>アカウント管理</Text>
+          <Text style={styles.deleteAccountDescription}>
+            アカウントを削除すると、すべてのデータ（レッスン、課題、設定など）が完全に削除され、復元できません。
+            削除予約後、30日間の猶予期間があり、この期間内であればキャンセルが可能です。
+          </Text>
+          {!deletionStatus?.isScheduledForDeletion ? (
+            <TouchableOpacity 
+              style={styles.deleteAccountButton}
+              onPress={openDeleteModal}
+            >
+              <MaterialIcons name="delete-forever" size={18} color="#fff" />
+              <Text style={styles.deleteAccountButtonText}>アカウントを削除する</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.deletionScheduledContainer}>
+              <View style={styles.countdownDisplay}>
+                <MaterialIcons name="timer" size={22} color="#d32f2f" />
+                <Text style={styles.deletionScheduledText}>
+                  {formatDeletionDate(deletionStatus.scheduledForDeletion)}に削除されます
+                </Text>
+                <Text style={styles.countdownDays}>
+                  （残り{deletionStatus.remainingDays}日）
+                </Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.cancelDeletionButtonAlt}
+                onPress={handleCancelAccountDeletion}
+                disabled={isProcessingCancel}
+              >
+                <MaterialIcons name="restore" size={18} color="#007AFF" />
+                <Text style={styles.cancelDeletionButtonAltText}>
+                  {isProcessingCancel ? '処理中...' : '削除をキャンセルする'}
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -948,5 +948,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#d32f2f',
     marginHorizontal: 6,
+  },
+  // 下部に配置するセクション用の追加スタイル
+  bottomSection: {
+    marginTop: 30,
+    marginBottom: 24,
   },
 });
