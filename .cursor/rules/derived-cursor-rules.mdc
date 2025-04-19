@@ -83,7 +83,7 @@ app/
 - **デプロイ**: Firebase Hosting, Expo EAS
 - **ランタイム**: Node.js 20 (注意: Node.js 18 は 2025-04-30 に非推奨、2025-10-31 に廃止予定)
 - **テスト**: Jest, React Native Testing Library, @testing-library/jest-native, jest-expo, detox, react-native-iap
-- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg, react-native-iap, react-native-error-boundary, react-native-fs, react-native-get-random-values, @react-native-google-signin/google-signin, react-native-keyboard-aware-scroll-view, react-native-view-shot, expo-apple-authentication
+- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg, react-native-iap, react-native-error-boundary, react-native-fs, react-native-get-random-values, @react-native-google-signin/google-signin, react-native-keyboard-aware-scroll-view, react-native-view-shot, expo-apple-authentication, react-native-tracking-transparency, react-native-tracking-transparency
 - **アイコン生成**: Canva, Figma
 - **スプラッシュスクリーン**: (追加)
 - **アプリのバージョン**: 0.0.2 (更新)
@@ -95,6 +95,7 @@ app/
 - expo-router@^4.0.19
 - expo-av@15.0.2
 - expo-apple-authentication@7.1.3
+- react-native-tracking-transparency
 
 
 ## PROJECT-SPECIFIC STANDARDS
@@ -132,6 +133,7 @@ app/
 - アカウント削除機能は、Appleのガイドライン5.1.1(v)に従って実装する必要があります。アカウントの一時的な無効化や停止だけでは不十分で、ユーザーがアカウントを完全に削除できる機能を提供する必要があります。誤削除防止のための確認ステップを含めることができます。ユーザーはアカウントを完全に削除でき、誤削除防止のための確認ステップを含めることができます。
 - Androidビルドはaabバンドルで作成する
 - アカウント削除機能の実装には、30日間の猶予期間を設け、その間はデータを保持し、期間内であれば復元可能にする必要があります。
+- App Tracking Transparencyの実装：アプリ起動時に`react-native-tracking-transparency`ライブラリを使用してトラッキング許可をリクエストします。`Info.plist`に`NSUserTrackingUsageDescription`を追加します。
 
 
 ## REFERENCE EXAMPLES
@@ -149,6 +151,8 @@ app/
 - **設定画面開発者**: Regnition inc.
 - **テスト環境構築**: TESTING.md, E2E-TESTING.mdを参照
 - Apple App Account Deletion Guidelines (2025-04-19 12:42:56): Guideline 5.1.1(v) - Data Collection and Storage.  See `2025-04-19_03-42-apple-app-account-deletion-guidelines.md` for details.
+- Guideline 5.1.2 - Legal - Privacy - Data Use and Sharing:  See App Store Connect for details.
+- レッスン管理システムのプロジェクトルール: `lesson-management-system-project-rules.md`
 
 
 ## DEBUGGING
@@ -361,6 +365,7 @@ app/
 + アカウント削除機能の実装：Appleのガイドライン5.1.1(v)に従い、アカウント削除機能を実装する必要があります。ユーザーはアカウントを完全に削除でき、誤削除防止のための確認ステップを含めることができます。
 + アカウント削除機能の実装には、30日間の猶予期間を設け、その間はデータを保持し、期間内であれば復元可能にする必要があります。
 
++ Info.plistファイルの`UIBackgroundModes`キーから`audio`を削除する。これはバックグラウンドオーディオが不要な場合のApple審査対応です。
 
 ### レッスン管理システムのプロジェクトルール
 
@@ -477,21 +482,3 @@ interface SheetMusic {
 ```
 
 ## 機能制限とガイドライン
-
-### 音声処理
-
-- **最大音声時間**: 90分
-- **最大ファイルサイズ**: 100MB
-- **大きなファイル処理**:
-  - 25MB以上: ファイルを10分単位（20秒オーバーラップ）で分割処理
-  - 30MB以上: Wi-Fi接続でない場合はユーザーに警告表示
-- **タグ生成**: 3つの個別単語（不足する場合は楽器名で補完）
-
-### Firebase関数設定
-
-- **リージョン**: asia-northeast1 (必須)
-- **processAudioOnUpload関数**:
-  - メモリ: 4GB
-  - タイムアウト: 60分
-  - 最大インスタンス数: 50
-- **generateTasks
