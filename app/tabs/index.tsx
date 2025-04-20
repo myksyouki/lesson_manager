@@ -705,7 +705,7 @@ export default function HomeScreen() {
                   contentContainerStyle={{}}
                 >
                   {(recommendedTasks.length > 0 ? recommendedTasks : sampleRecommendedMenus).map((menu, idx) => (
-                    <View key={idx} style={[styles.practiceMenuCardWrap, { width: scrollContainerWidth, alignItems: 'center' }]}> 
+                    <View key={menu.id ?? `practice-menu-${idx}`} style={[styles.practiceMenuCardWrap, { width: scrollContainerWidth, alignItems: 'center' }]}> 
                       <View style={[styles.practiceMenuCard, { width: practiceCardWidth }]}> 
                         <TouchableOpacity style={styles.practiceMenuAddButton} onPress={() => handleAddPracticeMenu(menu)}>
                           <Text style={styles.practiceMenuAddButtonText}>追加</Text>
@@ -730,8 +730,8 @@ export default function HomeScreen() {
                         </View>
                         {/* タグ */}
                         <View style={styles.practiceMenuTags}>
-                          {menu.tags.map((tag, i) => (
-                            <Text key={i} style={styles.practiceMenuTag}>{tag}</Text>
+                          {menu.tags.map((tag, index) => (
+                            <Text key={`tag-${tag}-${index}`} style={styles.practiceMenuTag}>{tag}</Text>
                           ))}
                         </View>
                         {/* 説明 */}
@@ -739,7 +739,7 @@ export default function HomeScreen() {
                         {/* ステップリスト */}
                         <View style={styles.practiceMenuStepList}>
                           {menu.steps.map((step, i) => (
-                            <View key={step.id} style={styles.practiceMenuStepItem}>
+                            <View key={step.id ?? `step-${i}`} style={styles.practiceMenuStepItem}>
                               <Text style={styles.practiceMenuStepNum}>{i + 1}.</Text>
                               <View style={{ flex: 1 }}>
                                 <Text style={styles.practiceMenuStepTitle}>{step.title}</Text>
@@ -755,7 +755,7 @@ export default function HomeScreen() {
                 <View style={styles.carouselIndicatorRow}>
                   {(recommendedTasks.length > 0 ? recommendedTasks : sampleRecommendedMenus).map((_, idx) => (
                     <View
-                      key={idx}
+                      key={`dot-${idx}`}
                       style={[styles.carouselDot, activeMenuIndex === idx && styles.carouselDotActive]}
                     />
                   ))}
