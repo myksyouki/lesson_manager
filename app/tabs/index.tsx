@@ -26,7 +26,7 @@ import { MaterialCommunityIcons, Ionicons, MaterialIcons } from '@expo/vector-ic
 import { FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getUserChatRooms, ChatRoom as ChatRoomType } from '../../services/chatRoomService';
-import { auth } from '../config/firebase';
+import { auth } from '../../config/firebase';
 import { getAIRecommendedPracticeMenus } from '../../services/practiceRecommendationService';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -728,12 +728,6 @@ export default function HomeScreen() {
                           <Text style={styles.practiceMenuLabel}>{menu.difficulty}</Text>
                           <Text style={styles.practiceMenuLabel}>{menu.duration}分</Text>
                         </View>
-                        {/* タグ */}
-                        <View style={styles.practiceMenuTags}>
-                          {menu.tags.map((tag, i) => (
-                            <Text key={i} style={styles.practiceMenuTag}>{tag}</Text>
-                          ))}
-                        </View>
                         {/* 説明 */}
                         <Text style={styles.practiceMenuDescription}>{menu.description}</Text>
                         {/* ステップリスト */}
@@ -1232,22 +1226,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 2,
-  },
-  practiceMenuTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 8,
-  },
-  practiceMenuTag: {
-    backgroundColor: '#E3F2FD',
-    color: '#1976D2',
-    fontSize: 12,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginRight: 4,
-    marginBottom: 2,
   },
   practiceMenuDescription: {
     fontSize: 15,
