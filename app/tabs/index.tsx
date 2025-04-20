@@ -28,6 +28,82 @@ import { router } from 'expo-router';
 import { getUserChatRooms, ChatRoom as ChatRoomType } from '../../services/chatRoomService';
 import { auth } from '../config/firebase';
 import { getAIRecommendedPracticeMenus } from '../../services/practiceRecommendationService';
+import { LinearGradient } from 'expo-linear-gradient';
+
+// サンプルAI練習メニュー
+const sampleRecommendedTasks = [
+  {
+    id: 'sample-1',
+    title: 'ロングトーン強化',
+    description: '目標: 安定した音を出す\n1. 姿勢を正して深呼吸（5分）\n2. ロングトーンを1音ずつ10秒キープ（10分）\n3. 音の立ち上がりを意識して繰り返す（5分）',
+    tags: ['ロングトーン'],
+    completed: false,
+    dueDate: null,
+    isPinned: false,
+    isCompleted: false,
+  },
+  {
+    id: 'sample-2',
+    title: 'スケール練習',
+    description: '目標: 主要なスケールを滑らかに演奏する\n1. Cメジャースケールをゆっくり演奏（5分）\n2. G・F・Dメジャースケールを順に演奏（10分）\n3. 速さを上げて繰り返す（5分）',
+    tags: ['音階'],
+    completed: false,
+    dueDate: null,
+    isPinned: false,
+    isCompleted: false,
+  },
+  {
+    id: 'sample-3',
+    title: 'リズム感アップ',
+    description: '目標: メトロノームに合わせて正確なリズムを身につける\n1. 4分音符で手拍子（3分）\n2. 8分音符で手拍子（3分）\n3. メトロノームに合わせて楽器で演奏（9分）',
+    tags: ['リズム'],
+    completed: false,
+    dueDate: null,
+    isPinned: false,
+    isCompleted: false,
+  },
+];
+
+// PracticeMenu型のサンプルデータ
+const sampleRecommendedMenus = [
+  {
+    id: 'menu-1',
+    title: '基礎力アップメニュー',
+    description: '音の基礎を徹底的に強化するためのメニューです。',
+    instrument: 'サックス',
+    category: '基礎練習',
+    difficulty: '初級',
+    duration: 30,
+    tags: ['ロングトーン', '音階', 'タンギング'],
+    steps: [
+      { id: 's1', title: 'ロングトーン', description: '各音を10秒ずつキープ', duration: 10, orderIndex: 1 },
+      { id: 's2', title: '音階練習', description: 'Cメジャースケールをゆっくり演奏', duration: 10, orderIndex: 2 },
+      { id: 's3', title: 'タンギング', description: '4分音符でタンギング練習', duration: 10, orderIndex: 3 },
+    ],
+    sheetMusicUrl: '',
+    videoUrl: '',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'menu-2',
+    title: 'リズム感強化メニュー',
+    description: 'リズム感を鍛えるための集中メニュー。',
+    instrument: 'サックス',
+    category: 'リズム',
+    difficulty: '中級',
+    duration: 20,
+    tags: ['リズム', 'メトロノーム'],
+    steps: [
+      { id: 's1', title: 'メトロノーム練習', description: '60BPMで4分音符を演奏', duration: 10, orderIndex: 1 },
+      { id: 's2', title: 'リズムパターン', description: '8分音符・3連符のパターン練習', duration: 10, orderIndex: 2 },
+    ],
+    sheetMusicUrl: '',
+    videoUrl: '',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+];
 
 export default function HomeScreen() {
   // 画面サイズを取得
@@ -37,7 +113,7 @@ export default function HomeScreen() {
 
   const [isLoading, setIsLoading] = useState(false);
   const { getFavorites } = useLessonStore();
-  const { tasks, fetchTasks, generateTasksFromLessons, getMonthlyPracticeCount, getPinnedTasks, toggleTaskCompletion } = useTaskStore();
+  const { tasks, fetchTasks, generateTasksFromLessons, getMonthlyPracticeCount, getPinnedTasks, toggleTaskCompletion, addTask } = useTaskStore();
   const { user } = useAuthStore();
   const favoriteLesson = getFavorites();
   const theme = useTheme();
@@ -499,35 +575,84 @@ export default function HomeScreen() {
     );
   };
 
-  // クイックアクセスカード
-  const QuickAccessCard = ({ title, icon, onPress, subtitle }: { 
-    title: string; 
-    icon: React.ReactNode; 
-    onPress: () => void;
-    subtitle?: string;
-  }) => {
+  // クイックアクセスボタン（縦並びカード）
+  const QuickAccessColumn = () => {
+    const quickAccess = [
+      {
+        title: 'レッスン',
+        subtitle: latestLesson ? latestLesson.title : 'なし',
+        icon: <MaterialIcons name="music-note" size={28} color={theme.colors.primary} />,
+        onPress: () => router.push(`/lesson-detail/${latestLesson?.id}`),
+        disabled: !latestLesson,
+      },
+      {
+        title: 'タスク',
+        subtitle: latestTask ? latestTask.title : 'なし',
+        icon: <MaterialIcons name="assignment" size={28} color={theme.colors.secondary} />,
+        onPress: () => router.push(`/task-detail/${latestTask?.id}`),
+        disabled: !latestTask,
+      },
+      {
+        title: 'チャット',
+        subtitle: latestChatRoom ? latestChatRoom.title : 'なし',
+        icon: <MaterialIcons name="chat" size={28} color={theme.colors.tertiary || '#7C4DFF'} />,
+        onPress: () => router.push(`/chat-room/${latestChatRoom?.id}`),
+        disabled: !latestChatRoom,
+      },
+    ];
     return (
-      <TouchableOpacity
-        style={[styles.quickAccessCard, { backgroundColor: theme.colors.cardElevated }]}
-        onPress={onPress}
-        activeOpacity={0.7}
-      >
-        <View style={styles.quickAccessIconContainer}>
-          {icon}
-        </View>
-        <View style={styles.quickAccessContent}>
-          <Text style={[styles.quickAccessTitle, { color: theme.colors.text }]}>
-            {title}
-          </Text>
-          {subtitle && (
-            <Text style={[styles.quickAccessSubtitle, { color: theme.colors.textSecondary }]}>
-              {subtitle}
-            </Text>
-          )}
-        </View>
-        <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
-      </TouchableOpacity>
+      <View style={styles.quickAccessColumn}>
+        {quickAccess.map((item, idx) => (
+          <TouchableOpacity
+            key={item.title}
+            style={[styles.quickAccessCard, item.disabled && { opacity: 0.5 }]}
+            onPress={item.onPress}
+            disabled={item.disabled}
+            activeOpacity={0.7}
+          >
+            <View style={styles.quickAccessCardIcon}>{item.icon}</View>
+            <View style={styles.quickAccessCardContent}>
+              <Text style={styles.quickAccessCardTitle}>{item.title}</Text>
+              <Text style={styles.quickAccessCardSubtitle} numberOfLines={1}>{item.subtitle}</Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
+          </TouchableOpacity>
+        ))}
+      </View>
     );
+  };
+
+  // AI練習メニューのカルーセルインジケーター
+  const [activeMenuIndex, setActiveMenuIndex] = useState(0);
+  const menuScrollRef = useRef<ScrollView>(null);
+  const handleMenuScroll = (event: any) => {
+    const x = event.nativeEvent.contentOffset.x;
+    const width = event.nativeEvent.layoutMeasurement.width;
+    const idx = Math.round(x / width);
+    setActiveMenuIndex(idx);
+  };
+
+  // 画面幅を取得
+  const { width: windowWidth } = useWindowDimensions();
+  const horizontalContainerPadding = 12;
+  const scrollContainerWidth = windowWidth - horizontalContainerPadding * 2;
+  const practiceCardWidth = scrollContainerWidth * 0.88;
+
+  // 練習メニューをタスクとして追加
+  const handleAddPracticeMenu = async (menu: any) => {
+    try {
+      await addTask({
+        title: menu.title,
+        content: menu.description,
+        dueDate: new Date(),
+        completed: false,
+        tags: menu.tags || [],
+      });
+      Alert.alert('追加', '練習タスクに追加しました');
+    } catch (error) {
+      console.error('練習タスク追加エラー:', error);
+      Alert.alert('エラー', 'タスクの追加に失敗しました');
+    }
   };
 
   return (
@@ -543,18 +668,13 @@ export default function HomeScreen() {
 
         <ScrollView 
           ref={scrollViewRef}
-          contentContainerStyle={[
-            styles.contentContainer,
-            { paddingBottom: 100 } // フローティングボタンの分の余白を追加
-          ]} 
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: 120, paddingHorizontal: 12 }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* AIレコメンデーションセクション */}
-          <View style={[styles.sectionContainer, { paddingHorizontal: dynamicStyles.contentMargin }]}>
-            <View style={[styles.sectionHeaderContainer, { marginBottom: dynamicStyles.itemSpacing * 1.5 }]}>
-              <Text style={[styles.sectionTitle, { fontSize: dynamicStyles.titleFontSize }]}>
-                AIおすすめの練習メニュー
-              </Text>
+          {/* AIおすすめ練習メニュー（カルーセル） */}
+          <View style={[styles.sectionCard, { paddingLeft: 0, paddingRight: 0 }]}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionCardTitle}>AIおすすめの練習メニュー</Text>
               <TouchableOpacity 
                 onPress={handleRefreshRecommendations} 
                 disabled={isLoadingRecommendations}
@@ -567,62 +687,93 @@ export default function HomeScreen() {
                 />
               </TouchableOpacity>
             </View>
-
+            <View style={styles.sectionDivider} />
             {isLoadingRecommendations ? (
-              <View style={[styles.emptyPinnedContainer, { padding: dynamicStyles.cardPadding }]}>
+              <View style={styles.recommendLoadingBox}>
                 <ActivityIndicator size="small" color={theme.colors.primary} />
-                <Text style={[styles.emptyPinnedText, { fontSize: dynamicStyles.subtitleFontSize, marginTop: dynamicStyles.itemSpacing }]}>
-                  おすすめの練習メニューを生成中...
-                </Text>
+                <Text style={styles.recommendLoadingText}>おすすめの練習メニューを生成中...</Text>
               </View>
-            ) : recommendedTasks.length > 0 ? (
-              recommendedTasks.map((task, index) => (
-                <TaskCard key={index} task={task} />
-              ))
+            ) : (recommendedTasks.length > 0 ? recommendedTasks : sampleRecommendedMenus).length > 0 ? (
+              <>
+                <ScrollView
+                  ref={menuScrollRef}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={handleMenuScroll}
+                  scrollEventThrottle={16}
+                  contentContainerStyle={{}}
+                >
+                  {(recommendedTasks.length > 0 ? recommendedTasks : sampleRecommendedMenus).map((menu, idx) => (
+                    <View key={idx} style={[styles.practiceMenuCardWrap, { width: scrollContainerWidth, alignItems: 'center' }]}> 
+                      <View style={[styles.practiceMenuCard, { width: practiceCardWidth }]}> 
+                        <TouchableOpacity style={styles.practiceMenuAddButton} onPress={() => handleAddPracticeMenu(menu)}>
+                          <Text style={styles.practiceMenuAddButtonText}>追加</Text>
+                        </TouchableOpacity>
+                        {/* AIバッジ */}
+                        <LinearGradient
+                          colors={["#7C4DFF", "#4285F4"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.practiceMenuAIBadge}
+                        >
+                          <Ionicons name="sparkles" size={16} color="#fff" style={{ marginRight: 4 }} />
+                          <Text style={styles.practiceMenuAIBadgeText}>AIおすすめ</Text>
+                        </LinearGradient>
+                        {/* タイトル */}
+                        <Text style={styles.practiceMenuTitle}>{menu.title}</Text>
+                        {/* ラベル群 */}
+                        <View style={styles.practiceMenuLabels}>
+                          <Text style={styles.practiceMenuLabel}>{menu.category}</Text>
+                          <Text style={styles.practiceMenuLabel}>{menu.difficulty}</Text>
+                          <Text style={styles.practiceMenuLabel}>{menu.duration}分</Text>
+                        </View>
+                        {/* タグ */}
+                        <View style={styles.practiceMenuTags}>
+                          {menu.tags.map((tag, i) => (
+                            <Text key={i} style={styles.practiceMenuTag}>{tag}</Text>
+                          ))}
+                        </View>
+                        {/* 説明 */}
+                        <Text style={styles.practiceMenuDescription}>{menu.description}</Text>
+                        {/* ステップリスト */}
+                        <View style={styles.practiceMenuStepList}>
+                          {menu.steps.map((step, i) => (
+                            <View key={step.id} style={styles.practiceMenuStepItem}>
+                              <Text style={styles.practiceMenuStepNum}>{i + 1}.</Text>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.practiceMenuStepTitle}>{step.title}</Text>
+                                <Text style={styles.practiceMenuStepDesc}>{step.description} <Text style={styles.practiceMenuStepTime}>({step.duration}分)</Text></Text>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+                <View style={styles.carouselIndicatorRow}>
+                  {(recommendedTasks.length > 0 ? recommendedTasks : sampleRecommendedMenus).map((_, idx) => (
+                    <View
+                      key={idx}
+                      style={[styles.carouselDot, activeMenuIndex === idx && styles.carouselDotActive]}
+                    />
+                  ))}
+                </View>
+              </>
             ) : (
-              <View style={[styles.emptyPinnedContainer, { padding: dynamicStyles.cardPadding + 4 }]}>
+              <View style={styles.recommendLoadingBox}>
                 <MaterialIcons name="auto-awesome" size={dynamicStyles.iconSize * 1.5} color={theme.colors.borderLight} />
-                <Text style={[styles.emptyPinnedText, { fontSize: dynamicStyles.subtitleFontSize, marginTop: dynamicStyles.itemSpacing }]}>
-                  AIがあなたに最適な練習メニューを提案します
-                </Text>
+                <Text style={styles.recommendLoadingText}>AIがあなたに最適な練習メニューを提案します</Text>
               </View>
             )}
           </View>
 
-          {/* クイックアクセスセクション */}
-          <View style={[styles.sectionContainer, { paddingHorizontal: dynamicStyles.contentMargin }]}>
-            <View style={[styles.sectionHeaderContainer, { marginBottom: dynamicStyles.itemSpacing * 1.5 }]}>
-              <Text style={[styles.sectionTitle, { fontSize: dynamicStyles.titleFontSize }]}>
-                クイックアクセス
-              </Text>
-            </View>
-
-            {latestLesson && (
-              <QuickAccessCard
-                title="最新のレッスン"
-                subtitle={latestLesson.title}
-                icon={<MaterialIcons name="music-note" size={24} color={theme.colors.primary} />}
-                onPress={() => router.push(`/lesson-detail/${latestLesson.id}`)}
-              />
-            )}
-
-            {latestTask && (
-              <QuickAccessCard
-                title="最新のタスク"
-                subtitle={latestTask.title}
-                icon={<MaterialIcons name="assignment" size={24} color={theme.colors.primary} />}
-                onPress={() => router.push(`/task-detail/${latestTask.id}`)}
-              />
-            )}
-
-            {latestChatRoom && (
-              <QuickAccessCard
-                title="最新のチャットルーム"
-                subtitle={latestChatRoom.title}
-                icon={<MaterialIcons name="chat" size={24} color={theme.colors.primary} />}
-                onPress={() => router.push(`/chat-room/${latestChatRoom.id}`)}
-              />
-            )}
+          {/* クイックアクセス */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionCardTitle}>クイックアクセス</Text>
+            <View style={styles.sectionDivider} />
+            <QuickAccessColumn />
           </View>
         </ScrollView>
 
@@ -913,37 +1064,261 @@ const styles = StyleSheet.create({
   quickAccessCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    backgroundColor: '#F5F6FA',
     borderRadius: 12,
-    marginBottom: 12,
-    elevation: 2,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: 2,
+    elevation: 1,
   },
-  quickAccessIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(124, 77, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+  quickAccessCardIcon: {
+    marginRight: 14,
   },
-  quickAccessContent: {
+  quickAccessCardContent: {
     flex: 1,
   },
-  quickAccessTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+  quickAccessCardTitle: {
+    fontWeight: '700',
+    fontSize: 15,
+    color: '#222',
+    marginBottom: 2,
   },
-  quickAccessSubtitle: {
-    fontSize: 14,
+  quickAccessCardSubtitle: {
+    fontSize: 13,
+    color: '#888',
+    maxWidth: 180,
   },
   refreshButton: {
     padding: 6,
     borderRadius: 20,
+  },
+  sectionCard: {
+    backgroundColor: 'white',
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  sectionCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: 2,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginVertical: 10,
+    borderRadius: 1,
+  },
+  recommendCard: {
+    backgroundColor: '#F7F8FA',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+  },
+  recommendTitle: {
+    fontWeight: '700',
+    fontSize: 15,
+    color: '#333',
+    marginBottom: 2,
+  },
+  recommendContent: {
+    color: '#555',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  recommendLoadingBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+  },
+  recommendLoadingText: {
+    color: '#888',
+    fontSize: 13,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  quickAccessColumn: {
+    flexDirection: 'column',
+    gap: 12,
+  },
+  carouselContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  carouselCard: {
+    marginHorizontal: 0,
+    backgroundColor: '#F7F8FA',
+    borderRadius: 10,
+    paddingTop: 16,
+    paddingBottom: 16,
+    paddingLeft: 0,
+    paddingRight: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  practiceMenuCardWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  practiceMenuCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    marginVertical: 8,
+    shadowColor: '#7C4DFF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.13,
+    shadowRadius: 16,
+    elevation: 6,
+    position: 'relative',
+  },
+  practiceMenuAIBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 10,
+    paddingVertical: 3,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    shadowColor: '#7C4DFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  practiceMenuAIBadgeText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+    letterSpacing: 1,
+  },
+  practiceMenuTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: 10,
+    lineHeight: 28,
+  },
+  practiceMenuLabels: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 6,
+  },
+  practiceMenuLabel: {
+    backgroundColor: '#F0EDFF',
+    color: '#7C4DFF',
+    fontWeight: '600',
+    fontSize: 13,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+  },
+  practiceMenuTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  practiceMenuTag: {
+    backgroundColor: '#E3F2FD',
+    color: '#1976D2',
+    fontSize: 12,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginRight: 4,
+    marginBottom: 2,
+  },
+  practiceMenuDescription: {
+    fontSize: 15,
+    color: '#444',
+    lineHeight: 22,
+    marginBottom: 10,
+  },
+  practiceMenuStepList: {
+    marginTop: 2,
+  },
+  practiceMenuStepItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  practiceMenuStepNum: {
+    fontWeight: '700',
+    color: '#7C4DFF',
+    fontSize: 15,
+    marginRight: 6,
+    marginTop: 1,
+  },
+  practiceMenuStepTitle: {
+    fontWeight: '600',
+    fontSize: 15,
+    color: '#333',
+    marginBottom: 1,
+  },
+  practiceMenuStepDesc: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+  },
+  practiceMenuStepTime: {
+    color: '#7C4DFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  carouselIndicatorRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  carouselDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 5,
+  },
+  carouselDotActive: {
+    backgroundColor: '#7C4DFF',
+    width: 24,
+  },
+  practiceMenuAddButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: '#7C4DFF',
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minWidth: 60,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  practiceMenuAddButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

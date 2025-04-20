@@ -136,7 +136,7 @@ async function extractKeywordsFromSummary(summary: string): Promise<string[]> {
             content: prompt
           }
         ],
-        temperature: 0.3,
+        temperature: 0.1,
         max_tokens: 100
       },
       {
@@ -326,13 +326,28 @@ async function searchPracticeMenuRecommendations(
     
     logger.info(`取得した練習メニュー数: ${menus.length}`);
     
-    if (menus.length === 0) {
-      logger.warn('指定された楽器の練習メニューが見つかりませんでした');
+    // 数値難易度によるフィルタリング
+    let minLevel = 0, maxLevel = 100;
+    switch (level) {
+      case DifficultyLevel.BEGINNER:
+        minLevel = 0; maxLevel = 40; break;
+      case DifficultyLevel.INTERMEDIATE:
+        minLevel = 30; maxLevel = 70; break;
+      case DifficultyLevel.ADVANCED:
+        minLevel = 60; maxLevel = 100; break;
+    }
+    const filteredMenus = menus.filter(menu => {
+      const diffVal = typeof menu.difficulty === 'number' ? menu.difficulty : Number(menu.difficulty);
+      return diffVal >= minLevel && diffVal <= maxLevel;
+    });
+    logger.info(`難易度フィルタ後のメニュー数: ${filteredMenus.length}/${menus.length}`);
+    if (filteredMenus.length === 0) {
+      logger.warn(`指定レベル(${level})の範囲内に合致するメニューが見つかりませんでした`);
       return [];
     }
-    
+
     // 関連スコアに基づいてメニューをソート
-    const scoredMenus = menus.map(menu => ({
+    const scoredMenus = filteredMenus.map(menu => ({
       menu,
       score: calculateRelevanceScore(menu, keywords, instrument, level)
     }));

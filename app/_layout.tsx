@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, LogBox } from 'react-native';
 import { useSettingsStore } from '../store/settings';
 import { useAuthStore } from '../store/auth';
 import { useTheme } from '../theme/index';
@@ -12,6 +12,9 @@ import { useFonts } from 'expo-font';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ErrorBoundary from 'react-native-error-boundary';
 import { checkOnboardingStatus } from '../services/userProfileService';
+
+// Expo Router内部のHooks呼び出し警告を無視
+LogBox.ignoreLogs(['Do not call Hooks inside useEffect']);
 
 // スプラッシュ画面を非表示にするのを遅らせる
 SplashScreen.preventAutoHideAsync();
