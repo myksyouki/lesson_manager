@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, RefreshControl, Alert } from 'react-native';
-import { Task } from '../../../types/task';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, RefreshControl, Alert, Image } from 'react-native';
+import { Task } from '../../../../types/_task';
 import TaskCard from './TaskCard';
 import { useTaskStore } from '../../../../store/tasks';
-import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, AntDesign, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { auth } from '../../../../config/firebase';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import Animated, { FadeIn } from 'react-native-reanimated';
+
+// タスクタブのテーマカラー
+const TASK_THEME_COLOR = '#4CAF50';
+const TASK_THEME_LIGHT = '#E8F5E9';
 
 interface TaskListProps {
   tasks: Task[];
@@ -15,7 +20,7 @@ interface TaskListProps {
   themeColor?: string;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = null, themeColor = '#4CAF50' }) => {
+const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = null, themeColor = TASK_THEME_COLOR }) => {
   const [activeTab, setActiveTab] = useState<'incomplete' | 'completed'>('incomplete');
   const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
   const [incompleteTasks, setIncompleteTasks] = useState<Task[]>([]);
@@ -26,47 +31,19 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
   const { toggleTaskCompletion, fetchTasks, deleteTask, updateTaskOrder } = useTaskStore();
 
   useEffect(() => {
-    // タスクを完了済みと未完了に分類し、ピン留め状態でソート
-    const completed: Task[] = [];
-    const incomplete: Task[] = [];
-    
-    tasks.forEach(task => {
-      if (task.completed) {
-        completed.push(task);
-      } else {
-        incomplete.push(task);
-      }
-    });
-    
-    // ピン留めされたタスクを上位に表示するためにソート
-    const sortByPin = (a: Task, b: Task) => {
-      // まずピン留め状態で比較
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      
-      // ピン留め状態が同じ場合は更新日時の新しい順
-      const getTimestamp = (task: Task) => {
-        if (!task.updatedAt) return 0;
-        
-        // Firestore Timestamp型の場合
-        if (typeof task.updatedAt === 'object' && 'seconds' in task.updatedAt) {
-          return task.updatedAt.seconds * 1000;
-        }
-        
-        // Date型の場合
-        if (task.updatedAt instanceof Date) {
-          return task.updatedAt.getTime();
-        }
-        
-        // 文字列の場合
-        return new Date(String(task.updatedAt)).getTime();
-      };
-      
-      return getTimestamp(b) - getTimestamp(a);
+    // タスクを未完了／完了に分け、displayOrderとピン留め状態で並び替え
+    const incompleteArr = tasks.filter(task => !task.completed);
+    const completedArr = tasks.filter(task => task.completed);
+
+    const sortByOrder = (a: Task, b: Task) => ( (a.displayOrder ?? 0) - (b.displayOrder ?? 0) );
+    const sortAndGroup = (arr: Task[]) => {
+      const pinned = arr.filter(task => task.isPinned).sort(sortByOrder);
+      const notPinned = arr.filter(task => !task.isPinned).sort(sortByOrder);
+      return [...pinned, ...notPinned];
     };
-    
-    setCompletedTasks(completed.sort(sortByPin));
-    setIncompleteTasks(incomplete.sort(sortByPin));
+
+    setIncompleteTasks(sortAndGroup(incompleteArr));
+    setCompletedTasks(sortAndGroup(completedArr));
   }, [tasks]);
 
   const handleToggleComplete = (taskId: string) => {
@@ -201,7 +178,8 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <ActivityIndicator size="large" color={themeColor} />
+        <Text style={[styles.loadingText, { color: themeColor }]}>読み込み中...</Text>
       </View>
     );
   }
@@ -209,47 +187,20 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
   if (error) {
     return (
       <View style={styles.errorContainer}>
+        <MaterialIcons name="error-outline" size={64} color="#D32F2F" />
         <Text style={styles.errorText}>エラーが発生しました: {error}</Text>
       </View>
     );
   }
 
-  if (tasks.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <View style={styles.emptyIconContainer}>
-          <Ionicons name="checkmark-done-circle-outline" size={100} color="#CCCCCC" style={styles.emptyIcon} />
-          <View style={styles.iconBubble}>
-            <MaterialIcons name="check" size={24} color="#FFFFFF" />
-          </View>
-        </View>
-        
-        <Text style={styles.emptyText}>タスクがありません</Text>
-        
-        <Text style={styles.emptySubText}>
-          新しいタスクを追加して{'\n'}練習を記録しましょう
-        </Text>
-        
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => router.push({ pathname: '/task-form?mode=practiceMenu' as any })}
-        >
-          <Text style={styles.createButtonText}>
-            練習メニューを作成
-          </Text>
-          <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" style={styles.buttonIcon} />
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
+  // タブに表示するタスク
   const currentTasks = activeTab === 'incomplete' ? incompleteTasks : completedTasks;
 
   return (
     <View style={styles.container}>
       {/* 選択モード時のアクションバー */}
       {selectMode && (
-        <View style={styles.selectionBar}>
+        <View style={[styles.selectionBar, { backgroundColor: themeColor }]}>
           <View style={styles.selectionInfo}>
             <Text style={styles.selectionText}>
               {selectedTaskIds.length}件選択中
@@ -295,10 +246,11 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
           >
             <Text style={[
               styles.tabText,
-              activeTab === 'incomplete' && styles.activeTabText
+              activeTab === 'incomplete' && [styles.activeTabText, { color: themeColor }]
             ]}>
               未完了 ({incompleteTasks.length})
             </Text>
+            {activeTab === 'incomplete' && <View style={[styles.tabIndicator, { backgroundColor: themeColor }]} />}
           </TouchableOpacity>
           
           <TouchableOpacity
@@ -310,91 +262,145 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
           >
             <Text style={[
               styles.tabText,
-              activeTab === 'completed' && styles.activeTabText
+              activeTab === 'completed' && [styles.activeTabText, { color: themeColor }]
             ]}>
               完了済み ({completedTasks.length})
             </Text>
+            {activeTab === 'completed' && <View style={[styles.tabIndicator, { backgroundColor: themeColor }]} />}
           </TouchableOpacity>
         </View>
       )}
       
-      <DraggableFlatList
-        data={currentTasks}
-        keyExtractor={(item) => item.id}
-        onDragEnd={handleDragEnd}
-        dragItemOverflow={true}
-        autoscrollThreshold={50}
-        dragHitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        renderItem={({ item, drag, isActive }: RenderItemParams<Task>) => (
-          <ScaleDecorator>
-            <View style={[
-              styles.taskCardContainer,
-              isActive && styles.activeTaskCard
-            ]}>
-              <TaskCard 
-                task={item} 
-                onToggleComplete={!selectMode ? handleToggleComplete : undefined}
-                showAnimation={item.id === recentlyCompletedTaskId}
-                isSelectable={selectMode}
-                isSelected={selectedTaskIds.includes(item.id)}
-                onSelect={handleSelectTask}
-                onPress={!selectMode ? handleTaskPress : undefined}
-              />
-              {!selectMode && (
-                <TouchableOpacity
-                  style={styles.dragHandle}
-                  onPressIn={drag}
-                  disabled={isActive}
-                  activeOpacity={0.5}
-                >
-                  <MaterialIcons name="drag-handle" size={24} color="#999999" />
-                </TouchableOpacity>
-              )}
-            </View>
-          </ScaleDecorator>
-        )}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[themeColor]}
-            tintColor={themeColor}
-            title="更新中..."
-            titleColor={themeColor}
-          />
-        }
-      />
+      {currentTasks.length === 0 ? (
+        <EmptyState activeTab={activeTab} themeColor={themeColor} />
+      ) : (
+        <DraggableFlatList
+          data={currentTasks}
+          keyExtractor={(item) => item.id}
+          onDragEnd={handleDragEnd}
+          dragItemOverflow={true}
+          autoscrollThreshold={50}
+          dragHitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          renderItem={({ item, drag, isActive }: RenderItemParams<Task>) => (
+            <ScaleDecorator>
+              <View style={[
+                styles.taskCardContainer,
+                isActive && styles.activeTaskCard
+              ]}>
+                <TaskCard 
+                  task={item} 
+                  onToggleComplete={!selectMode ? handleToggleComplete : undefined}
+                  showAnimation={item.id === recentlyCompletedTaskId}
+                  isSelectable={selectMode}
+                  isSelected={selectedTaskIds.includes(item.id)}
+                  onSelect={handleSelectTask}
+                  onPress={!selectMode ? handleTaskPress : undefined}
+                />
+                {!selectMode && (
+                  <TouchableOpacity
+                    style={styles.dragHandle}
+                    onPressIn={drag}
+                    disabled={isActive}
+                    activeOpacity={0.5}
+                  >
+                    <MaterialIcons name="drag-handle" size={24} color="#999999" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </ScaleDecorator>
+          )}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[themeColor]}
+              tintColor={themeColor}
+              title="更新中..."
+              titleColor={themeColor}
+            />
+          }
+        />
+      )}
     </View>
+  );
+};
+
+// EmptyStateコンポーネント
+const EmptyState = ({ activeTab, themeColor }: { activeTab: 'incomplete' | 'completed', themeColor: string }) => {
+  return (
+    <Animated.View 
+      style={styles.emptyContainer}
+      entering={FadeIn.duration(800)}
+    >
+      <View style={styles.emptyIconContainer}>
+        {activeTab === 'incomplete' ? (
+          <>
+            <Ionicons name="musical-notes-outline" size={100} color="#E0E0E0" style={styles.emptyIcon} />
+            <View style={[styles.iconBubble, { backgroundColor: themeColor }]}>
+              <FontAwesome5 name="tasks" size={20} color="#FFFFFF" />
+            </View>
+          </>
+        ) : (
+          <>
+            <MaterialIcons name="check-circle-outline" size={100} color="#E0E0E0" style={styles.emptyIcon} />
+            <View style={[styles.iconBubble, { backgroundColor: themeColor }]}>
+              <MaterialIcons name="done-all" size={20} color="#FFFFFF" />
+            </View>
+          </>
+        )}
+      </View>
+      
+      <Text style={styles.emptyTitle}>
+        {activeTab === 'incomplete' ? 'タスクがありません' : '完了済みタスクがありません'}
+      </Text>
+      
+      <Text style={styles.emptyDescription}>
+        {activeTab === 'incomplete' 
+          ? 'タスクを追加して練習計画を立てましょう' 
+          : '練習タスクを完了すると、ここに表示されます'}
+      </Text>
+      
+      {activeTab === 'incomplete' && (
+        <TouchableOpacity 
+          style={[styles.emptyButton, { backgroundColor: themeColor }]}
+          onPress={() => router.push('/task-form' as any)}
+        >
+          <AntDesign name="plus" size={16} color="#FFFFFF" />
+          <Text style={styles.emptyButtonText}>新しいタスクを追加</Text>
+        </TouchableOpacity>
+      )}
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F8F8',
   },
   tabContainer: {
     flexDirection: 'row',
     marginHorizontal: 16,
     marginVertical: 12,
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 6,
+    borderRadius: 10,
+    position: 'relative',
   },
   activeTab: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: TASK_THEME_LIGHT,
   },
   tabText: {
     fontSize: 14,
@@ -402,11 +408,18 @@ const styles = StyleSheet.create({
     color: '#757575',
   },
   activeTabText: {
-    color: '#4CAF50',
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    height: 3,
+    width: '40%',
+    borderRadius: 1.5,
+    alignSelf: 'center',
+    marginBottom: 2,
   },
   selectionBar: {
-    backgroundColor: '#4CAF50',
     paddingVertical: 10,
     paddingHorizontal: 16,
     marginBottom: 8,
@@ -447,7 +460,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   listContent: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingBottom: 20,
     paddingTop: 8,
   },
@@ -455,6 +468,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '500',
   },
   errorContainer: {
     flex: 1,
@@ -465,13 +483,15 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#D32F2F',
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: 16,
+    fontSize: 16,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
+    marginTop: -30,
   },
   emptyIconContainer: {
     position: 'relative',
@@ -479,7 +499,7 @@ const styles = StyleSheet.create({
     height: 150,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   emptyIcon: {
     opacity: 0.7,
@@ -493,51 +513,42 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#4CAF50',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 3,
+    elevation: 4,
   },
-  emptyText: {
-    marginTop: 16,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#5F6368',
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#424242',
+    marginBottom: 8,
     textAlign: 'center',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  emptySubText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#9AA0A6',
+  emptyDescription: {
+    fontSize: 16,
+    color: '#757575',
     textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 20,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    marginBottom: 24,
+    lineHeight: 22,
   },
-  createButton: {
+  emptyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 30,
-    backgroundColor: '#4CAF50',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
   },
-  createButtonText: {
+  emptyButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  buttonIcon: {
     marginLeft: 8,
   },
   taskCardContainer: {
