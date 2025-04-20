@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, Text, View, TouchableOpacity, LogBox } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, LogBox, Platform } from 'react-native';
 import { useSettingsStore } from '../store/settings';
 import { useAuthStore } from '../store/auth';
 import { useTheme } from '../theme/index';
@@ -12,6 +12,7 @@ import { useFonts } from 'expo-font';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ErrorBoundary from 'react-native-error-boundary';
 import { checkOnboardingStatus } from '../services/userProfileService';
+import { requestTracking } from '../utils/trackingTransparency';
 
 // Expo Router内部のHooks呼び出し警告を無視
 LogBox.ignoreLogs(['Do not call Hooks inside useEffect']);
@@ -44,6 +45,9 @@ const ErrorFallback = ({ error, resetError }: ErrorFallbackProps) => {
   );
 };
 
+// 型エラー回避のためanyとして再宣言
+const ErrorBoundaryComponent: any = ErrorBoundary;
+
 export default function RootLayout() {
   const { theme: themeName } = useSettingsStore();
   const { user, isOnboardingCompleted, setOnboardingCompleted } = useAuthStore();
@@ -56,6 +60,25 @@ export default function RootLayout() {
       SplashScreen.hideAsync().catch(console.error);
     }
   }, [loaded]);
+
+  // App Tracking Transparency (ATT) の実装
+  useEffect(() => {
+    // iOS 14以上のみで必要
+    if (Platform.OS === 'ios') {
+      // アプリ起動から少し遅らせて表示（ユーザーがアプリUIを見てから）
+      const timer = setTimeout(async () => {
+        try {
+          // トラッキング許可をリクエスト
+          const status = await requestTracking();
+          console.log('トラッキング許可ステータス:', status);
+        } catch (error) {
+          console.error('トラッキング許可リクエストエラー:', error);
+        }
+      }, 2000); // 2秒後に表示
+      
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // ユーザーログイン時にオンボーディング状態を確認
   useEffect(() => {
@@ -86,7 +109,7 @@ export default function RootLayout() {
   };
 
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback} onError={handleError}>
+    <ErrorBoundaryComponent FallbackComponent={ErrorFallback} onError={handleError}>
       <GestureHandlerRootView style={styles.container}>
         <Stack 
           screenOptions={{ 
@@ -146,7 +169,7 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
       </GestureHandlerRootView>
-    </ErrorBoundary>
+    </ErrorBoundaryComponent>
   );
 }
 

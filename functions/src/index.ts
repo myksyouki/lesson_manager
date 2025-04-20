@@ -10,17 +10,19 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
+import * as functions from "firebase-functions";
 
 // ユーティリティ
 import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
 // import axios from "axios";
 
 // プロジェクトモジュール
-import {generateTasksFromLessons} from "./practice-menu";
+import {generateTasksFromLessons} from "./practice-menu/index";
 import { practiceMenuFunctions } from './practice-menu';
 import { testOpenAIConnection, generatePracticeRecommendation } from './practice-menu/genkit';
 import { setAdminRole, initializeAdmin } from './tools/admin-setup';
 import { FUNCTION_REGION } from './config';
+import { processAudioOnUpload } from "./summaries/triggers";
 
 // Firebaseの初期化（まだ初期化されていない場合）
 if (admin.apps.length === 0) {
@@ -974,3 +976,188 @@ export const testPracticeRecommendation = onCall({
     ]
   };
 });
+
+/**
+ * 予約されたアカウントの削除処理を行うスケジュール関数
+ * 毎日午前3時に実行され、削除期限が過ぎたアカウントを削除する
+ */
+export const processScheduledAccountDeletions = functions
+  .region('asia-northeast1')
+  .pubsub.schedule('0 3 * * *')  // 毎日午前3時に実行
+  .timeZone('Asia/Tokyo')
+  .onRun(async (context) => {
+    const now = admin.firestore.Timestamp.now();
+    const db = admin.firestore();
+    const auth = admin.auth();
+    
+    try {
+      // 削除期限が過ぎたアカウントを検索
+      const query = db.collection('accountDeletions')
+        .where('scheduledForDeletion', '<=', now);
+      
+      const snapshot = await query.get();
+      
+      if (snapshot.empty) {
+        console.log('削除予定のアカウントはありません');
+        return null;
+      }
+      
+      console.log(`${snapshot.size}件のアカウントを処理します`);
+      
+      // 各アカウントを処理
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        const userId = data.userId;
+        console.log(`ユーザー ${userId} の処理を開始します`);
+        
+        try {
+          // ユーザーデータの匿名化処理
+          await anonymizeUserData(userId, db);
+          
+          // 削除予約情報を削除
+          await db.collection('accountDeletions').doc(userId).delete();
+          
+          // Firebase Authentication のユーザーを削除
+          try {
+            await auth.deleteUser(userId);
+            console.log(`ユーザー ${userId} の認証情報を削除しました`);
+          } catch (authError) {
+            console.error(`ユーザー ${userId} の認証情報削除に失敗:`, authError);
+            // 認証情報の削除に失敗してもデータは匿名化済みなので問題なし
+          }
+          
+          console.log(`ユーザー ${userId} の処理が完了しました`);
+        } catch (error) {
+          console.error(`ユーザー ${userId} の処理中にエラー:`, error);
+        }
+      }
+      
+      console.log('全てのユーザー処理が完了しました');
+      return null;
+    } catch (error) {
+      console.error('アカウント削除処理中にエラーが発生しました:', error);
+      return null;
+    }
+  });
+
+/**
+ * ユーザーデータの匿名化処理
+ * 個人を特定できる情報を削除し、コンテンツデータは匿名化して保持する
+ */
+async function anonymizeUserData(userId: string, db: FirebaseFirestore.Firestore): Promise<void> {
+  console.log('ユーザーデータの匿名化を開始:', userId);
+  
+  // 匿名化ID
+  const anonymousId = `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  try {
+    // 1. チャットルームとメッセージの匿名化
+    const chatRoomsRef = db.collection(`users/${userId}/chatRooms`);
+    const chatRoomsSnapshot = await chatRoomsRef.get();
+    
+    console.log(`匿名化: チャットルーム数 ${chatRoomsSnapshot.size}`);
+    
+    for (const chatDoc of chatRoomsSnapshot.docs) {
+      // チャットルーム自体を匿名化
+      await chatDoc.ref.update({
+        userId: anonymousId,
+        userEmail: 'anonymous@example.com',
+        userName: '匿名ユーザー',
+        anonymized: true,
+        anonymizedAt: admin.firestore.Timestamp.now(),
+        // チャット内容自体は保持
+      });
+      
+      // チャットルーム内のメッセージも確認
+      const messagesRef = chatDoc.ref.collection('messages');
+      const messagesSnapshot = await messagesRef.get();
+      
+      const messageBatch = db.batch();
+      let count = 0;
+      
+      for (const msgDoc of messagesSnapshot.docs) {
+        // 個人情報を含む可能性のあるフィールドを匿名化
+        messageBatch.update(msgDoc.ref, {
+          userId: anonymousId,
+          sender: '匿名ユーザー',
+          anonymized: true,
+          // メッセージ内容自体は維持
+        });
+        
+        count++;
+        // Firestoreのバッチサイズ制限（500件）に達したら一度コミット
+        if (count >= 450) {
+          await messageBatch.commit();
+          count = 0;
+        }
+      }
+      
+      // 残りのメッセージをコミット
+      if (count > 0) {
+        await messageBatch.commit();
+      }
+    }
+    
+    // 2. レッスンデータの匿名化
+    const lessonsRef = db.collection(`users/${userId}/lessons`);
+    const lessonsSnapshot = await lessonsRef.get();
+    
+    console.log(`匿名化: レッスン数 ${lessonsSnapshot.size}`);
+    
+    const lessonBatch = db.batch();
+    let lessonCount = 0;
+    
+    for (const lessonDoc of lessonsSnapshot.docs) {
+      lessonBatch.update(lessonDoc.ref, {
+        user_id: anonymousId,
+        teacherName: '匿名講師', // 講師名も匿名化
+        anonymized: true,
+        anonymizedAt: admin.firestore.Timestamp.now(),
+        // レッスン内容、文字起こし、要約などは保持
+      });
+      
+      lessonCount++;
+      // バッチサイズ制限に達したら一度コミット
+      if (lessonCount >= 450) {
+        await lessonBatch.commit();
+        lessonCount = 0;
+      }
+    }
+    
+    // 残りのレッスンをコミット
+    if (lessonCount > 0) {
+      await lessonBatch.commit();
+    }
+    
+    // 3. プロフィール情報を削除（匿名化せず完全削除）
+    try {
+      const profileRef = db.collection(`users/${userId}/profile`).doc('main');
+      await profileRef.delete();
+    } catch (e) {
+      console.log('プロフィール削除エラー:', e);
+    }
+    
+    // 4. ユーザードキュメント自体を更新
+    try {
+      const userRef = db.collection('users').doc(userId);
+      const userDoc = await userRef.get();
+      
+      if (userDoc.exists) {
+        await userRef.update({
+          email: 'anonymous@example.com',
+          displayName: '削除済みユーザー',
+          anonymized: true,
+          anonymizedAt: admin.firestore.Timestamp.now(),
+          originalUserId: userId, // 内部参照用に元のIDを保持
+        });
+      }
+    } catch (e) {
+      console.log('ユーザードキュメント更新エラー:', e);
+    }
+    
+    console.log(`ユーザー ${userId} のデータ匿名化が完了しました`);
+  } catch (error) {
+    console.error('データ匿名化処理エラー:', error);
+    throw new Error('ユーザーデータの匿名化に失敗しました');
+  }
+}

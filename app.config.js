@@ -58,15 +58,17 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.regnition.appli",
+      usesAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         CFBundleAllowMixedLocalizations: true,
-        UIBackgroundModes: ["audio"],
         LSSupportsOpeningDocumentsInPlace: true,
         UIFileSharingEnabled: true,
         UISupportsDocumentBrowser: true,
         NSPhotoLibraryUsageDescription: "音声ファイルをライブラリから選択するために必要です",
-        NSDocumentsFolderUsageDescription: "音声ファイルを保存・読み込みするために必要です"
+        NSDocumentsFolderUsageDescription: "音声ファイルを保存・読み込みするために必要です",
+        NSUserTrackingUsageDescription: "このアプリでは、お客様により適切なレッスン内容を提供し、アプリの利用体験を向上させるために、お客様のデータを利用します。データは安全に管理され、第三者との共有は当社のプライバシーポリシーに従って行われます。",
+        UIBackgroundModes: []
       }
     },
     android: {
