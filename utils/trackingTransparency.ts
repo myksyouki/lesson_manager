@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, Platform as RNPlatform } from 'react-native';
 import { 
   requestTrackingPermission,
   getTrackingStatus,
@@ -20,6 +20,13 @@ export const requestTracking = async (): Promise<TrackingStatus> => {
     if (Platform.OS !== 'ios') {
       console.log('トラッキング許可: iOSのみで必要');
       return 'authorized'; // Androidではデフォルトで許可として扱う
+    }
+
+    // iOS 14以上かどうかを確認
+    const iosVersion = parseInt((Platform.Version as string), 10);
+    if (Platform.OS === 'ios' && iosVersion < 14) {
+      console.log('トラッキング許可: iOS 14未満のため不要');
+      return 'authorized';
     }
 
     // 現在のトラッキングステータスを取得
@@ -51,6 +58,12 @@ export const getCurrentTrackingStatus = async (): Promise<TrackingStatus> => {
   try {
     if (Platform.OS !== 'ios') {
       return 'authorized'; // Androidではデフォルトで許可
+    }
+    
+    // iOS 14以上かどうかを確認
+    const iosVersion = parseInt((Platform.Version as string), 10);
+    if (Platform.OS === 'ios' && iosVersion < 14) {
+      return 'authorized';
     }
     
     const status = await getTrackingStatus();

@@ -82,8 +82,8 @@ app/
 - **フロントエンド**: React Native with Expo
 - **デプロイ**: Firebase Hosting, Expo EAS
 - **ランタイム**: Node.js 20 (注意: Node.js 18 は 2025-04-30 に非推奨、2025-10-31 に廃止予定)
-- **テスト**: Jest, React Native Testing Library, @testing-library/jest-native, jest-expo, detox, react-native-iap, react-native-tracking-transparency
-- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg, react-native-iap, react-native-error-boundary, react-native-fs, react-native-get-random-values, @react-native-google-signin/google-signin, react-native-keyboard-aware-scroll-view, react-native-view-shot, expo-apple-authentication, react-native-tracking-transparency, react-native-tracking-transparency, react-native-tracking-transparency
+- **テスト**: Jest, React Native Testing Library, @testing-library/jest-native, jest-expo, detox, react-native-iap, react-native-tracking-transparency, react-native-apple-authentication
+- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg, react-native-iap, react-native-error-boundary, react-native-fs, react-native-get-random-values, @react-native-google-signin/google-signin, react-native-keyboard-aware-scroll-view, react-native-view-shot, expo-apple-authentication, react-native-tracking-transparency, react-native-tracking-transparency, react-native-tracking-transparency, react-native-tracking-transparency
 - **アイコン生成**: Canva, Figma
 - **スプラッシュスクリーン**: (追加)
 - **アプリのバージョン**: 0.0.2 (更新)
@@ -475,5 +475,4 @@ interface PracticeStep {
 interface SheetMusic {
   id: string;                // 楽譜ID
   title: string;             // タイトル
-  svgContent: string;        // SVG形式の楽譜データ
-  instrumentId: string;      // 対象
+  svgContent: string;        // SVG
