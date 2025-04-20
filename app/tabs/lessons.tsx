@@ -524,7 +524,7 @@ export default function LessonsScreen() {
   };
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#F6F7F9' }]}>
       <View style={{ flex: 1 }}>
         {/* 検索バーとタグフィルター - 常に表示 */}
         <View style={styles.searchHeaderContainer}>
@@ -804,19 +804,19 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   searchCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    padding: 18,
     marginBottom: 0,
     ...Platform.select({
       ios: {
-        shadowColor: 'rgba(0,0,0,0.1)',
-        shadowOffset: { width: 0, height: 4 },
+        shadowColor: 'rgba(0,0,0,0.12)',
+        shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 1,
-        shadowRadius: 12,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 4,
+        elevation: 6,
       },
     }),
   },
@@ -829,27 +829,27 @@ const styles = StyleSheet.create({
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: '#F5F5F7',
-    borderRadius: 12,
+    backgroundColor: '#ECEFF1',
+    borderRadius: 18,
     padding: 4,
     width: '100%',
     ...Platform.select({
       ios: {
-        shadowColor: 'rgba(0,0,0,0.05)',
+        shadowColor: 'rgba(0,0,0,0.07)',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 1,
-        shadowRadius: 4,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 2,
+        elevation: 3,
       },
     }),
   },
   segmentButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 14,
     width: '50%',
     flexDirection: 'row',
     justifyContent: 'center',
@@ -859,13 +859,13 @@ const styles = StyleSheet.create({
     backgroundColor: LESSON_THEME_COLOR,
     ...Platform.select({
       ios: {
-        shadowColor: 'rgba(66,133,244,0.3)',
-        shadowOffset: { width: 0, height: 2 },
+        shadowColor: 'rgba(66,133,244,0.18)',
+        shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 1,
-        shadowRadius: 4,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
@@ -915,7 +915,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   lessonCardContainer: {
-    marginBottom: 5,
+    marginBottom: 14,
     width: '100%',
   },
   // アーカイブリスト
@@ -927,20 +927,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   monthHeader: {
-    backgroundColor: 'rgba(66, 133, 244, 0.08)',
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 16,
+    backgroundColor: '#E3F2FD',
+    padding: 14,
+    borderRadius: 16,
+    marginTop: 18,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderLeftWidth: 4,
+    borderLeftWidth: 5,
     borderLeftColor: '#4285F4',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowColor: '#90CAF9',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.13,
+    shadowRadius: 4,
+    elevation: 3,
   },
   monthHeaderLeft: {
     flexDirection: 'row',
@@ -1019,8 +1019,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: '#202124',
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: 'center',
+    lineHeight: 28,
   },
   emptySubText: {
     fontSize: 16,

@@ -9,7 +9,6 @@ import {
   Platform,
   TouchableOpacity,
   Dimensions,
-  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../../theme';
@@ -59,12 +58,8 @@ export default function AnalysisScreen() {
   }, [lessons, formatDate]);
 
   const handleShowDetailedReport = () => {
-    // 開発中メッセージを表示
-    Alert.alert(
-      '開発中',
-      'この機能は現在開発中です。今後のアップデートをお待ちください。',
-      [{ text: 'OK', style: 'default' }]
-    );
+    // 詳細レポート画面へ遷移
+    router.push('/analysis/detailed-report');
   };
 
   return (
@@ -144,15 +139,15 @@ export default function AnalysisScreen() {
               
               {/* 詳細レポートボタンを最下部に配置 */}
               <TouchableOpacity 
-                style={[styles.detailReportButton, styles.developmentButton]}
+                style={styles.detailReportButton}
                 onPress={handleShowDetailedReport}
               >
                 <MaterialIcons 
-                  name="construction" 
+                  name="analytics" 
                   size={24} 
-                  color="#FFFFFF"
+                  color={theme.colors.primary}
                 />
-                <Text style={styles.detailButtonText}>詳細レポート（開発中）</Text>
+                <Text style={styles.detailButtonText}>詳細レポート</Text>
               </TouchableOpacity>
             </View>
           ) : (
