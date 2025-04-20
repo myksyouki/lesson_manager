@@ -91,8 +91,30 @@ export const instrumentCategories: InstrumentCategory[] = [
     name: 'ボーカル',
     instruments: [
       {
-        id: 'vocal',
-        name: 'ボーカル',
+        id: 'classic',
+        name: 'クラシック',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'jazz',
+        name: 'ジャズ',
+        models: [
+          {
+            id: 'standard',
+            name: 'スタンダードモデル',
+            isArtist: false
+          }
+        ]
+      },
+      {
+        id: 'pops',
+        name: 'ポップス',
         models: [
           {
             id: 'standard',
@@ -109,8 +131,8 @@ export const instrumentCategories: InstrumentCategory[] = [
     name: 'ピアノ',
     instruments: [
       {
-        id: 'piano',
-        name: 'ピアノ',
+        id: 'classic',
+        name: 'クラシック',
         models: [
           {
             id: 'standard',

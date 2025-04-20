@@ -462,9 +462,9 @@ export default function InstrumentSettingsScreen() {
       case 'model':
         return (
           <View style={styles.stepContainer}>
-            <Text style={styles.title}>モデルを選択</Text>
+            <Text style={styles.title}>プランを選択</Text>
             <Text style={styles.description}>
-              使用するAIモデルを選択してください。
+              使用するAIプランを選択してください。
             </Text>
             
             {/* 実際のモデルリストからフィルタリングして表示 */}
@@ -477,12 +477,13 @@ export default function InstrumentSettingsScreen() {
               onPress={() => handleModelSelect('standard')}
               disabled={isLoading}
             >
-              <View style={styles.instrumentRow}>
-                <Text style={styles.instrumentLabel}>スタンダードモデル</Text>
+              <View style={styles.planHeader}>
+                <Text style={styles.instrumentLabel}>スタンダードプラン</Text>
+                {selectedModel === 'standard' && (
+                  <MaterialIcons name="check" size={22} color="#007AFF" style={styles.checkIcon} />
+                )}
               </View>
-              {selectedModel === 'standard' && (
-                <MaterialIcons name="check" size={24} color="#007AFF" />
-              )}
+              <Text style={styles.planDescription}>{currentInstrument?.name}に特化した汎用AIを使用できます。</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -493,21 +494,21 @@ export default function InstrumentSettingsScreen() {
                 styles.artistModelItem
               ]}
               onPress={() => {
-                // 選択中のアーティストモデルIDがあればそのまま使用、なければueno（デフォルト）を使用
                 const currentModelId = selectedModel !== 'standard' ? selectedModel : 'ueno';
                 handleModelSelect(currentModelId);
               }}
               disabled={isLoading}
             >
-              <View style={styles.instrumentRow}>
-                <Text style={styles.instrumentLabel}>プロフェッショナルモデル</Text>
+              <View style={styles.planHeader}>
+                <Text style={styles.instrumentLabel}>プロフェッショナルプラン</Text>
                 <View style={styles.betaBadge}>
                   <Text style={styles.betaBadgeText}>BETA</Text>
                 </View>
+                {selectedModel !== 'standard' && (
+                  <MaterialIcons name="check" size={22} color="#007AFF" style={styles.checkIcon} />
+                )}
               </View>
-              {selectedModel !== 'standard' && (
-                <MaterialIcons name="check" size={24} color="#007AFF" />
-              )}
+              <Text style={styles.planDescription}>実際のアーティストのノウハウを学習したAIモデルを切り替えながらご利用いただけます。</Text>
             </TouchableOpacity>
             
             {isLoading && (
@@ -601,13 +602,13 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   instrumentItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     backgroundColor: 'white',
-    padding: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 16,
     width: '100%',
     ...Platform.select({
       ios: {
@@ -635,11 +636,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   instrumentLabel: {
-    fontSize: 18,
-    fontWeight: '500',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#1C1C1E',
-    marginLeft: 12,
+    flex: 1,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  checkIcon: {
+    marginLeft: 8,
   },
   betaBadge: {
     backgroundColor: '#FFCC00',
@@ -716,5 +720,21 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginLeft: 8,
     overflow: 'hidden',
+  },
+  planHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 4,
+  },
+  planDescription: {
+    fontSize: 13,
+    color: '#888',
+    textAlign: 'left',
+    marginLeft: 2,
+    marginRight: 2,
+    lineHeight: 20,
+    marginBottom: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 }); 
