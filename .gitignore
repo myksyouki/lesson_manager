@@ -60,3 +60,9 @@ gcp-audio-processing/venv/
 !/ios/*.xcworkspace/contents.xcworkspacedata
 /ios/.xcode.env.local
 /ios/Pods/
+
+# coverage
+coverage/
+
+# temp files
+.temp/

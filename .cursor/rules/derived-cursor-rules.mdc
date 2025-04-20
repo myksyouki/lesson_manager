@@ -167,6 +167,7 @@ app/
 - `ContextNavigator`コンポーネントに関するエラーはExpo Routerの内部エラーであり、アプリコードでの修正は困難です。デバッグモードでのみ表示され、本番環境には影響しません。エラーバウンダリを追加することで、問題発生時の適切なハンドリングが確保されています。次のExpo Routerアップデートを待ちましょう。
 - Expo Router のレイアウトファイル（`app/_layout.tsx`）内で `<Stack>` の外側に `<StatusBar>` 等の “Screen ではない子要素” を置いていると警告が出ますが、無視して構いません。
 - "ユーザーがログインしていません"というエラーは、ログイン状態の確認と適切なエラーハンドリングが必要です。該当箇所でログイン状態をチェックし、ログインしていない場合は適切なメッセージを表示するか、ログイン画面にリダイレクトする必要があります。
+- Expo Routerの警告「Too many screens defined. Route "settings" is extraneous.」は無視して構いません。
 
 
 ## FINAL DOs AND DON'Ts
@@ -458,6 +459,3 @@ interface PracticeMenu {
   sheetMusicUrl?: string;    // 楽譜URL
   videoUrl?: string;         // 解説動画URL（オプション）
   steps: PracticeStep[];     // 練習ステップ
-  tags: string[];            // 検索用タグ
-  createdAt: Timestamp;      // 作成日時
-  updatedAt: Timestamp
