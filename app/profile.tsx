@@ -348,12 +348,11 @@ export default function ProfileScreen() {
                   <Text style={styles.instrumentValue}>{instrumentInfo.instrumentName}</Text>
                 </View>
                 <View style={styles.instrumentRow}>
-                  <Text style={styles.instrumentLabel}>モデル:</Text>
+                  <Text style={styles.instrumentLabel}>プラン:</Text>
                   <Text style={styles.instrumentValue}>
-                    {instrumentInfo.modelName}
-                    {instrumentInfo.isArtistModel && (
-                      <Text style={styles.artistModelText}> (アーティストモデル)</Text>
-                    )}
+                    {instrumentInfo.isArtistModel
+                      ? 'プロフェッショナルプラン'
+                      : instrumentInfo.modelName.replace('モデル','プラン')}
                   </Text>
                 </View>
                 

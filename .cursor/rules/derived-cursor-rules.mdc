@@ -5,7 +5,7 @@ globs: *
 
 ## PROJECT OVERVIEW
 
-このプロジェクトは、音楽レッスンの記録と練習をサポートする総合AIアシスタントです。ユーザーはレッスン音声をアップロードすると、AI技術により文字起こし・要約・タグ付けが自動生成され、レッスン内容を効率的に管理できます。さらに、レッスン内容や個人の技術レベルに基づいた最適な練習メニューをAIが提案し、ユーザーの日々の練習をサポートします。練習に関する相談もAIに行えるなど、レッスンから日常練習までをトータルにサポートするプラットフォームです。アプリ名は「Resonote」に変更済みです。
+Resonoteは、ユーザーが音楽レッスンの録音をアップロードするとOpenAI Whisper APIで文字起こしし、Dify APIで要約・タグ付けを自動生成します。バックエンドにFirebase Functions/Firestore/Storageを採用し、フロントエンドはReact Native (Expo)およびExpo RouterでAndroid/iOS/Web向けにクロスプラットフォーム対応。AIはレッスンデータと練習履歴を分析し、個々のユーザーに最適化された練習メニューを提案。また、AI相談機能、管理者用管理画面、サブスクリプション管理機能も備えた総合アプリケーションです。
 
 
 ## CODE STYLE
@@ -51,26 +51,16 @@ functions/src/
 
 ### アプリフォルダ構造
 
-```text
+```
 app/
   ├── _layout.tsx              # メインレイアウト
   ├── index.tsx                # エントリーポイント
-  ├── profile.tsx              # プロフィール画面
-  ├── privacy-policy.tsx       # プライバシーポリシー画面
-  ├── terms-of-service.tsx       # 利用規約画面
-  ├── onboarding.tsx           # オンボーディング画面
+  ├── admin.tsx                # 管理画面
+  ├── admin/                   # 管理機能
+  ├── settings.tsx             # 設定画面
   ├── lesson-form.tsx          # レッスン作成画面
   ├── task-form.tsx            # タスク作成画面
   ├── task-detail.tsx          # タスク詳細画面
-  ├── help-support.tsx         # ヘルプ＆サポート画面
-  ├── error-report.tsx         # エラー報告画面
-  ├── auth/                    # 認証関連画面
-  │   ├── login.tsx
-  │   ├── register.tsx
-  │   └── forgot-password.tsx
-  ├── subscription/            # サブスクリプション管理
-  │   ├── subscription.tsx
-  │   └── settings.tsx
   ├── tabs/                    # メインタブ
   │   ├── _layout.tsx          # タブレイアウト
   │   ├── index.tsx            # ホーム画面
@@ -78,26 +68,14 @@ app/
   │   ├── task.tsx             # タスク一覧
   │   ├── ai-lesson.tsx        # AIレッスン
   │   └── schedule.tsx         # スケジュール
-  ├── admin/                   # 管理者画面
-  │   └── admin.tsx
   ├── (lesson-detail)/         # レッスン詳細
-  │   ├── theme-settings.tsx
-  │   ├── shared-audio.tsx
-  │   ├── sync.tsx
-  │   ├── notifications.tsx
-  │   ├── instrument-settings.tsx
-  │   └── language.tsx
-  ├── navigation/              # ナビゲーション
-  │   └── generate-tasks.tsx
   ├── features/                # 機能モジュール
-  │   ├── consult-ai.tsx
-  │   └── chat-room.tsx
   ├── components/              # 共通コンポーネント
-  │   ├── chat-room-form.tsx
-  │   └── api-settings.tsx
-  └── analysis/                # 分析・ルート
-      ├── +not-found.tsx
-      └── App.tsx
+  │   ├── InstrumentSetup.tsx
+  ├── chat-room.tsx            # チャットルーム
+  ├── chat-room-form.tsx       # チャットルーム作成
+  ├── consult-ai.tsx           # AI相談機能
+  └── navigation/              # ナビゲーション
 ```
 
 
@@ -111,8 +89,8 @@ app/
 - **デプロイ**: Firebase Hosting, Expo EAS
 - **ランタイム**: Node.js 20 (注意: Node.js 18 は 2025-04-30 に非推奨、2025-10-31 に廃止予定)
 - **パッケージ管理**: Yarn@1.22.22 (ルート: yarn.lock) / npm (functions: package-lock.json)
-- **テスト**: Jest, React Native Testing Library, @testing-library/jest-native, jest-expo, detox, react-native-iap
-- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg, react-native-iap, react-native-error-boundary, react-native-fs, react-native-get-random-values, @react-native-google-signin/google-signin, react-native-keyboard-aware-scroll-view, react-native-view-shot, expo-apple-authentication
+- **テスト**: Jest, React Native Testing Library, @testing-library/jest-native, jest-expo, detox, react-native-iap, react-native-tracking-transparency, react-native-apple-authentication
+- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg, react-native-iap, react-native-error-boundary, react-native-fs, react-native-get-random-values, @react-native-google-signin/google-signin, react-native-keyboard-aware-scroll-view, react-native-view-shot, expo-apple-authentication, react-native-tracking-transparency, react-native-tracking-transparency, react-native-tracking-transparency, react-native-tracking-transparency
 - **アイコン生成**: Canva, Figma
 - **スプラッシュスクリーン**: (追加)
 - **アプリのバージョン**: 0.0.2 (更新)
@@ -124,6 +102,7 @@ app/
 - expo-router@^4.0.19
 - expo-av@15.0.2
 - expo-apple-authentication@7.1.3
+- react-native-tracking-transparency
 
 
 ## PROJECT-SPECIFIC STANDARDS
@@ -134,7 +113,12 @@ app/
 ## WORKFLOW & RELEASE RULES
 
 - 新しいパッケージを追加したら必ず `package.json` を更新してコミットする。
-- 新しいブランチを作成し、作業を行う。
+- 新しいブランチを作成し、作業を行う。 ブランチ作成手順:  以下の手順に従う。
+    1. `git checkout main`
+    2. `git pull`
+    3. `git checkout -b <ブランチ名>` (例: `git checkout -b auth/apple`)
+    4. 変更をコミットする
+    5. `git push -u origin <ブランチ名>` (例: `git push -u origin auth/apple`)
 - 作業が完了したらプルリクエストを作成する。
 - 認証状態の永続化：Firebase認証の永続性を設定し、ログイン情報をローカルストレージに保存する。
 -  Node.jsバージョンアップデートを考慮し、適切なバージョン管理を行う。
@@ -151,19 +135,15 @@ app/
 - アプリのバンドルIDを `com.regnition.appli` に変更する。(追加)
 - バンドルID: com.regnition.appli
 - 音声アップロード中のキャンセル機能を追加する
-- ブランチ作成手順: `2025-04-11_22-07-gitでmainからauth-appleブランチ作成.md`を参照
 - Appleログイン機能を実装する
-- **ブランチ作成手順**:
-    - `git checkout main`
-    - `git pull`
-    - `git checkout -b <ブランチ名>` (例: `git checkout -b auth/apple`)
-    - 既存の変更がある場合は、`git stash`で変更を退避してからブランチを切り替える。
-- **ブランチプッシュ手順**: `git push -u origin <ブランチ名>`
-- **ブランチマージ手順**:
-    - `git checkout main`
-    - `git pull`
-    - `git merge <ブランチ名>`
-    - `git push`
+- アカウント削除機能を実装する。(Apple審査対応)  アカウント削除機能は、Appleのガイドライン5.1.1(v)に従って実装する必要があります。アカウントの一時的な無効化や停止だけでは不十分で、ユーザーがアカウントを完全に削除できる機能を提供する必要があります。誤削除防止のための確認ステップを含めることができます。
+- アカウント削除機能は、Appleのガイドライン5.1.1(v)に従って実装する必要があります。アカウントの一時的な無効化や停止だけでは不十分で、ユーザーがアカウントを完全に削除できる機能を提供する必要があります。誤削除防止のための確認ステップを含めることができます。ユーザーはアカウントを完全に削除でき、誤削除防止のための確認ステップを含めることができます。
+- Androidビルドはaabバンドルで作成する
+- アカウント削除機能の実装には、30日間の猶予期間を設け、その間はデータを保持し、期間内であれば復元可能にする必要があります。
+- App Tracking Transparencyの実装：アプリ起動時に`react-native-tracking-transparency`ライブラリを使用してトラッキング許可をリクエストします。`Info.plist`に`NSUserTrackingUsageDescription`を追加します。
+- Info.plistファイルの`UIBackgroundModes`キーから`audio`を削除する。これはバックグラウンドオーディオが不要な場合のApple審査対応です。
+- 警告解消手順は`2025-04-20_01-30-警告解消の手順.md`を参照
+- expo-routerを最新バージョンにアップデートする
 
 
 ## REFERENCE EXAMPLES
@@ -180,6 +160,8 @@ app/
 - **設定画面バージョン**: 0.0.2 (更新)
 - **設定画面開発者**: Regnition inc.
 - **テスト環境構築**: TESTING.md, E2E-TESTING.mdを参照
+- Apple App Account Deletion Guidelines (2025-04-19 12:42:56): Guideline 5.1.1(v) - Data Collection and Storage.  See `2025-04-19_03-42-apple-app-account-deletion-guidelines.md` for details. Guideline 5.1.2 - Legal - Privacy - Data Use and Sharing:  See App Store Connect for details.
+- レッスン管理システムのプロジェクトルール: `lesson-management-system-project-rules.md`
 
 
 ## DEBUGGING
@@ -190,6 +172,9 @@ app/
 - useEffectの依存配列に`router`を追加する必要があるケースがあります。`app/navigation/types.ts`ファイルを参照してください。
 - Firestoreのセキュリティルールを確認する：Firebaseコンソールの「Firestore Database」→「ルール」タブで確認し、エラー報告の書き込み権限を確認・付与する。
 - `ContextNavigator`コンポーネントに関するエラーはExpo Routerの内部エラーであり、アプリコードでの修正は困難です。デバッグモードでのみ表示され、本番環境には影響しません。エラーバウンダリを追加することで、問題発生時の適切なハンドリングが確保されています。次のExpo Routerアップデートを待ちましょう。
+- Expo Router のレイアウトファイル（`app/_layout.tsx`）内で `<Stack>` の外側に `<StatusBar>` 等の “Screen ではない子要素” を置いていると警告が出ますが、無視して構いません。
+- "ユーザーがログインしていません"というエラーは、ログイン状態の確認と適切なエラーハンドリングが必要です。該当箇所でログイン状態をチェックし、ログインしていない場合は適切なメッセージを表示するか、ログイン画面にリダイレクトする必要があります。
+- Expo Routerの警告「Too many screens defined. Route "settings" is extraneous.」は無視して構いません。
 
 
 ## FINAL DOs AND DON'Ts
@@ -389,6 +374,11 @@ app/
 
 + Appleログイン機能を実装しました。`expo-apple-authentication`パッケージを使用し、`app.config.js`と`app/auth/login.tsx`、`store/auth.ts`を更新しました。Firebase側での設定も必要です。
 
++ アカウント削除機能の実装：Appleのガイドライン5.1.1(v)に従い、アカウント削除機能を実装する必要があります。ユーザーはアカウントを完全に削除でき、誤削除防止のための確認ステップを含めることができます。
++ アカウント削除機能の実装には、30日間の猶予期間を設け、その間はデータを保持し、期間内であれば復元可能にする必要があります。
+
++ UIBackgroundModesキーからaudioを削除しました。
+
 ### レッスン管理システムのプロジェクトルール
 
 ```markdown
@@ -449,61 +439,4 @@ interface Lesson {
   processingProgress?: number;
   processingMessage?: string;
   processingTimeSeconds?: number;
-  transcriptionCompleteTime?: Timestamp;
-  transcriptionId?: string;
-  processingId?: string;
-  lockAcquiredAt?: Timestamp;
-  
-  // アーカイブ関連
-  isArchived: boolean;
-  archivedDate?: Timestamp;
-  isFavorite?: boolean;
-  
-  // その他
-  pieces?: string; // JSON文字列として保存
-  aiInstructions?: string; // 最大100文字
-  notes?: string;
-  
-  // 時間情報
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
-```
-
-### 練習メニューデータ
-
-```typescript
-// 練習メニューコレクション
-interface PracticeMenu {
-  id: string;                // ドキュメントID
-  title: string;             // メニュータイトル
-  description: string;       // 詳細説明
-  instrument: string;        // 対象楽器
-  category: string;          // カテゴリ（基礎練習/テクニック/表現など）
-  difficulty: string;        // 難易度（初級/中級/上級）
-  duration: number;          // 所要時間（分）
-  sheetMusicUrl?: string;    // 楽譜URL
-  videoUrl?: string;         // 解説動画URL（オプション）
-  steps: PracticeStep[];     // 練習ステップ
-  tags: string[];            // 検索用タグ
-  createdAt: Timestamp;      // 作成日時
-  updatedAt: Timestamp;      // 更新日時
-}
-
-// 練習ステップ
-interface PracticeStep {
-  id: string;                // ステップID
-  title: string;             // ステップ名
-  description: string;       // 詳細説明
-  duration: number;          // 所要時間（分）
-  orderIndex: number;        // 順序
-}
-
-// 楽譜データモデル
-interface SheetMusic {
-  id: string;                // 楽譜ID
-  title: string;             // タイトル
-  svgContent: string;        // SVG形式の楽譜データ
-  instrumentId: string;      // 対象楽器ID
-  difficulty: string;        // 難易度
-  tags:
+  transcriptionCompleteTime?:
