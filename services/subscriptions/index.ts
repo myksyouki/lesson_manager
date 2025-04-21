@@ -1,39 +1,7 @@
 import { Platform } from 'react-native';
-// react-native-iapのインポートをモックに置き換え
-// import {
-//   initConnection,
-//   endConnection,
-//   getProducts,
-//   getSubscriptions,
-//   finishTransaction,
-//   purchaseErrorListener,
-//   purchaseUpdatedListener,
-//   requestSubscription,
-//   ProductPurchase,
-//   PurchaseError,
-//   Purchase,
-//   SubscriptionPurchase,
-//   Subscription,
-//   validateReceiptIos,
-//   validateReceiptAndroid,
-//   flushFailedPurchasesCachedAsPendingAndroid,
-//   isIosStorekit2,
-//   clearTransactionIOS,
-//   getAvailablePurchases
-// } from 'react-native-iap';
+import * as RNIap from 'react-native-iap';
 
-// モック型定義
-interface Purchase {
-  productId: string;
-  transactionId: string;
-  transactionReceipt: string;
-}
-
-interface PurchaseError {
-  code: string;
-  message: string;
-}
-
+// local Subscription型定義 (UIコンポーネントに合わせて必要に応じて拡張可能)
 interface Subscription {
   productId: string;
   title: string;
@@ -44,18 +12,11 @@ interface Subscription {
   subscriptionPeriodUnitIOS?: string;
 }
 
-// react-native-iapのモック関数
-const endConnection = () => {};
-const purchaseUpdatedListener = (callback: (purchase: Purchase) => void) => ({ remove: () => {} });
-const purchaseErrorListener = (callback: (error: PurchaseError) => void) => ({ remove: () => {} });
-const finishTransaction = async (params: any) => {};
-const isIosStorekit2 = (transactionId: string) => false;
-const clearTransactionIOS = async (transactionId: string) => {};
-const getAvailablePurchases = async () => [] as Purchase[];
-
 import { getAuth } from 'firebase/auth';
 import { doc, setDoc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../config/firebase';
 
 // サブスクリプション製品ID
 export const SubscriptionIds = {
@@ -100,8 +61,10 @@ let purchaseErrorSubscription: { remove: () => void } | null = null;
 
 // 一時的にサブスクリプション機能を無効化（ビルド用）
 export const initializeIAP = async (): Promise<void> => {
-  console.log('IAP initialization skipped');
-  return Promise.resolve();
+  await RNIap.initConnection();
+  if (Platform.OS === 'android') {
+    await RNIap.flushFailedPurchasesCachedAsPendingAndroid();
+  }
 };
 
 /**
@@ -118,67 +81,56 @@ export const endIAPConnection = (): void => {
     purchaseErrorSubscription = null;
   }
 
-  endConnection();
+  RNIap.endConnection();
 };
 
 export const getAvailableSubscriptions = async (): Promise<Subscription[]> => {
-  console.log('getAvailableSubscriptions skipped');
-  return Promise.resolve([]);
+  const products = await RNIap.getSubscriptions({ skus: [SubscriptionIds.STANDARD, SubscriptionIds.PREMIUM] });
+  return products as Subscription[];
 };
 
-export const purchaseSubscription = async (
-  productId: string
-): Promise<void> => {
-  console.log('purchaseSubscription skipped', productId);
-  return Promise.resolve();
+export const purchaseSubscription = async (productId: string): Promise<void> => {
+  if (Platform.OS === 'ios') {
+    await RNIap.requestSubscription({ sku: productId } as any);
+  } else {
+    await RNIap.requestSubscription({ skus: [productId] } as any);
+  }
 };
 
 export const restorePurchases = async (): Promise<void> => {
-  console.log('restorePurchases skipped');
-  return Promise.resolve();
+  const purchases = await RNIap.getAvailablePurchases();
+  for (const purchase of purchases) {
+    await validateAndSavePurchase(purchase as any);
+  }
 };
 
 /**
  * サブスクリプション購入リスナーを設定
  */
 export const setupPurchaseListeners = (
-  onPurchaseComplete: (purchase: Purchase) => void,
-  onPurchaseError: (error: PurchaseError) => void
+  onPurchaseComplete: (purchase: any) => void,
+  onPurchaseError: (error: any) => void
 ): void => {
-  // 購入完了リスナー
   if (purchaseUpdateSubscription) {
     purchaseUpdateSubscription.remove();
   }
-  
-  purchaseUpdateSubscription = purchaseUpdatedListener(async (purchase: Purchase) => {
+  purchaseUpdateSubscription = RNIap.purchaseUpdatedListener(async (purchase: any) => {
     console.log('購入アップデート:', purchase);
-    
     try {
-      // 購入レシートをサーバーで検証（実際の実装では）
       await validateAndSavePurchase(purchase);
-      
-      // トランザクションを完了
-      if (Platform.OS === 'ios') {
-        await finishTransaction({ purchase, isConsumable: false });
-        if (isIosStorekit2(purchase.transactionId)) {
-          await clearTransactionIOS(purchase.transactionId);
-        }
-      } else {
-        await finishTransaction({ purchase });
+      await RNIap.finishTransaction({ purchase });
+      if (Platform.OS === 'ios' && RNIap.isIosStorekit2(purchase.transactionId)) {
+        await RNIap.clearTransactionIOS();
       }
-      
       onPurchaseComplete(purchase);
-    } catch (error) {
-      console.error('購入処理エラー:', error);
+    } catch (err) {
+      console.error('購入処理エラー:', err);
     }
   });
-
-  // 購入エラーリスナー
   if (purchaseErrorSubscription) {
     purchaseErrorSubscription.remove();
   }
-  
-  purchaseErrorSubscription = purchaseErrorListener((error: PurchaseError) => {
+  purchaseErrorSubscription = RNIap.purchaseErrorListener((error: any) => {
     console.error('購入エラー:', error);
     onPurchaseError(error);
   });
@@ -187,7 +139,7 @@ export const setupPurchaseListeners = (
 /**
  * 購入を検証してFirestoreに保存
  */
-const validateAndSavePurchase = async (purchase: Purchase): Promise<void> => {
+const validateAndSavePurchase = async (purchase: any): Promise<void> => {
   const auth = getAuth();
   const userId = auth.currentUser?.uid;
   
@@ -196,46 +148,25 @@ const validateAndSavePurchase = async (purchase: Purchase): Promise<void> => {
   }
 
   try {
-    let validationResult;
-    
-    // プラットフォームに応じたレシート検証
-    if (Platform.OS === 'ios') {
-      // iOSのレシート検証（実際には自社サーバーを経由して検証する必要あり）
-      validationResult = {
-        isValid: true, // 実際の実装では本当に検証する
-        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 仮の日付
-        productId: purchase.productId,
-        transactionId: purchase.transactionId,
-        receipt: purchase.transactionReceipt
-      };
-    } else {
-      // Androidのレシート検証（実際には自社サーバーを経由して検証する必要あり）
-      validationResult = {
-        isValid: true, // 実際の実装では本当に検証する
-        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 仮の日付
-        productId: purchase.productId,
-        transactionId: purchase.transactionId,
-        receipt: purchase.transactionReceipt
-      };
-    }
+    // サーバーサイドで検証を行うCloud Function呼び出し
+    const verifySubscriptionReceipt = httpsCallable<
+      { receipt: string; platform: string; productId: string },
+      { success: boolean; isValid: boolean; expiryDateMs: number }
+    >(functions, 'verifySubscriptionReceipt');
 
-    if (validationResult.isValid) {
-      // Firestoreに購入情報を保存
-      const subscriptionRef = doc(db, 'users', userId, 'subscriptions', purchase.productId);
-      
-      await setDoc(subscriptionRef, {
-        productId: purchase.productId,
-        platform: Platform.OS,
-        purchaseDate: serverTimestamp(),
-        expiryDate: validationResult.expiryDate,
-        transactionId: purchase.transactionId,
-        receipt: purchase.transactionReceipt,
-        autoRenewing: purchase.productId.includes('premium'),
-        status: 'active',
-        updatedAt: serverTimestamp()
-      });
+    const verificationResult = await verifySubscriptionReceipt({
+      receipt: purchase.transactionReceipt,
+      platform: Platform.OS,
+      productId: purchase.productId
+    });
 
-      // ユーザープロファイルも更新
+    console.log('レシート検証結果:', verificationResult.data);
+
+    // 検証が成功した場合、ローカルのユーザープロファイルも更新
+    if (verificationResult.data.success) {
+      // 購入完了の処理 (ユーザーの閲覧権限を更新)
+      // 注意: 主な保存はCloud Functionで行われていますが、
+      // アプリ側でもSubscription状態を更新して表示を即座に反映
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
         'subscription.active': true,
@@ -243,7 +174,7 @@ const validateAndSavePurchase = async (purchase: Purchase): Promise<void> => {
         'subscription.updatedAt': serverTimestamp()
       });
     } else {
-      throw new Error('購入の検証に失敗しました');
+      throw new Error('サーバーでのレシート検証に失敗しました');
     }
   } catch (error) {
     console.error('購入検証・保存エラー:', error);
@@ -274,7 +205,7 @@ export const getCurrentSubscription = async (): Promise<SubscriptionStatus> => {
 
   try {
     // 最新の購入履歴を取得（アプリ内）
-    const purchases = await getAvailablePurchases();
+    const purchases = await RNIap.getAvailablePurchases();
     console.log('利用可能な購入:', purchases);
     
     // Firestoreからサブスクリプション情報を取得

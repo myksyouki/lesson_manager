@@ -84,6 +84,13 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && userId == request.auth.uid;
     }
     
+    // サブスクリプション関連のセキュリティルール
+    match /users/{userId}/subscriptions/{productId} {
+      allow read: if isAuthenticated() && userId == request.auth.uid;
+      allow create, update: if isAuthenticated() && userId == request.auth.uid;
+      allow delete: if isAuthenticated() && userId == request.auth.uid;
+    }
+    
     // ユーザードキュメント自体へのアクセス
     match /users/{userId} {
       allow read, write: if isAuthenticated() && userId == request.auth.uid;

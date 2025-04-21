@@ -7,14 +7,15 @@
  */
 
 // Firebase 関連
-import {onCall, HttpsError} from "firebase-functions/v2/https";
+import {onCall, onRequest, HttpsError} from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import * as functions from "firebase-functions";
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 
 // ユーティリティ
 import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
-// import axios from "axios";
+import axios from "axios";
 
 // プロジェクトモジュール
 import {generateTasksFromLessons} from "./practice-menu/index";
@@ -22,7 +23,7 @@ import { practiceMenuFunctions } from './practice-menu';
 import { testOpenAIConnection, generatePracticeRecommendation } from './practice-menu/genkit';
 import { setAdminRole, initializeAdmin } from './tools/admin-setup';
 import { FUNCTION_REGION } from './config';
-import { processAudioOnUpload } from "./summaries/triggers";
+import { processAudioOnUpload } from './summaries';
 
 // Firebaseの初期化（まだ初期化されていない場合）
 if (admin.apps.length === 0) {
@@ -772,6 +773,7 @@ export {
   // 管理者設定関連
   setAdminRole,
   initializeAdmin,
+  processAudioOnUpload,
 };
 
 // 練習メニュー関連の関数をエクスポート
@@ -981,11 +983,13 @@ export const testPracticeRecommendation = onCall({
  * 予約されたアカウントの削除処理を行うスケジュール関数
  * 毎日午前3時に実行され、削除期限が過ぎたアカウントを削除する
  */
-export const processScheduledAccountDeletions = functions
-  .region('asia-northeast1')
-  .pubsub.schedule('0 3 * * *')  // 毎日午前3時に実行
-  .timeZone('Asia/Tokyo')
-  .onRun(async (context) => {
+export const processScheduledAccountDeletions = onSchedule(
+  {
+    region: 'asia-northeast1',
+    schedule: '0 3 * * *',  // 毎日午前3時に実行
+    timeZone: 'Asia/Tokyo',
+  },
+  async (event) => {
     const now = admin.firestore.Timestamp.now();
     const db = admin.firestore();
     const auth = admin.auth();
@@ -999,7 +1003,7 @@ export const processScheduledAccountDeletions = functions
       
       if (snapshot.empty) {
         console.log('削除予定のアカウントはありません');
-        return null;
+        return;
       }
       
       console.log(`${snapshot.size}件のアカウントを処理します`);
@@ -1033,12 +1037,13 @@ export const processScheduledAccountDeletions = functions
       }
       
       console.log('全てのユーザー処理が完了しました');
-      return null;
+      return;
     } catch (error) {
       console.error('アカウント削除処理中にエラーが発生しました:', error);
-      return null;
+      return;
     }
-  });
+  }
+);
 
 /**
  * ユーザーデータの匿名化処理
@@ -1161,3 +1166,296 @@ async function anonymizeUserData(userId: string, db: FirebaseFirestore.Firestore
     throw new Error('ユーザーデータの匿名化に失敗しました');
   }
 }
+
+/**
+ * サブスクリプションレシート検証API
+ * iOSとAndroidのレシートを検証して結果を返す
+ */
+export const verifySubscriptionReceipt = onCall({
+  memory: '256MiB',
+  region: 'asia-northeast1',
+  timeoutSeconds: 60,
+  minInstances: 0,
+  maxInstances: 10,
+  enforceAppCheck: false,
+  invoker: 'authenticated'
+}, async (request) => {
+  try {
+    // リクエストデータが無い場合はエラー
+    if (!request.data) {
+      throw new HttpsError('invalid-argument', 'レシートデータがありません');
+    }
+    
+    // ユーザー認証チェック
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '認証されていないユーザーはこの機能を使用できません');
+    }
+    
+    const { receipt, platform, productId } = request.data;
+    
+    if (!receipt || !platform || !productId) {
+      throw new HttpsError('invalid-argument', 'レシート、プラットフォーム、または製品IDが不足しています');
+    }
+    
+    let verificationResult;
+    
+    if (platform === 'ios') {
+      verificationResult = await verifyIosReceipt(receipt);
+    } else if (platform === 'android') {
+      verificationResult = await verifyAndroidReceipt(receipt, productId);
+    } else {
+      throw new HttpsError('invalid-argument', '無効なプラットフォームです');
+    }
+    
+    if (!verificationResult.isValid) {
+      throw new HttpsError('invalid-argument', 'レシートの検証に失敗しました: ' + verificationResult.message);
+    }
+    
+    // 検証成功時にFirestoreにサブスクリプション情報を保存
+    const userId = request.auth.uid;
+    const db = admin.firestore();
+    
+    // サブスクリプションデータを保存
+    await db.collection('users').doc(userId).collection('subscriptions').doc(productId).set({
+      productId,
+      platform,
+      purchaseDate: admin.firestore.FieldValue.serverTimestamp(),
+      expiryDate: new Date(verificationResult.expiryDateMs),
+      transactionId: verificationResult.transactionId,
+      receipt: receipt,
+      autoRenewing: verificationResult.autoRenewing,
+      status: 'active',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // ユーザープロファイルも更新
+    await db.collection('users').doc(userId).update({
+      'subscription.active': true,
+      'subscription.plan': productId.includes('premium') ? 'premium' : 'standard',
+      'subscription.updatedAt': admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    return {
+      success: true,
+      ...verificationResult
+    };
+  } catch (error) {
+    console.error('レシート検証エラー:', error);
+    throw new HttpsError('internal', 'レシート検証中にエラーが発生しました: ' + error.message);
+  }
+});
+
+/**
+ * iOSのレシートを検証する
+ */
+async function verifyIosReceipt(receipt: string) {
+  try {
+    // Secret Managerからシークレットを取得
+    const client = new SecretManagerServiceClient();
+    const sharedSecretName = `projects/${process.env.GCLOUD_PROJECT}/secrets/apple-shared-secret/versions/latest`;
+    
+    // Apple Shared Secretを取得
+    const [sharedSecretResponse] = await client.accessSecretVersion({ name: sharedSecretName });
+    const sharedSecret = sharedSecretResponse.payload?.data?.toString() || '';
+    
+    if (!sharedSecret) {
+      throw new Error('Apple Shared Secretが見つかりません');
+    }
+    
+    // 本番環境用のエンドポイント
+    const verifyEndpoint = 'https://buy.itunes.apple.com/verifyReceipt';
+    // サンドボックス環境用のエンドポイント (開発中に使用)
+    const sandboxEndpoint = 'https://sandbox.itunes.apple.com/verifyReceipt';
+    
+    // 本番環境で検証を試みる
+    let response = await axios.post(verifyEndpoint, {
+      'receipt-data': receipt,
+      'password': sharedSecret,
+      'exclude-old-transactions': true
+    });
+    
+    // ステータスが21007の場合、サンドボックス環境で再試行
+    if (response.data.status === 21007) {
+      response = await axios.post(sandboxEndpoint, {
+        'receipt-data': receipt,
+        'password': sharedSecret,
+        'exclude-old-transactions': true
+      });
+    }
+    
+    // レスポンスチェック
+    if (response.data.status !== 0) {
+      return {
+        isValid: false,
+        message: `Appleからのエラー: ${response.data.status}`
+      };
+    }
+    
+    // サブスクリプション情報の取得
+    const latestReceipt = response.data.latest_receipt_info;
+    if (!latestReceipt || latestReceipt.length === 0) {
+      return {
+        isValid: false,
+        message: 'サブスクリプション情報が見つかりません'
+      };
+    }
+    
+    // 最新のサブスクリプション情報を取得
+    const latest = latestReceipt[latestReceipt.length - 1];
+    
+    // 有効期限を確認
+    const expiryDateMs = parseInt(latest.expires_date_ms);
+    const now = Date.now();
+    
+    if (expiryDateMs < now) {
+      return {
+        isValid: false,
+        message: 'サブスクリプションの期限が切れています'
+      };
+    }
+    
+    return {
+      isValid: true,
+      expiryDateMs,
+      autoRenewing: latest.auto_renew_status === '1',
+      transactionId: latest.transaction_id,
+      productId: latest.product_id
+    };
+  } catch (error) {
+    console.error('iOSレシート検証エラー:', error);
+    return {
+      isValid: false,
+      message: 'iOSレシート検証中にエラーが発生しました: ' + error.message
+    };
+  }
+}
+
+/**
+ * Androidのレシートを検証する
+ */
+async function verifyAndroidReceipt(receipt: string, productId: string) {
+  try {
+    // Secret Managerからサービスアカウント情報を取得
+    const client = new SecretManagerServiceClient();
+    const serviceAccountName = `projects/${process.env.GCLOUD_PROJECT}/secrets/google-play-service-account/versions/latest`;
+    
+    // Google Play Service Accountを取得
+    const [serviceAccountResponse] = await client.accessSecretVersion({ name: serviceAccountName });
+    const serviceAccount = serviceAccountResponse.payload?.data?.toString() || '';
+    
+    if (!serviceAccount) {
+      throw new Error('Google Play Service Accountが見つかりません');
+    }
+    
+    // サービスアカウント情報をパース
+    const serviceAccountJson = JSON.parse(serviceAccount);
+    
+    // Google Play Developer APIのエンドポイント
+    // 注意: この実装は簡略化されています。実際にはGoogle Play Developer APIのライブラリを使用することが推奨されます。
+    const packageName = 'com.regnition.appli'; // アプリのパッケージ名
+    const purchaseToken = receipt;
+    
+    // OAuth2トークンを取得
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+      client_id: serviceAccountJson.client_id,
+      client_secret: serviceAccountJson.client_secret,
+      refresh_token: serviceAccountJson.refresh_token,
+      grant_type: 'refresh_token'
+    });
+    
+    const accessToken = tokenResponse.data.access_token;
+    
+    // サブスクリプション情報を取得
+    const subscriptionResponse = await axios.get(
+      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/subscriptions/${productId}/tokens/${purchaseToken}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+    
+    const subscription = subscriptionResponse.data;
+    
+    // サブスクリプションの状態を確認
+    if (subscription.paymentState !== 1) {
+      return {
+        isValid: false,
+        message: '支払いが完了していません'
+      };
+    }
+    
+    // 有効期限を確認
+    const expiryDateMs = parseInt(subscription.expiryTimeMillis);
+    const now = Date.now();
+    
+    if (expiryDateMs < now) {
+      return {
+        isValid: false,
+        message: 'サブスクリプションの期限が切れています'
+      };
+    }
+    
+    return {
+      isValid: true,
+      expiryDateMs,
+      autoRenewing: subscription.autoRenewing,
+      transactionId: subscription.orderId,
+      productId: productId
+    };
+  } catch (error) {
+    console.error('Androidレシート検証エラー:', error);
+    return {
+      isValid: false,
+      message: 'Androidレシート検証中にエラーが発生しました: ' + error.message
+    };
+  }
+}
+
+// App Store Server Notifications ハンドラを追加
+export const handleAppStoreServerNotification = onRequest(
+  { region: 'asia-northeast1' },
+  async (req, res) => {
+    logger.info('App Store Server Notification 受信', req.body);
+    try {
+      const notification = req.body as any;
+      const unified = notification.unified_receipt;
+      const infos = unified?.latest_receipt_info;
+      if (!infos || infos.length === 0) {
+        throw new Error('latest_receipt_info がありません');
+      }
+      const info = infos[infos.length - 1];
+      const originalTransactionId = info.original_transaction_id;
+      const expiryDateMs = parseInt(info.expires_date_ms);
+      const autoRenewing = info.auto_renew_status === '1';
+
+      // サブスクリプションコレクショングループをクエリ
+      const subsSnap = await admin.firestore().collectionGroup('subscriptions')
+        .where('transactionId', '==', originalTransactionId)
+        .get();
+      for (const docSnap of subsSnap.docs) {
+        // サブスクリプションドキュメントを更新
+        await docSnap.ref.set({
+          expiryDate: new Date(expiryDateMs),
+          autoRenewing,
+          status: expiryDateMs > Date.now() ? 'active' : 'expired',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        // ユーザープロファイルも更新
+        const userDoc = docSnap.ref.parent.parent;
+        if (userDoc) {
+          await userDoc.update({
+            'subscription.active': expiryDateMs > Date.now(),
+            'subscription.updatedAt': admin.firestore.FieldValue.serverTimestamp()
+          });
+        }
+      }
+
+      // レスポンス 200 を返却
+      res.status(200).end();
+    } catch (error) {
+      logger.error('Server Notification 処理エラー', error);
+      res.status(500).end();
+    }
+  }
+);

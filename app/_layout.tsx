@@ -142,6 +142,8 @@ export default function RootLayout() {
               <Stack.Screen name="generate-tasks" options={{ title: '課題生成' }} />
               <Stack.Screen name="consult-ai" options={{ title: 'AIに相談' }} />
               <Stack.Screen name="subscription" options={{ title: 'サブスクリプション' }} />
+              <Stack.Screen name="subscription/plans" options={{ title: 'サブスクリプションプラン' }} />
+              <Stack.Screen name="subscription/manage" options={{ title: 'サブスクリプション管理' }} />
               <Stack.Screen name="profile" options={{ title: 'プロフィール' }} />
               <Stack.Screen name="instrument-settings" options={{ title: '楽器設定' }} />
               <Stack.Screen name="api-settings" options={{ title: 'API設定' }} />

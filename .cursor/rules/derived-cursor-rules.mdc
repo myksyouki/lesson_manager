@@ -43,39 +43,61 @@ functions/src/
       ├── storage.ts           # ストレージ操作
       ├── firestore.ts           # Firestore操作
       ├── audio.ts             # 音声ファイル操作
-      ├── llm.ts             # AI/LLM共通処理
+      ├── llm.ts               # AI/LLM共通処理
       ├── errors.ts            # エラー処理
       ├── secret.ts            # シークレット管理
-      └── dify.ts             # Dify API連携処理
+      └── dify.ts              # Dify API連携機能
 ```
 
 ### アプリフォルダ構造
 
-```
+```text
 app/
   ├── _layout.tsx              # メインレイアウト
   ├── index.tsx                # エントリーポイント
-  ├── admin.tsx                # 管理画面
-  ├── admin/                   # 管理機能
-  ├── settings.tsx             # 設定画面
+  ├── profile.tsx              # プロフィール画面
+  ├── privacy-policy.tsx       # プライバシーポリシー画面
+  ├── terms-of-service.tsx       # 利用規約画面
+  ├── onboarding.tsx           # オンボーディング画面
   ├── lesson-form.tsx          # レッスン作成画面
   ├── task-form.tsx            # タスク作成画面
   ├── task-detail.tsx          # タスク詳細画面
+  ├── help-support.tsx         # ヘルプ＆サポート画面
+  ├── error-report.tsx         # エラー報告画面
+  ├── auth/                    # 認証関連画面
+  │   ├── login.tsx
+  │   ├── register.tsx
+  │   └── forgot-password.tsx
+  ├── subscription/            # サブスクリプション管理
+  │   ├── subscription.tsx
+  │   └── settings.tsx
   ├── tabs/                    # メインタブ
   │   ├── _layout.tsx          # タブレイアウト
   │   ├── index.tsx            # ホーム画面
   │   ├── lessons.tsx          # レッスン一覧
   │   ├── task.tsx             # タスク一覧
   │   ├── ai-lesson.tsx        # AIレッスン
-  │   └── schedule.tsx         # スケジュール
+  │   └── schedule.tsx          # スケジュール
+  ├── admin/                   # 管理者画面
+  │   └── admin.tsx
   ├── (lesson-detail)/         # レッスン詳細
+  │   ├── theme-settings.tsx
+  │   ├── shared-audio.tsx
+  │   ├── sync.tsx
+  │   ├── notifications.tsx
+  │   ├── instrument-settings.tsx
+  │   └── language.tsx
+  ├── navigation/              # ナビゲーション
+  │   └── generate-tasks.tsx
   ├── features/                # 機能モジュール
+  │   ├── consult-ai.tsx
+  │   └── chat-room.tsx
   ├── components/              # 共通コンポーネント
-  │   ├── InstrumentSetup.tsx
-  ├── chat-room.tsx            # チャットルーム
-  ├── chat-room-form.tsx       # チャットルーム作成
-  ├── consult-ai.tsx           # AI相談機能
-  └── navigation/              # ナビゲーション
+  │   ├── chat-room-form.tsx
+  │   └── api-settings.tsx
+  └── analysis/                # 分析・ルート
+      ├── +not-found.tsx
+      └── App.tsx
 ```
 
 
@@ -90,7 +112,7 @@ app/
 - **ランタイム**: Node.js 20 (注意: Node.js 18 は 2025-04-30 に非推奨、2025-10-31 に廃止予定)
 - **パッケージ管理**: Yarn@1.22.22 (ルート: yarn.lock) / npm (functions: package-lock.json)
 - **テスト**: Jest, React Native Testing Library, @testing-library/jest-native, jest-expo, detox, react-native-iap, react-native-tracking-transparency, react-native-apple-authentication
-- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg, react-native-iap, react-native-error-boundary, react-native-fs, react-native-get-random-values, @react-native-google-signin/google-signin, react-native-keyboard-aware-scroll-view, react-native-view-shot, expo-apple-authentication, react-native-tracking-transparency, react-native-tracking-transparency, react-native-tracking-transparency, react-native-tracking-transparency
+- **その他**: lodash, @react-native-async-storage/async-storage, @types/lodash, ts-jest, react-native-iap, react-native-community/cli-platform-ios, @react-native-community/cli-platform-ios, react-native-svg, react-native-iap, react-native-error-boundary, react-native-fs, react-native-get-random-values, @react-native-google-signin/google-signin, react-native-keyboard-aware-scroll-view, react-native-view-shot, expo-apple-authentication, react-native-tracking-transparency, expo-in-app-purchases, expo-av@15.0.2, expo-apple-authentication@7.1.3, expo-router@^4.0.20, react-native-error-boundary@1.2.3, expo-router@^4.0.19, expo-in-app-purchases
 - **アイコン生成**: Canva, Figma
 - **スプラッシュスクリーン**: (追加)
 - **アプリのバージョン**: 0.0.2 (更新)
@@ -100,10 +122,7 @@ app/
 - expo-router@4.0.20
 - react-native-error-boundary@1.2.3
 - expo-router@^4.0.19
-- expo-av@15.0.2
-- expo-apple-authentication@7.1.3
-- react-native-tracking-transparency
-
+- expo-in-app-purchases
 
 
 ## PROJECT-SPECIFIC STANDARDS
@@ -145,6 +164,15 @@ app/
 - Info.plistファイルの`UIBackgroundModes`キーから`audio`を削除する。これはバックグラウンドオーディオが不要な場合のApple審査対応です。
 - 警告解消手順は`2025-04-20_01-30-警告解消の手順.md`を参照
 - expo-routerを最新バージョンにアップデートする
+- アプリ内課金機能を実装する(Apple審査対応)
+- アップルのサブスクリプション機能を実装する
+- アプリ内サブスクリプション機能を実装する
+- App StoreとGoogle Playのサブスクリプション管理へのリンクを追加する
+- 音声アップロードのキャンセル機能を追加する
+- Appleログイン機能を実装する
+- アカウント削除機能を実装する
+- アプリ内サブスクリプション機能を実装する
+- App StoreとGoogle Playのサブスクリプション管理へのリンクを追加する
 
 
 ## REFERENCE EXAMPLES
@@ -163,6 +191,10 @@ app/
 - **テスト環境構築**: TESTING.md, E2E-TESTING.mdを参照
 - Apple App Account Deletion Guidelines (2025-04-19 12:42:56): Guideline 5.1.1(v) - Data Collection and Storage.  See `2025-04-19_03-42-apple-app-account-deletion-guidelines.md` for details. Guideline 5.1.2 - Legal - Privacy - Data Use and Sharing:  See App Store Connect for details.
 - レッスン管理システムのプロジェクトルール: `lesson-management-system-project-rules.md`
+- サブスクリプション機能実装プラン: `2025-04-20_06-22-アップルサブスク機能の実装.md`, `docs/subscription_integration_plan.md`
+- アプリの名称を「Resonote」に変更しました。
+- アプリ名は「Resonote」に変更済み。
+- アップルのサブスクリプション機能実装計画：`2025-04-20_06-22-アップルサブスク機能の実装.md`
 
 
 ## DEBUGGING
@@ -380,6 +412,8 @@ app/
 
 + UIBackgroundModesキーからaudioを削除しました。
 
++ react-native-iapを追加しました。AppleとGooglePlayのアプリ内課金機能を実装します。
+
 ### レッスン管理システムのプロジェクトルール
 
 ```markdown
@@ -387,57 +421,4 @@ app/
 
 ## プロジェクト概要
 
-Resonoteは、ユーザーが音楽レッスンの録音をアップロードするとOpenAI Whisper APIで文字起こしし、Dify APIで要約・タグ付けを自動生成します。バックエンドにFirebase Functions/Firestore/Storageを採用し、フロントエンドはReact Native (Expo)およびExpo RouterでAndroid/iOS/Web向けにクロスプラットフォーム対応。AIはレッスンデータと練習履歴を分析し、個々のユーザーに最適化された練習メニューを提案。また、AI相談機能、管理者用管理画面、サブスクリプション管理機能も備えた総合アプリケーションです。
-
-## 技術スタック
-
-- **文字起こし**: OpenAI Whisper API
-- **要約生成**: Dify API
-- **AI対話**: Dify API
-- **バックエンド**: Firebase (Functions, Firestore, Storage)
-- **フロントエンド**: React Native with Expo, Expo Router@^4.0.20
-- **デプロイ**: Firebase Hosting, Expo EAS
-- **ランタイム**: Node.js 20 (注意: Node.js 18 は 2025-04-30 に非推奨、2025-10-31 に廃止予定)
-- **パッケージ管理**: Yarn@1.22.22 (ルート: yarn.lock) / npm (functions: package-lock.json)
-
-## コードスタイルガイドライン
-- インデント: スペース2つ
-- クォート: シングルクォートを使用
-- セミコロン: 行末に必須
-- ESLint: `.eslintrc.js` に従う
-- Prettier: `.prettierrc` に従う
-- 型安全: TypeScript を必須とし、インターフェースを明示的に定義する
-
-## データ構造
-
-### レッスンデータ
-
-```typescript
-interface Lesson {
-  // 基本情報
-  id: string;
-  title: string;
-  date: Timestamp;
-  instrument: string;
-  teacherName?: string;
-  user_id: string;
-  
-  // 音声処理関連
-  audioUrl?: string;
-  audioPath?: string;
-  audioFileName?: string;
-  fileName?: string;
-  audioDuration?: number;
-  audioSize?: number;
-  transcription?: string;
-  summary?: string;
-  tags?: string[];
-  
-  // 処理状態管理
-  status?: "pending" | "processing" | "completed" | "error";
-  summaryRequired: boolean;
-  summaryInProgress: boolean;
-  processingProgress?: number;
-  processingMessage?: string;
-  processingTimeSeconds?: number;
-  transcriptionCompleteTime?:
+Resonoteは、ユーザーが音楽レッスンの録音をアップロードするとOpenAI Whisper APIで文字起こしし、Dify APIで要約・タグ付けを自動生成します。バックエンドにFirebase Functions/Firestore/Storageを採用し、フロントエンドはReact Native (Expo)およびExpo RouterでAndroid/iOS/Web向けにクロスプラットフォーム対応。AI

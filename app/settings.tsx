@@ -205,14 +205,11 @@ export default function SettingsScreen() {
             onPress={() => router.push('/profile')}
           />
           
-          {/* サブスクリプション管理を非表示
           <MenuItem 
             icon="payments" 
             text="サブスクリプション管理" 
-            onPress={() => router.push('/subscription')}
-            iconColor="#4caf50"
+            onPress={() => router.push('/subscription/manage')}
           />
-          */}
         </View>
 
         {/* アプリ設定セクション */}
