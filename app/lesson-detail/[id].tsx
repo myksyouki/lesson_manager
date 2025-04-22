@@ -73,6 +73,9 @@ export default function LessonDetail() {
   const [showMenuSelectModal, setShowMenuSelectModal] = useState(false);
   const [generatedMenus, setGeneratedMenus] = useState<PracticeMenu[]>([]);
   const [selectedMenuItems, setSelectedMenuItems] = useState<{[key: number]: boolean}>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // 練習タブをリフレッシュするためのトリガー
+  const [practiceRefreshTrigger, setPracticeRefreshTrigger] = useState(0);
   
   // レッスンストアからアーカイブ関連のメソッドを取得
   const { archiveLesson, unarchiveLesson } = useLessonStore();
@@ -558,35 +561,25 @@ export default function LessonDetail() {
     setSelectedMenuItems(newSelections);
   };
 
-  // 選択したメニューをタスクとして保存する関数
+  // 選択したメニューを保存する関数
   const saveSelectedMenus = async () => {
-    if (!auth.currentUser) {
-      Alert.alert('エラー', 'タスクを保存するにはログインが必要です');
-      return;
-    }
-    
-    const userId = auth.currentUser.uid;
-    const selectedMenus = generatedMenus.filter((_, index) => selectedMenuItems[index]);
-    
-    if (selectedMenus.length === 0) {
-      Alert.alert('注意', '少なくとも1つの練習メニューを選択してください');
-      return;
-    }
-    
-    setIsLoadingTasks(true);
-    
     try {
-      console.log(`選択されたメニューのタスク作成開始: ${selectedMenus.length}個のメニュー`);
-      const tasksCreated = await Promise.all(
-        selectedMenus.map(async (menu: PracticeMenu) => {
-          // ステップをマークダウン形式に変換
-          const stepsText = menu.steps.map((step: PracticeStep) => 
-            `- ${step.title}: ${step.description} (${step.estimatedTime || step.duration || 0}分)`
-          ).join('\n');
-          
-          // 完全な説明文を作成
-          const fullDescription = `${menu.description}\n\n【練習ステップ】\n${stepsText}\n\n【目安時間】${menu.duration || 30}分\n【難易度】${menu.difficultyLevel || menu.difficulty || "中級"}\n【カテゴリ】${menu.category || "基本練習"}`;
-          
+      setIsSubmitting(true);
+      const selectedMenusList = Object.entries(selectedMenuItems)
+        .filter(([_, isSelected]) => isSelected)
+        .map(([index]) => generatedMenus[parseInt(index)]);
+
+      if (selectedMenusList.length === 0) {
+        Alert.alert('選択エラー', 'メニューを少なくとも1つ選択してください');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 選択されたメニューごとにタスクを作成
+      let createdCount = 0;
+      for (const menu of selectedMenusList) {
+        const fullDescription = `${menu.title}\n\n${menu.description}`;
+        try {
           // taskServiceのcreateTaskを使用してタスクを作成
           const task = await createTask(
             userId,
@@ -598,27 +591,34 @@ export default function LessonDetail() {
               url: `/lessons/${currentLesson.id}`
             }]
           );
-          
+
           // タスクにタグを追加
           await updateTask(task.id, {
             tags: ['練習メニュー', '自動生成', menu.category || '基本練習'],
             lessonId: currentLesson.id
           } as any, userId);
-          
-          return task;
-        })
-      );
+
+          createdCount++;
+        } catch (err) {
+          console.error('タスク作成エラー:', err);
+        }
+      }
+
+      console.log(`${createdCount}個のタスクを作成しました`);
       
-      console.log(`${tasksCreated.length}個のタスクを作成しました`);
-      Alert.alert('完了', `${tasksCreated.length}個の練習メニューをタスクリストに追加しました！`);
+      // 練習タブのデータを再取得するための状態更新
+      setPracticeRefreshTrigger(prev => prev + 1);
       
       // モーダルを閉じる
       setShowMenuSelectModal(false);
+      setIsSubmitting(false);
+      
+      // 成功メッセージ
+      Alert.alert('保存完了', `${createdCount}個の練習メニューをタスクとして保存しました。`);
     } catch (error) {
-      console.error('タスク保存エラー:', error);
-      Alert.alert('エラー', 'タスクの保存中にエラーが発生しました');
-    } finally {
-      setIsLoadingTasks(false);
+      console.error('メニュー保存エラー:', error);
+      setIsSubmitting(false);
+      Alert.alert('エラー', 'タスクの保存中にエラーが発生しました。');
     }
   };
 
@@ -754,6 +754,25 @@ export default function LessonDetail() {
       setRefreshing(false);
     }, 1000);
   };
+
+  // 練習データを取得
+  useEffect(() => {
+    if (!currentLesson?.id || !isActive) return;
+    
+    const fetchPractices = async () => {
+      setIsPracticeLoading(true);
+      try {
+        const practices = await getPracticesByLessonId(currentLesson.id);
+        setPractices(practices);
+      } catch (error) {
+        console.error('練習データ取得エラー:', error);
+      } finally {
+        setIsPracticeLoading(false);
+      }
+    };
+    
+    fetchPractices();
+  }, [currentLesson?.id, isActive, practiceRefreshTrigger]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -936,9 +955,9 @@ export default function LessonDetail() {
               <TouchableOpacity 
                 style={styles.saveButton}
                 onPress={saveSelectedMenus}
-                disabled={isLoadingTasks}
+                disabled={isSubmitting}
               >
-                {isLoadingTasks ? (
+                {isSubmitting ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text style={styles.saveButtonText}>

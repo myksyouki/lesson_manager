@@ -28,7 +28,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
   const [refreshing, setRefreshing] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
-  const { toggleTaskCompletion, fetchTasks, deleteTask, updateTaskOrder } = useTaskStore();
+  const { toggleTaskCompletion, fetchTasks, fetchTasksWhenAuthenticated, deleteTask, updateTaskOrder } = useTaskStore();
 
   useEffect(() => {
     // タスクを未完了／完了に分け、displayOrderとピン留め状態で並び替え
@@ -64,11 +64,12 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, isLoading = false, error = n
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      const userId = auth.currentUser?.uid || 'guest-user';
-      await fetchTasks(userId);
-      console.log('タスク一覧を更新しました');
+      console.log('TaskList手動更新開始...');
+      // 新しい認証待機メソッドを使用
+      await fetchTasksWhenAuthenticated();
+      console.log('TaskList手動更新: 完了');
     } catch (error) {
-      console.error('タスク更新エラー:', error);
+      console.error('TaskList更新エラー:', error);
     } finally {
       setRefreshing(false);
     }

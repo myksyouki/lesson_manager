@@ -43,6 +43,7 @@ interface TaskStore {
   getPinnedTasks: () => Task[];
   canPinMoreTasks: () => boolean;
   updateTaskOrder: (tasks: Task[], taskType: 'incomplete' | 'completed') => Promise<void>;
+  fetchTasksWhenAuthenticated: () => Promise<boolean>;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
@@ -53,25 +54,39 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   fetchTasks: async (userId) => {
     try {
+      console.log("タスク取得開始: ユーザーID =", userId);
       set({ isLoading: true, error: null });
 
       // ユーザーベースの構造を使用
       const tasksRef = collection(db, `users/${userId}/tasks`);
-      // displayOrder(昇順)とupdatedAt(降順)で並び替えて取得し、入れ替え順を保持する
+      console.log("タスクコレクションパス:", `users/${userId}/tasks`);
+      
+      // クエリを修正：orderBy指定を一時的に削除して全データを取得
       const q = query(
-        tasksRef,
-        orderBy('displayOrder', 'asc'),
-        orderBy('updatedAt', 'desc')
+        tasksRef
+        // orderByを一旦削除して全件取得
+        // orderBy('displayOrder', 'asc'),
+        // orderBy('updatedAt', 'desc')
       );
+      console.log("クエリ実行前");
       const querySnapshot = await getDocs(q);
+      console.log("クエリ実行後: ドキュメント数 =", querySnapshot.docs.length);
+
+      // ドキュメントIDとデータ構造のデバッグ
+      querySnapshot.docs.forEach(doc => {
+        console.log("取得ドキュメントID:", doc.id);
+        console.log("ドキュメント全データ:", JSON.stringify(doc.data()));
+      });
 
       const tasks = querySnapshot.docs.map(doc => {
         const data = doc.data();
+        console.log("タスクデータ取得:", doc.id, data);
         const task: Task = {
           id: doc.id,
           title: data.title || '',
           description: data.description || '',
           dueDate: data.dueDate || '',
+          // isCompletedまたはcompletedフィールドのチェック
           completed: data.isCompleted || data.completed || false,
           isPinned: data.isPinned || false,
           createdAt: data.createdAt || '',
@@ -82,12 +97,15 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           chatRoomId: data.chatRoomId || '',
           tags: data.tags || [],
           priority: data.priority || 'medium',
-          displayOrder: data.displayOrder ?? 0,
+          // displayOrderの代わりにorderまたはorderIndexを使用
+          displayOrder: data.displayOrder ?? data.orderIndex ?? data.order ?? 0,
         };
         return task;
       }) as Task[];
 
+      console.log("タスク変換完了: タスク数 =", tasks.length);
       set({ tasks, isLoading: false });
+      console.log("タスクストア更新完了");
     } catch (error: any) {
       console.error('タスク取得エラー:', error);
       set({ error: error.message, isLoading: false });
@@ -542,6 +560,41 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     } catch (error: any) {
       console.error('タスク順序更新エラー:', error);
       set({ error: error.message });
+    }
+  },
+
+  // 認証を待機してタスクを取得するメソッドを追加
+  fetchTasksWhenAuthenticated: async () => {
+    try {
+      console.log("認証を待機してタスク取得開始...");
+      set({ isLoading: true, error: null });
+      
+      // 認証状態が確立されるまで最大5回（合計で2.5秒）待機
+      let attempts = 0;
+      let userId = auth.currentUser?.uid;
+      
+      while (!userId && attempts < 5) {
+        console.log(`認証待機中... 試行回数: ${attempts + 1}/5`);
+        // 500ミリ秒待機
+        await new Promise(resolve => setTimeout(resolve, 500));
+        userId = auth.currentUser?.uid;
+        attempts++;
+      }
+      
+      if (!userId) {
+        throw new Error("認証タイムアウト: ユーザーIDが取得できませんでした");
+      }
+      
+      console.log("認証確認完了: ユーザーID =", userId);
+      
+      // 通常のfetchTasksを呼び出し
+      await get().fetchTasks(userId);
+      
+      return true;
+    } catch (error: any) {
+      console.error('認証待機タスク取得エラー:', error);
+      set({ error: error.message, isLoading: false });
+      return false;
     }
   }
 }));
