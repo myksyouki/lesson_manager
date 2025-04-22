@@ -36,12 +36,12 @@ functions/src/
   ├── practice-menu/           # 練習メニュー関連機能
   │   ├── index.ts             # 練習メニュー機能のエクスポート
   │   ├── genkit.ts            # AI連携処理
-  │   └── models.ts            # 練習メニューのデータモデル
+  │   └── models.ts             # 練習メニューのデータモデル
   ├── tools/                   # 管理ツール
   │   └── admin-setup.ts       # 管理者設定機能
   └── common/                  # 共通ユーティリティ
       ├── storage.ts           # ストレージ操作
-      ├── firestore.ts           # Firestore操作
+      ├── firestore.ts          # Firestore操作
       ├── audio.ts             # 音声ファイル操作
       ├── llm.ts               # AI/LLM共通処理
       ├── errors.ts             # エラー処理
@@ -57,10 +57,9 @@ app/
   ├── index.tsx                # エントリーポイント
   ├── profile.tsx              # プロフィール画面
   ├── privacy-policy.tsx       # プライバシーポリシー画面
-  ├── terms-of-service.tsx       # 利用規約画面
+  ├── terms-of-service.tsx      # 利用規約画面
   ├── onboarding.tsx           # オンボーディング画面
   ├── lesson-form.tsx          # レッスン作成画面
-  ├── task-form.tsx            # タスク作成画面
   ├── task-detail.tsx          # タスク詳細画面
   ├── help-support.tsx         # ヘルプ＆サポート画面
   ├── error-report.tsx         # エラー報告画面
@@ -78,7 +77,7 @@ app/
   │   ├── lessons.tsx          # レッスン一覧
   │   ├── task.tsx             # タスク一覧
   │   ├── ai-lesson.tsx        # AIレッスン
-  │   └── schedule.tsx          # スケジュール
+  │   └── schedule.tsx         # スケジュール
   ├── admin/                   # 管理者画面
   │   └── admin.tsx
   ├── (lesson-detail)/         # レッスン詳細
@@ -124,6 +123,7 @@ app/
 - react-native-error-boundary@1.2.3
 - expo-router@^4.0.19
 - expo-in-app-purchases
+- **練習メニューサービス追加**: `practiceMenuService.ts`
 
 
 ## PROJECT-SPECIFIC STANDARDS
@@ -174,11 +174,19 @@ app/
 - アカウント削除機能を実装する
 - アプリ内サブスクリプション機能を実装する
 - App StoreとGoogle Playのサブスクリプション管理へのリンクを追加する
+- 新しいブランチを作成する手順：
+    1. `git checkout main`
+    2. `git pull`
+    3. `git checkout -b <ブランチ名>` (例: `git checkout -b auth/apple`)
+    4. 変更をコミットする
+    5. `git push -u origin <ブランチ名>` (例: `git push -u origin auth/apple`)
+- 現在のブランチをプッシュする手順: `git push -u origin <ブランチ名>`
 
 
 ## REFERENCE EXAMPLES
 
 (No existing content. Add reference examples here.)
+- AIおすすめ練習メニューの開発: `2025-04-22_05-33-aiおすすめ練習メニューの開発.md`
 
 
 ## PROJECT DOCUMENTATION & CONTEXT SYSTEM
@@ -196,6 +204,27 @@ app/
 - アプリの名称を「Resonote」に変更しました。
 - アプリ名は「Resonote」に変更済み。
 - アップルのサブスクリプション機能実装計画：`2025-04-20_06-22-アップルサブスク機能の実装.md`
+- Gitブランチ作成手順：
+    1. `git checkout main`
+    2. `git pull`
+    3. `git checkout -b <ブランチ名>`
+    4. 変更をコミットする
+    5. `git push -u origin <ブランチ名>`
+- 現在のブランチをプッシュする手順: `git push -u origin <ブランチ名>`
+- Gitブランチ作成手順：
+    1. `git checkout main`
+    2. `git pull`
+    3. `git checkout -b <ブランチ名>`
+    4. 変更をコミットする
+    5. `git push -u origin <ブランチ名>`
+- ブランチ作成手順:
+    1. `git checkout main`
+    2. `git pull`
+    3. `git checkout -b <ブランチ名>` (例: `git checkout -b auth/apple`)
+    4. 変更をコミットする
+    5. `git push -u origin <ブランチ名>` (例: `git push -u origin auth/apple`)
+- 現在のブランチをプッシュする手順: `git push -u origin <ブランチ名>`
+-  `practiceMenuService.ts` ファイルにFirestoreから練習メニューを取得する関数 `getPracticeMenus` を追加
 
 
 ## DEBUGGING
@@ -209,6 +238,7 @@ app/
 - Expo Router のレイアウトファイル（`app/_layout.tsx`）内で `<Stack>` の外側に `<StatusBar>` 等の “Screen ではない子要素” を置いていると警告が出ますが、無視して構いません。
 - "ユーザーがログインしていません"というエラーは、ログイン状態の確認と適切なエラーハンドリングが必要です。該当箇所でログイン状態をチェックし、ログインしていない場合は適切なメッセージを表示するか、ログイン画面にリダイレクトする必要があります。
 - Expo Routerの警告「Too many screens defined. Route "settings" is extraneous.」は無視して構いません。
+- Info.plistファイルの`UIBackgroundModes`キーから`audio`を削除する。これはバックグラウンドオーディオが不要な場合のApple審査対応です。
 
 
 ## FINAL DOs AND DON'Ts
@@ -390,36 +420,4 @@ app/
 
 + **プロジェクトルール追加**: レッスン管理システムのプロジェクトルールを追加しました。これは、プロジェクトの概要、技術スタック、データ構造、機能制限とガイドライン、UI/UXガイドライン、コード構造、セキュリティとベストプラクティス、実装時の重要事項に関する情報を網羅しています。
 
-+ アプリのバージョンを 0.0.2 に設定する。 Apple側でもバージョンを 0.0.2 に更新する必要がある。
-+ Androidビルドはaabバンドルで作成する
-+ アプリ名を「Resonote」に変更しました。
-
-+ **プロジェクトルール追加**: レッスン管理システムのプロジェクトルールを追加しました。これは、プロジェクトの概要、技術スタック、データ構造、機能制限とガイドライン、UI/UXガイドライン、コード構造、セキュリティとベストプラクティス、実装時の重要事項に関する情報を網羅しています。
-
-+ アプリのバージョンを 0.0.2 に設定する。 Apple側でもバージョンを 0.0.2 に更新する必要がある。
-+ Androidビルドはaabバンドルで作成する
-+ アプリ名を「Resonote」に変更しました。
-
-+ レッスン登録画面で利用規約への同意を必須にする
-+ 音声アップロードのキャンセル機能を追加する
-+ アプリの名称を「Resonote」に変更しました。
-
-+ アプリ名は「Resonote」に変更済み。
-
-+ Appleログイン機能を実装しました。`expo-apple-authentication`パッケージを使用し、`app.config.js`と`app/auth/login.tsx`、`store/auth.ts`を更新しました。Firebase側での設定も必要です。
-
-+ アカウント削除機能の実装：Appleのガイドライン5.1.1(v)に従い、アカウント削除機能を実装する必要があります。ユーザーはアカウントを完全に削除でき、誤削除防止のための確認ステップを含めることができます。
-+ アカウント削除機能の実装には、30日間の猶予期間を設け、その間はデータを保持し、期間内であれば復元可能にする必要があります。
-
-+ UIBackgroundModesキーからaudioを削除しました。
-
-+ react-native-iapを追加しました。AppleとGooglePlayのアプリ内課金機能を実装します。
-
-### レッスン管理システムのプロジェクトルール
-
-```markdown
-# Resonote: 音楽レッスン・練習総合AIアシスタント
-
-## プロジェクト概要
-
-Resonoteは、ユーザーが音楽レッスンの録音をアップロードするとOpenAI Whisper APIで文字起こしし、Dify APIで要約・タグ付けを自動生成します。バックエンドにFirebase Functions/Firestore/Storageを採用し、フロントエンドはReact Native (Expo)およびExpo RouterでAndroid/iOS/
++ アプリのバージョンを 0.0.2 に設定する。 Apple側でもバージョンを 0.0.2 に更新する必要がある

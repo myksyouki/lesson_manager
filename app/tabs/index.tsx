@@ -27,42 +27,9 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getUserChatRooms, ChatRoom as ChatRoomType } from '../../services/chatRoomService';
 import { auth } from '../../config/firebase';
-import { getAIRecommendedPracticeMenus } from '../../services/practiceRecommendationService';
+import { getPracticeMenus, PracticeMenu } from '../../services/practiceMenuService';
+import { getCurrentUserProfile } from '../../services/userProfileService';
 import { LinearGradient } from 'expo-linear-gradient';
-
-// サンプルAI練習メニュー
-const sampleRecommendedTasks = [
-  {
-    id: 'sample-1',
-    title: 'ロングトーン強化',
-    description: '目標: 安定した音を出す\n1. 姿勢を正して深呼吸（5分）\n2. ロングトーンを1音ずつ10秒キープ（10分）\n3. 音の立ち上がりを意識して繰り返す（5分）',
-    tags: ['ロングトーン'],
-    completed: false,
-    dueDate: null,
-    isPinned: false,
-    isCompleted: false,
-  },
-  {
-    id: 'sample-2',
-    title: 'スケール練習',
-    description: '目標: 主要なスケールを滑らかに演奏する\n1. Cメジャースケールをゆっくり演奏（5分）\n2. G・F・Dメジャースケールを順に演奏（10分）\n3. 速さを上げて繰り返す（5分）',
-    tags: ['音階'],
-    completed: false,
-    dueDate: null,
-    isPinned: false,
-    isCompleted: false,
-  },
-  {
-    id: 'sample-3',
-    title: 'リズム感アップ',
-    description: '目標: メトロノームに合わせて正確なリズムを身につける\n1. 4分音符で手拍子（3分）\n2. 8分音符で手拍子（3分）\n3. メトロノームに合わせて楽器で演奏（9分）',
-    tags: ['リズム'],
-    completed: false,
-    dueDate: null,
-    isPinned: false,
-    isCompleted: false,
-  },
-];
 
 // PracticeMenu型のサンプルデータ
 const sampleRecommendedMenus = [
@@ -133,9 +100,9 @@ export default function HomeScreen() {
   const [recentChatRooms, setRecentChatRooms] = useState<ChatRoomType[]>([]);
   const [isLoadingChats, setIsLoadingChats] = useState(true);
 
-  // AIレコメンデーションタスクの状態
-  const [recommendedTasks, setRecommendedTasks] = useState<any[]>([]);
-  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  // Firestore登録済み練習メニューの状態
+  const [practiceMenus, setPracticeMenus] = useState<PracticeMenu[]>([]);
+  const [isLoadingPracticeMenus, setIsLoadingPracticeMenus] = useState(false);
 
   // 最新のレッスン、タスク、チャットルームを取得
   const latestLesson = useLessonStore(state => state.lessons[0]);
@@ -193,12 +160,8 @@ export default function HomeScreen() {
       // 今月のタスクを抽出
       let taskDate = null;
       if (task.dueDate) {
-        // Firebaseのタイムスタンプかどうかチェック
-        if (typeof task.dueDate === 'object' && 'seconds' in task.dueDate) {
-          taskDate = new Date(task.dueDate.seconds * 1000);
-        } else {
-          taskDate = new Date(task.dueDate);
-        }
+        // 文字列としてのdueDateをDateに変換
+        taskDate = new Date(task.dueDate);
       }
       
       if (taskDate && taskDate.getMonth() === currentMonth && taskDate.getFullYear() === currentYear) {
@@ -259,10 +222,16 @@ export default function HomeScreen() {
   };
 
   const navigateToChatRoom = (chatId: string) => {
-    // チャットルームへの遷移処理（実際の遷移先は適宜調整）
     router.push({
       pathname: '/chat/[id]',
       params: { id: chatId }
+    } as any);
+  };
+
+  const navigateToLessonDetail = (lessonId: string) => {
+    router.push({
+      pathname: '/lesson-detail/[id]',
+      params: { id: lessonId }
     } as any);
   };
 
@@ -346,16 +315,9 @@ export default function HomeScreen() {
     // 日付をフォーマット
     const formatDueDate = () => {
       if (!task.dueDate) return null;
-      
-      let dueDate;
-      if (typeof task.dueDate === 'object' && 'seconds' in task.dueDate) {
-        dueDate = new Date(task.dueDate.seconds * 1000);
-      } else {
-        dueDate = new Date(task.dueDate);
-      }
-      
-      const month = dueDate.getMonth() + 1;
-      const day = dueDate.getDate();
+      const dateObj = new Date(task.dueDate);
+      const month = dateObj.getMonth() + 1;
+      const day = dateObj.getDate();
       return `${month}/${day}`;
     };
 
@@ -503,29 +465,37 @@ export default function HomeScreen() {
     }
   };
 
-  // 更新関数を分離して再利用可能にする
-  const fetchRecommendations = async () => {
+  // Firestore登録済み練習メニューを取得する関数
+  const loadPracticeMenus = async () => {
     if (!user) return;
-    
-    setIsLoadingRecommendations(true);
+    setIsLoadingPracticeMenus(true);
     try {
-      const recommendations = await getAIRecommendedPracticeMenus(user.uid);
-      setRecommendedTasks(recommendations.slice(0, 3)); // 最大3件まで表示
+      // ユーザープロフィールから楽器 ID を取得
+      const profile = await getCurrentUserProfile();
+      const instrument = profile?.selectedInstrument;
+      if (!instrument) {
+        setPracticeMenus([]);
+        return;
+      }
+      // Firestore から全メニューを取得し、楽器ごとにフィルタ
+      const menus = await getPracticeMenus();
+      const filtered = menus.filter(menu => menu.instrument === instrument);
+      setPracticeMenus(filtered.slice(0, 3)); // 最大3件まで表示
     } catch (error) {
-      console.error('AIレコメンデーションの取得に失敗しました:', error);
+      console.error('練習メニューの取得に失敗しました:', error);
     } finally {
-      setIsLoadingRecommendations(false);
+      setIsLoadingPracticeMenus(false);
     }
   };
 
-  // AIレコメンデーションを取得
+  // Firestore登録済み練習メニューを取得
   useEffect(() => {
-    fetchRecommendations();
-  }, [user, lessons, recentChatRooms]); // レッスンとチャットルームの変更を監視
+    loadPracticeMenus();
+  }, [user]);
 
   // 手動リフレッシュ処理
   const handleRefreshRecommendations = () => {
-    fetchRecommendations();
+    loadPracticeMenus();
   };
 
   // フローティングボタンの表示
@@ -547,7 +517,7 @@ export default function HomeScreen() {
         icon: "chat",
         label: "チャット",
         onPress: () => router.push('/chat-room-form'),
-        color: theme.colors.tertiary || '#7C4DFF',
+        color: theme.colors.tertiary,
       },
     ];
 
@@ -580,23 +550,23 @@ export default function HomeScreen() {
     const quickAccess = [
       {
         title: 'レッスン',
-        subtitle: latestLesson ? latestLesson.title : 'なし',
+        subtitle: latestLesson ? latestLesson.summary : 'なし',
         icon: <MaterialIcons name="music-note" size={28} color={theme.colors.primary} />,
-        onPress: () => router.push(`/lesson-detail/${latestLesson?.id}`),
+        onPress: () => latestLesson && navigateToLessonDetail(latestLesson.id),
         disabled: !latestLesson,
       },
       {
         title: 'タスク',
         subtitle: latestTask ? latestTask.title : 'なし',
         icon: <MaterialIcons name="assignment" size={28} color={theme.colors.secondary} />,
-        onPress: () => router.push(`/task-detail/${latestTask?.id}`),
+        onPress: () => latestTask && navigateToTaskDetail(latestTask.id),
         disabled: !latestTask,
       },
       {
         title: 'チャット',
         subtitle: latestChatRoom ? latestChatRoom.title : 'なし',
-        icon: <MaterialIcons name="chat" size={28} color={theme.colors.tertiary || '#7C4DFF'} />,
-        onPress: () => router.push(`/chat-room/${latestChatRoom?.id}`),
+        icon: <MaterialIcons name="chat" size={28} color={theme.colors.accent} />,
+        onPress: () => latestChatRoom && navigateToChatRoom(latestChatRoom.id),
         disabled: !latestChatRoom,
       },
     ];
@@ -640,13 +610,22 @@ export default function HomeScreen() {
 
   // 練習メニューをタスクとして追加
   const handleAddPracticeMenu = async (menu: any) => {
+    if (!user) {
+      Alert.alert('エラー', 'ログインが必要です');
+      return;
+    }
     try {
       await addTask({
         title: menu.title,
-        content: menu.description,
-        dueDate: new Date(),
+        description: menu.description,
+        dueDate: new Date().toISOString(),
         completed: false,
         tags: menu.tags || [],
+        isPinned: false,
+        attachments: [],
+        priority: 'medium',
+        userId: user.uid,
+        displayOrder: 0,
       });
       Alert.alert('追加', '練習タスクに追加しました');
     } catch (error) {
@@ -677,23 +656,23 @@ export default function HomeScreen() {
               <Text style={styles.sectionCardTitle}>AIおすすめの練習メニュー</Text>
               <TouchableOpacity 
                 onPress={handleRefreshRecommendations} 
-                disabled={isLoadingRecommendations}
+                disabled={isLoadingPracticeMenus}
                 style={styles.refreshButton}
               >
                 <MaterialIcons 
                   name="refresh" 
                   size={dynamicStyles.iconSize} 
-                  color={isLoadingRecommendations ? theme.colors.textTertiary : theme.colors.primary} 
+                  color={isLoadingPracticeMenus ? theme.colors.textTertiary : theme.colors.primary} 
                 />
               </TouchableOpacity>
             </View>
             <View style={styles.sectionDivider} />
-            {isLoadingRecommendations ? (
+            {isLoadingPracticeMenus ? (
               <View style={styles.recommendLoadingBox}>
                 <ActivityIndicator size="small" color={theme.colors.primary} />
-                <Text style={styles.recommendLoadingText}>おすすめの練習メニューを生成中...</Text>
+                <Text style={styles.recommendLoadingText}>練習メニューを読み込み中...</Text>
               </View>
-            ) : (recommendedTasks.length > 0 ? recommendedTasks : sampleRecommendedMenus).length > 0 ? (
+            ) : practiceMenus.length > 0 ? (
               <>
                 <ScrollView
                   ref={menuScrollRef}
@@ -704,7 +683,7 @@ export default function HomeScreen() {
                   scrollEventThrottle={16}
                   contentContainerStyle={{}}
                 >
-                  {(recommendedTasks.length > 0 ? recommendedTasks : sampleRecommendedMenus).map((menu, idx) => (
+                  {practiceMenus.map((menu, idx) => (
                     <View key={menu.id ?? `practice-menu-${idx}`} style={[styles.practiceMenuCardWrap, { width: scrollContainerWidth, alignItems: 'center' }]}> 
                       <View style={[styles.practiceMenuCard, { width: practiceCardWidth }]}> 
                         <TouchableOpacity style={styles.practiceMenuAddButton} onPress={() => handleAddPracticeMenu(menu)}>
@@ -728,12 +707,6 @@ export default function HomeScreen() {
                           <Text style={styles.practiceMenuLabel}>{menu.difficulty}</Text>
                           <Text style={styles.practiceMenuLabel}>{menu.duration}分</Text>
                         </View>
-                        {/* タグ */}
-                        <View style={styles.practiceMenuTags}>
-                          {menu.tags.map((tag, index) => (
-                            <Text key={`tag-${tag}-${index}`} style={styles.practiceMenuTag}>{tag}</Text>
-                          ))}
-                        </View>
                         {/* 説明 */}
                         <Text style={styles.practiceMenuDescription}>{menu.description}</Text>
                         {/* ステップリスト */}
@@ -753,7 +726,7 @@ export default function HomeScreen() {
                   ))}
                 </ScrollView>
                 <View style={styles.carouselIndicatorRow}>
-                  {(recommendedTasks.length > 0 ? recommendedTasks : sampleRecommendedMenus).map((_, idx) => (
+                  {practiceMenus.map((_, idx) => (
                     <View
                       key={`dot-${idx}`}
                       style={[styles.carouselDot, activeMenuIndex === idx && styles.carouselDotActive]}
@@ -764,7 +737,7 @@ export default function HomeScreen() {
             ) : (
               <View style={styles.recommendLoadingBox}>
                 <MaterialIcons name="auto-awesome" size={dynamicStyles.iconSize * 1.5} color={theme.colors.borderLight} />
-                <Text style={styles.recommendLoadingText}>AIがあなたに最適な練習メニューを提案します</Text>
+                <Text style={styles.recommendLoadingText}>練習メニューがありません</Text>
               </View>
             )}
           </View>
@@ -1304,19 +1277,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  practiceMenuTags: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 6,
-  },
-  practiceMenuTag: {
-    backgroundColor: '#F0EDFF',
-    color: '#7C4DFF',
-    fontWeight: '600',
-    fontSize: 13,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
   },
 });

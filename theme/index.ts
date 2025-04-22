@@ -34,6 +34,9 @@ export interface ThemeColors {
   accent: string;
   accentLight: string;
   accentDark: string;
+  tertiary: string;
+  tertiaryLight: string;
+  tertiaryDark: string;
   glass: string;
   highlight: string;
 }
@@ -128,6 +131,9 @@ const theme: ThemeType = {
     accent: '#FBBC05',
     accentLight: '#FDD663',
     accentDark: '#F29900',
+    tertiary: '#7C4DFF',
+    tertiaryLight: '#A18AFF',
+    tertiaryDark: '#5A31D1',
     background: '#FFFFFF',
     backgroundSecondary: '#F8F9FA',
     backgroundTertiary: '#F1F3F4',
@@ -239,6 +245,9 @@ export const darkTheme: ThemeType = {
     accent: '#FDD663',
     accentLight: '#FEE695',
     accentDark: '#FCC934',
+    tertiary: '#A18AFF',
+    tertiaryLight: '#C2B6FF',
+    tertiaryDark: '#7D58D1',
     background: '#202124',
     backgroundSecondary: '#303134',
     backgroundTertiary: '#3C4043',
