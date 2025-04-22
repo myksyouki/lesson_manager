@@ -485,7 +485,7 @@ export const generatePracticeRecommendation = onCall({
       }
     };
   }
-});
+}); 
 
 // 新規: レッスン詳細画面のAIサマリーからタスクを生成するCloud Functionを追加
 export const generateTasksFromLesson = onCall({
