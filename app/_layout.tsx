@@ -133,7 +133,6 @@ export default function RootLayout() {
           ) : (
             <>
               <Stack.Screen name="tabs" options={{ headerShown: false }} />
-              <Stack.Screen name="(lesson-detail)" options={{ title: 'レッスン詳細' }} />
               <Stack.Screen name="chat-room" options={{ title: 'チャットルーム' }} />
               <Stack.Screen name="chat-room-form" options={{ title: 'チャットルーム作成' }} />
               <Stack.Screen name="lesson-form" options={{ title: 'レッスン作成' }} />

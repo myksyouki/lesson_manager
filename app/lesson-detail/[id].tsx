@@ -7,12 +7,15 @@ import {
   TouchableOpacity,
   Text,
   Modal,
-  ActivityIndicator
+  ActivityIndicator,
+  ScrollView
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { doc, onSnapshot, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { db, auth, functions } from '../../config/firebase';
-import { httpsCallable } from 'firebase/functions';
+import { db, auth } from '../../config/firebase';
+import { getApp } from 'firebase/app';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { Ionicons } from '@expo/vector-icons';
 import { MaterialIcons } from '@expo/vector-icons';
 import LessonDetailHeader from '../features/lessons/components/detail/LessonDetailHeader';
 import LessonDetailContent from '../features/lessons/components/detail/LessonDetailContent';
@@ -66,6 +69,10 @@ export default function LessonDetail() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  // メニュー選択モーダル用の状態
+  const [showMenuSelectModal, setShowMenuSelectModal] = useState(false);
+  const [generatedMenus, setGeneratedMenus] = useState<PracticeMenu[]>([]);
+  const [selectedMenuItems, setSelectedMenuItems] = useState<{[key: number]: boolean}>({});
   
   // レッスンストアからアーカイブ関連のメソッドを取得
   const { archiveLesson, unarchiveLesson } = useLessonStore();
@@ -89,38 +96,29 @@ export default function LessonDetail() {
 
   // Firestoreからのリアルタイム更新を監視
   useEffect(() => {
-    if (!lessonId) return;
-
-    console.log(`レッスン詳細画面: ID ${lessonId} のリアルタイム監視を開始します`);
-
-    // 現在のユーザーIDを取得
+    // lessonIdとユーザーIDが揃ったタイミングで監視を開始
     const userId = auth.currentUser?.uid;
-    if (!userId) {
-      console.error('ユーザーが認証されていません');
+    if (!lessonId || !userId) {
+      console.log('LessonDetail: ユーザーまたはレッスンIDが未設定のため監視をスキップ');
       return;
     }
+    console.log(`レッスン詳細画面: ID ${lessonId} のリアルタイム監視を開始します (ユーザーID=${userId})`);
 
-    // 正しいパスでレッスンデータにアクセス
+    // Firestoreの参照を取得
     const lessonRef = doc(db, `users/${userId}/lessons`, lessonId);
     console.log(`レッスンパス: users/${userId}/lessons/${lessonId}`);
     
     const unsubscribe = onSnapshot(lessonRef, (docSnapshot) => {
       if (docSnapshot.exists()) {
         const lessonData = docSnapshot.data();
-        console.log(`レッスンデータ更新を検出:`, JSON.stringify({
-          id: lessonId,
-          status: lessonData.status,
-          summary: lessonData.summary ? '有り' : 'なし',
-          transcription: lessonData.transcription ? '有り' : 'なし',
-          audioUrl: lessonData.audioUrl || lessonData.audio_url ? '有り' : 'なし'
-        }, null, 2));
+        console.log(`レッスンデータ更新を検出:`, lessonData);
         
-        // 更新されたデータをローカル状態に保存
+        // 更新されたデータを状態に反映
         const updatedLesson = {
           id: lessonId,
           teacherName: lessonData.teacher || lessonData.teacherName || '',
           date: lessonData.date || new Date().toISOString().split('T')[0],
-          pieces: lessonData.pieces ? lessonData.pieces : [], // piecesがnullまたはundefinedの場合、空の配列を代入
+          pieces: lessonData.pieces || [],
           notes: lessonData.notes || '',
           tags: lessonData.tags || [],
           priority: lessonData.priority || 'medium',
@@ -128,59 +126,27 @@ export default function LessonDetail() {
           status: lessonData.status || '',
           isFavorite: lessonData.isFavorite || false,
           transcription: lessonData.transcription || '',
-          user_id: lessonData.user_id || lessonData.userId || '',
-          processingId: lessonData.processingId || '',
-          audioUrl: lessonData.audioUrl || lessonData.audio_url || '',
           isArchived: lessonData.isArchived || false,
           archivedDate: lessonData.archivedDate || '',
           aiInstructions: lessonData.aiInstructions || '',
         };
         
-        // 日付が空または無効な場合、現在の日付を使用
-        if (!updatedLesson.date) {
-          const today = new Date();
-          updatedLesson.date = `${today.getFullYear()}年${String(today.getMonth() + 1).padStart(2, '0')}月${String(today.getDate()).padStart(2, '0')}日`;
-          console.log('日付データがないため現在の日付を使用:', updatedLesson.date);
-        }
-        
         setCurrentLesson(updatedLesson);
         
-        // サマリーとタグのデバッグログ
-        console.log(`レッスン詳細: サマリーとタグ`, {
-          summaryLength: (lessonData.summary || '').length,
-          summaryPreview: (lessonData.summary || '').substring(0, 50) + '...',
-          tagsReceived: Array.isArray(lessonData.tags),
-          tagsCount: Array.isArray(lessonData.tags) ? lessonData.tags.length : 0,
-          tags: lessonData.tags
-        });
-        
-        // 更新されたデータをフォームデータに反映
-        setFormData(prevData => {
-          const newData = {
-            ...prevData,
-            teacherName: lessonData.teacher || lessonData.teacherName || '',
-            date: lessonData.date || updatedLesson.date, // updatedLessonからデフォルト日付を使用
-            pieces: lessonData.pieces ? lessonData.pieces : [], // piecesがnullまたはundefinedの場合、空の配列を代入
-            notes: lessonData.notes || '',
-            tags: lessonData.tags || [],
-            priority: lessonData.priority || 'medium',
-            summary: lessonData.summary || '',
-            status: lessonData.status || '',
-            isFavorite: lessonData.isFavorite || false,
-            transcription: lessonData.transcription || '',
-            isArchived: lessonData.isArchived || false,
-          };
-          
-          console.log(`フォームデータを更新:`, JSON.stringify({
-            status: newData.status,
-            summary: newData.summary ? '有り' : 'なし',
-            summaryLength: newData.summary.length,
-            transcription: newData.transcription ? '有り' : 'なし',
-            tags: newData.tags
-          }, null, 2));
-          
-          return newData;
-        });
+        setFormData(prev => ({
+          ...prev,
+          teacherName: updatedLesson.teacherName,
+          date: updatedLesson.date,
+          pieces: updatedLesson.pieces,
+          notes: updatedLesson.notes,
+          tags: updatedLesson.tags,
+          priority: updatedLesson.priority,
+          summary: updatedLesson.summary,
+          status: updatedLesson.status,
+          isFavorite: updatedLesson.isFavorite,
+          transcription: updatedLesson.transcription,
+          isArchived: updatedLesson.isArchived,
+        }));
       }
     });
 
@@ -188,7 +154,7 @@ export default function LessonDetail() {
       console.log(`レッスン詳細画面: ID ${lessonId} のリアルタイム監視を終了します`);
       unsubscribe();
     };
-  }, [lessonId]);
+  }, [lessonId, auth.currentUser?.uid]);
 
   const handleSave = async () => {
     try {
@@ -376,113 +342,284 @@ export default function LessonDetail() {
       return;
     }
 
-    // 確認ダイアログ
-    Alert.alert(
-      'タスク生成',
-      'AIを使用してレッスン内容から練習メニューを生成しますか？',
-      [
-        {
-          text: 'キャンセル',
-          style: 'cancel',
-        },
-        {
-          text: '生成',
-          onPress: async () => {
-            setIsLoadingTasks(true);
-            try {
-              const generatePracticeRecommendation = httpsCallable(functions, 'generatePracticeRecommendation');
+    setIsLoadingTasks(true);
+    console.log('=========== タスク生成開始 ===========');
+    console.log('レッスンID:', lessonId);
+    console.log('サマリー長さ:', currentLesson.summary?.length || 0);
+    console.log('タグ:', currentLesson.tags);
 
-              // ユーザー情報を取得
-              const userDoc = await getDoc(doc(db, 'users', auth.currentUser?.uid || ''));
-              const userData = userDoc.data();
-              
-              // 楽器情報（デフォルトはピアノ）
-              const instrument = userData?.instrument || 'Piano';
-              
-              console.log(`${instrument}の練習メニューを生成します...`);
-              
-              // GenKit APIを呼び出す
-              const result = await generatePracticeRecommendation({
-                lessonSummary: currentLesson.summary,
-                instrument: instrument,
-                level: 'INTERMEDIATE'
-              });
-              
-              // レスポンスデータの取得
-              const responseData = result.data as { 
-                success: boolean; 
-                recommendations?: PracticeMenu[];
-                message?: string 
-              };
-              
-              console.log('レスポンスデータ:', responseData);
-              
-              if (!responseData.success) {
-                throw new Error(responseData.message || '練習メニュー生成に失敗しました');
-              }
-              
-              // レコメンデーションの配列を取得（nullの場合は空配列）
-              const recommendations = responseData.recommendations || [];
-              console.log('取得した練習メニュー:', recommendations);
-              
-              if (recommendations.length === 0) {
-                alert('練習メニューが見つかりませんでした。別のレッスン内容で試してください。');
-                setIsLoadingTasks(false);
-                return;
-              }
-              
-              // 各レコメンデーションをタスクとして保存
-              const userId = auth.currentUser?.uid;
-              if (!userId) {
-                throw new Error('ユーザーIDが取得できませんでした');
-              }
-              
-              const tasksCreated = await Promise.all(
-                recommendations.map(async (menu) => {
-                  // ステップをマークダウン形式に変換
-                  const stepsText = menu.steps.map(step => 
-                    `- ${step.title}: ${step.description} (${step.estimatedTime || step.duration || 0}分)`
-                  ).join('\n');
-                  
-                  // 完全な説明文を作成
-                  const fullDescription = `${menu.description}\n\n【練習ステップ】\n${stepsText}\n\n【目安時間】${menu.duration || 30}分\n【難易度】${menu.difficultyLevel || menu.difficulty || "中級"}\n【カテゴリ】${menu.category || "基本練習"}`;
-                  
-                  // taskServiceのcreateTaskを使用してタスクを作成
-                  const task = await createTask(
-                    userId,
-                    menu.title,
-                    fullDescription,
-                    undefined, // dueDate
-                    [{ // attachments
-                      type: 'text',
-                      url: `/lessons/${currentLesson.id}`
-                    }]
-                  );
-                  
-                  // タスクにタグを追加
-                  await updateTask(task.id, {
-                    tags: ['練習メニュー', '自動生成', menu.category || '基本練習'],
-                    lessonId: currentLesson.id
-                  } as any, userId);
-                  
-                  return task;
-                })
-              );
-              
-              console.log(`${tasksCreated.length}個のタスクを作成しました`);
-              alert(`${tasksCreated.length}個の練習メニューがタスクリストに追加されました！`);
-              
-            } catch (error: any) {
-              console.error('タスク生成中にエラーが発生しました:', error);
-              alert(`エラーが発生しました: ${error?.message || 'タスク生成に失敗しました'}`);
-            } finally {
-              setIsLoadingTasks(false);
-            }
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+    // プロファイルから選択楽器を取得
+    const profile = await getCurrentUserProfile();
+    const instrumentSelected = profile?.selectedInstrument.toLowerCase() || 'piano';
+    console.log('選択された楽器:', instrumentSelected);
+    console.log('ユーザープロファイル:', JSON.stringify(profile));
+
+    // 共通で使うリクエストデータ
+    const functionParams = {
+      lessonId,
+      aiSummary: currentLesson.summary,
+      tags: currentLesson.tags,
+      instrument: instrumentSelected
+    };
+    console.log('Function パラメーター:', JSON.stringify(functionParams));
+    
+    // 1. まず直接HTTP呼び出しを試みる
+    console.log('======== 直接HTTP呼び出し実行 ========');
+    try {
+      // ユーザーが認証済みか確認
+      if (!auth.currentUser) {
+        throw new Error('HTTP呼び出しには認証が必要です');
+      }
+      
+      // 認証トークンを取得
+      console.log('認証トークンを取得中...');
+      const idToken = await auth.currentUser.getIdToken();
+      console.log('認証トークン取得成功（最初の10文字）:', idToken.substring(0, 10) + '...');
+      
+      // プロジェクトID取得
+      const firebaseProject = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'lesson-manager-99ab9';
+      console.log('Firebase プロジェクトID:', firebaseProject);
+      
+      // URL構築
+      const url = `https://asia-northeast1-${firebaseProject}.cloudfunctions.net/generateTasksFromLesson`;
+      console.log('HTTP URL:', url);
+      
+      // リクエストボディ構築
+      const requestBody = { 
+        data: {
+          ...functionParams
+        } 
+      };
+      console.log('HTTP リクエストボディ:', JSON.stringify(requestBody).substring(0, 100) + '...');
+      
+      // リクエスト送信
+      console.log('HTTP リクエスト開始');
+      const httpStartTime = Date.now();
+      
+      // ヘッダーに認証トークンを含める
+      const headers = { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`
+      };
+      console.log('リクエストヘッダー:', Object.keys(headers).join(', '));
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody)
+      });
+      const httpEndTime = Date.now();
+      console.log(`HTTP リクエスト時間: ${httpEndTime - httpStartTime}ms`);
+      console.log('HTTP レスポンス:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries([...response.headers.entries()]),
+        ok: response.ok
+      });
+      
+      // レスポンスの解析
+      console.log('HTTP レスポンス本文取得中');
+      const responseText = await response.text();
+      
+      // エラーレスポンスの場合は詳細に表示
+      if (!response.ok) {
+        console.error('HTTP エラーレスポンス:', {
+          status: response.status,
+          text: responseText
+        });
+        throw new Error(`HTTP エラー ${response.status}: ${responseText}`);
+      }
+      
+      console.log('HTTP 成功レスポンス本文:', responseText.substring(0, 200) + (responseText.length > 200 ? '...' : ''));
+      
+      // JSONパース
+      console.log('レスポンスJSONパース');
+      let json;
+      try {
+        json = JSON.parse(responseText);
+        console.log('JSONパース完了:', Object.keys(json).join(', '));
+      } catch (parseError) {
+        console.error('JSONパースエラー:', parseError);
+        console.log('HTTP呼び出しに失敗、SDKフォールバックへ移行');
+        throw new Error('JSONパースエラー');
+      }
+      
+      // ここではresponse.okをチェックする必要がない（上ですでにチェック済み）
+      console.log('HTTP レスポンス解析');
+      
+      // データ形式を解析（data.resultまたはresult.menusまたはdata.menus形式をサポート）
+      const resultData = json.result || json.data || json;
+      console.log('レスポンスデータ構造:', Object.keys(resultData).join(', '));
+      
+      const menus = resultData.menus || [];
+      console.log('メニュー配列:', Array.isArray(menus) ? 'はい' : 'いいえ', 'サイズ:', menus.length);
+      
+      if (menus.length === 0) {
+        console.log('メニューが見つかりませんでした (HTTP呼び出し)');
+        Alert.alert('検索結果', '練習メニューが見つかりませんでした');
+        setIsLoadingTasks(false);
+        console.log('=========== HTTP呼び出しが成功したため処理を終了します ===========');
+        return;
+      } else {
+        // 選択モーダル用にメニューを保存
+        console.log(`HTTP呼び出し: メニュー取得成功: ${menus.length}個のメニュー`);
+        setGeneratedMenus(menus);
+        
+        // すべてのメニューを初期状態で未選択にする
+        const initialSelections: {[key: number]: boolean} = {};
+        menus.forEach((_, index) => {
+          initialSelections[index] = false;
+        });
+        setSelectedMenuItems(initialSelections);
+        
+        // 選択モーダルを表示
+        setShowMenuSelectModal(true);
+        setIsLoadingTasks(false);
+        console.log('=========== HTTP呼び出しが成功したため処理を終了します ===========');
+        return;
+      }
+    } catch (httpError: any) {
+      console.error('HTTP呼び出し例外:', httpError.message || JSON.stringify(httpError));
+      console.log('SDK呼び出しへフォールバック');
+    }
+
+    // 2. HTTP呼び出しに失敗した場合、SDK経由で呼び出す
+    console.log('======== SDK呼び出し開始 (フォールバック) ========');
+    try {
+      console.log('Firebase App取得');
+      const app = getApp();
+      console.log('Firebase App名:', app.name);
+      
+      console.log('Functionsインスタンス取得');
+      const functionsInstance = getFunctions(app, 'asia-northeast1');
+      console.log('Functions設定確認:', {
+        region: functionsInstance.region,
+        customDomain: functionsInstance.customDomain,
+        app: functionsInstance.app?.name
+      });
+      
+      console.log('httpsCallable関数作成');
+      const generateTasksFn = httpsCallable(functionsInstance, 'generateTasksFromLesson');
+      
+      console.log('関数呼び出し開始');
+      const startTime = Date.now();
+      const result = await generateTasksFn(functionParams);
+      // 関数実行後の時間を記録
+      const endTime = Date.now();
+      console.log(`関数実行時間: ${endTime - startTime}ms`);
+      console.log('SDKレスポンス:', result.data ? JSON.stringify(result.data) : '応答データなし');
+
+      const menus = (result.data as { menus: PracticeMenu[] })?.menus || [];
+      console.log('SDK経由で取得したメニュー数:', menus.length);
+      if (menus.length === 0) {
+        console.log('メニューが見つかりませんでした (SDK)');
+        Alert.alert('検索結果', '練習メニューが見つかりませんでした');
+        setIsLoadingTasks(false);
+        return;
+      } else {
+        // 選択モーダル用にメニューを保存
+        console.log(`SDK呼び出し: メニュー取得成功: ${menus.length}個のメニュー`);
+        setGeneratedMenus(menus);
+        
+        // すべてのメニューを初期状態で未選択にする
+        const initialSelections: {[key: number]: boolean} = {};
+        menus.forEach((_, index) => {
+          initialSelections[index] = false;
+        });
+        setSelectedMenuItems(initialSelections);
+        
+        // 選択モーダルを表示
+        setShowMenuSelectModal(true);
+      }
+    } catch (sdkError: any) {
+      console.error('Firebase関数呼び出しエラー:', JSON.stringify(sdkError));
+      console.log('SDKエラー詳細:', sdkError.code, sdkError.message, sdkError.details);
+      Alert.alert('エラー', 'タスク生成中にエラーが発生しました。もう一度お試しください。');
+    } finally {
+      setIsLoadingTasks(false);
+      console.log('=========== タスク生成終了 ===========');
+    }
+  };
+
+  // メニューアイテムの選択状態を切り替える関数
+  const toggleMenuItemSelection = (index: number) => {
+    setSelectedMenuItems(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  // 全てのメニューアイテムを選択/解除する関数
+  const toggleAllMenuItems = (selectAll: boolean) => {
+    const newSelections: {[key: number]: boolean} = {};
+    generatedMenus.forEach((_: PracticeMenu, index: number) => {
+      newSelections[index] = selectAll;
+    });
+    setSelectedMenuItems(newSelections);
+  };
+
+  // 選択したメニューをタスクとして保存する関数
+  const saveSelectedMenus = async () => {
+    if (!auth.currentUser) {
+      Alert.alert('エラー', 'タスクを保存するにはログインが必要です');
+      return;
+    }
+    
+    const userId = auth.currentUser.uid;
+    const selectedMenus = generatedMenus.filter((_, index) => selectedMenuItems[index]);
+    
+    if (selectedMenus.length === 0) {
+      Alert.alert('注意', '少なくとも1つの練習メニューを選択してください');
+      return;
+    }
+    
+    setIsLoadingTasks(true);
+    
+    try {
+      console.log(`選択されたメニューのタスク作成開始: ${selectedMenus.length}個のメニュー`);
+      const tasksCreated = await Promise.all(
+        selectedMenus.map(async (menu: PracticeMenu) => {
+          // ステップをマークダウン形式に変換
+          const stepsText = menu.steps.map((step: PracticeStep) => 
+            `- ${step.title}: ${step.description} (${step.estimatedTime || step.duration || 0}分)`
+          ).join('\n');
+          
+          // 完全な説明文を作成
+          const fullDescription = `${menu.description}\n\n【練習ステップ】\n${stepsText}\n\n【目安時間】${menu.duration || 30}分\n【難易度】${menu.difficultyLevel || menu.difficulty || "中級"}\n【カテゴリ】${menu.category || "基本練習"}`;
+          
+          // taskServiceのcreateTaskを使用してタスクを作成
+          const task = await createTask(
+            userId,
+            menu.title,
+            fullDescription,
+            undefined, // dueDate
+            [{ // attachments
+              type: 'text',
+              url: `/lessons/${currentLesson.id}`
+            }]
+          );
+          
+          // タスクにタグを追加
+          await updateTask(task.id, {
+            tags: ['練習メニュー', '自動生成', menu.category || '基本練習'],
+            lessonId: currentLesson.id
+          } as any, userId);
+          
+          return task;
+        })
+      );
+      
+      console.log(`${tasksCreated.length}個のタスクを作成しました`);
+      Alert.alert('完了', `${tasksCreated.length}個の練習メニューをタスクリストに追加しました！`);
+      
+      // モーダルを閉じる
+      setShowMenuSelectModal(false);
+    } catch (error) {
+      console.error('タスク保存エラー:', error);
+      Alert.alert('エラー', 'タスクの保存中にエラーが発生しました');
+    } finally {
+      setIsLoadingTasks(false);
+    }
   };
 
   // ローカルで練習メニューを作成する関数
@@ -555,7 +692,7 @@ export default function LessonDetail() {
           },
           {
             text: 'はい',
-            onPress: () => router.push('/tasks')
+            onPress: () => router.push('/task' as any)
           }
         ]);
       } catch (error) {
@@ -698,6 +835,120 @@ export default function LessonDetail() {
             >
               <Text style={styles.cancelText}>キャンセル</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* 練習メニュー選択モーダル */}
+      <Modal
+        visible={showMenuSelectModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowMenuSelectModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.menuModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitleText}>練習メニュー選択</Text>
+              <TouchableOpacity onPress={() => setShowMenuSelectModal(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#8E8E93" />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.menuModalSubtitle}>
+              レッスン内容に合った練習メニューが見つかりました。追加したいメニューを選択してください。
+            </Text>
+            
+            {/* 選択ボタン */}
+            <View style={styles.selectionControls}>
+              <TouchableOpacity 
+                style={styles.selectAllButton}
+                onPress={() => toggleAllMenuItems(true)}
+              >
+                <Text style={styles.selectButtonText}>全て選択</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.selectNoneButton}
+                onPress={() => toggleAllMenuItems(false)}
+              >
+                <Text style={styles.selectButtonText}>選択解除</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {/* メニューリスト */}
+            <ScrollView style={styles.menuList}>
+              {generatedMenus.map((menu, index) => (
+                <View key={index} style={[styles.menuItem, selectedMenuItems[index] && styles.menuItemSelected]}>
+                  {/* 選択用チェックボックス */}
+                  <TouchableOpacity 
+                    style={styles.menuCheckbox}
+                    onPress={() => toggleMenuItemSelection(index)}
+                  >
+                    <View style={[
+                      styles.checkbox, 
+                      selectedMenuItems[index] && styles.checkboxSelected
+                    ]}>
+                      {selectedMenuItems[index] && (
+                        <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                  
+                  <View style={styles.menuItemContent}>
+                    <View style={styles.menuItemHeader}>
+                      <Text style={styles.menuItemTitle}>{menu.title}</Text>
+                      <View style={styles.menuItemMeta}>
+                        <Text style={styles.menuItemDuration}>{menu.duration || 30}分</Text>
+                        {menu.category && (
+                          <View style={styles.categoryPill}>
+                            <Text style={styles.categoryText}>{menu.category}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <Text style={styles.menuItemDescription}>{menu.description}</Text>
+                    
+                    {/* ステップ */}
+                    <View style={styles.stepsContainer}>
+                      {menu.steps && menu.steps.map((step, stepIndex) => (
+                        <View key={stepIndex} style={styles.stepItem}>
+                          <Text style={styles.stepNumber}>{stepIndex + 1}.</Text>
+                          <View style={styles.stepContent}>
+                            <Text style={styles.stepTitle}>{step.title}</Text>
+                            <Text style={styles.stepDescription}>{step.description}</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            
+            {/* 保存ボタン */}
+            <View style={styles.selectionActions}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setShowMenuSelectModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>キャンセル</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.saveButton}
+                onPress={saveSelectedMenus}
+                disabled={isLoadingTasks}
+              >
+                {isLoadingTasks ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveButtonText}>
+                    選択したメニューを追加
+                    {Object.values(selectedMenuItems).filter(Boolean).length > 0 && 
+                     ` (${Object.values(selectedMenuItems).filter(Boolean).length}件)`}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -852,5 +1103,188 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FF3B30',
+  },
+  menuModalContent: {
+    width: '90%',
+    maxHeight: '90%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitleText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1C1C1E',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  menuModalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+  },
+  selectionControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  selectAllButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#E9ECEF',
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  selectNoneButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#E9ECEF',
+    borderRadius: 8,
+  },
+  selectButtonText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  menuList: {
+    maxHeight: 500,
+  },
+  menuItem: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+  },
+  menuItemSelected: {
+    borderColor: '#4285F4',
+    backgroundColor: '#EBF3FB',
+  },
+  menuCheckbox: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    zIndex: 1,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#CCC',
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#4285F4',
+    borderColor: '#4285F4',
+  },
+  menuItemContent: {
+    marginRight: 32,
+  },
+  menuItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  menuItemTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
+  },
+  menuItemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuItemDuration: {
+    fontSize: 12,
+    color: '#666',
+    marginRight: 8,
+  },
+  categoryPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: '#E9ECEF',
+    borderRadius: 12,
+  },
+  categoryText: {
+    fontSize: 10,
+    color: '#333',
+  },
+  menuItemDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  stepsContainer: {
+    marginTop: 8,
+  },
+  stepItem: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  stepNumber: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#666',
+    width: 20,
+  },
+  stepContent: {
+    flex: 1,
+  },
+  stepTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  stepDescription: {
+    fontSize: 12,
+    color: '#666',
+  },
+  selectionActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  cancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDD',
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  saveButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#4285F4',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFF',
   },
 });

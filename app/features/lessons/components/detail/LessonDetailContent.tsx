@@ -45,7 +45,8 @@ export const LessonDetailContent: React.FC<LessonDetailContentProps> = ({
   afterSummary
 }) => {
   const [refreshing, setRefreshing] = React.useState(false);
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  // デフォルトで基本情報セクションを展開する
+  const [expandedSection, setExpandedSection] = useState<string | null>('basicInfo');
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const [showCalendar, setShowCalendar] = useState(false);

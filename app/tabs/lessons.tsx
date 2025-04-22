@@ -501,7 +501,7 @@ export default function LessonsScreen() {
                           if (isSelectionMode) {
                             toggleLessonSelection(item.id);
                           } else {
-                            router.push(`/(lesson-detail)/${item.id}` as any);
+                            router.push(`/lesson-detail/${item.id}`);
                           }
                         }}
                         isSelectionMode={isSelectionMode}
@@ -679,7 +679,7 @@ export default function LessonsScreen() {
                             if (isSelectionMode) {
                               toggleLessonSelection(lesson.id);
                             } else {
-                              router.push(`/(lesson-detail)/${lesson.id}` as any);
+                              router.push(`/lesson-detail/${lesson.id}`);
                             }
                           }}
                           isSelectionMode={isSelectionMode}
