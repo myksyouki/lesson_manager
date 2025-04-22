@@ -9,12 +9,13 @@ import {
   Platform,
   TouchableOpacity,
   Dimensions,
-  Alert,
+  Share,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../../theme';
 import ChartSection from './ChartSection';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // スケジュール関連のコンポーネントをインポート
 import CalendarHeader from '../../schedule/components/CalendarHeader';
@@ -31,6 +32,12 @@ export default function AnalysisScreen() {
   const { lessons, fetchLessons, isLoading } = useLessonStore();
   const theme = useTheme();
   const router = useRouter();
+
+  // 仮のデータ（本来はストアやpropsから取得）
+  const monthlyPractice = 12;
+  const lessonCount = 8;
+  const tagCount = 16;
+  const streak = 7;
 
   React.useEffect(() => {
     const loadLessons = async () => {
@@ -59,17 +66,26 @@ export default function AnalysisScreen() {
   }, [lessons, formatDate]);
 
   const handleShowDetailedReport = () => {
-    // 開発中メッセージを表示
-    Alert.alert(
-      '開発中',
-      'この機能は現在開発中です。今後のアップデートをお待ちください。',
-      [{ text: 'OK', style: 'default' }]
-    );
+    // 詳細レポート画面へ遷移
+    router.push('/analysis/detailed-report');
+  };
+
+  const handleShare = async () => {
+    // テキスト共有のみ
+    await Share.share({ message: `今月${monthlyPractice}日練習しました！ #Resonoteで練習` });
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: '#F6F7F9' }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <LinearGradient colors={['#FFD700', '#7C4DFF']} style={styles.heroGradient}>
+        <View style={styles.heroIconWrap}>
+          <MaterialIcons name="emoji-events" size={48} color="#fff" />
+        </View>
+        <Text style={styles.heroNumberSmall}>{monthlyPractice}日</Text>
+        <Text style={styles.heroCaption}>今月の練習日数</Text>
+        <Text style={styles.heroMotto}>#Resonoteで練習</Text>
+      </LinearGradient>
       <View style={styles.container}>
         <View style={styles.tabContainer}>
           <TouchableOpacity 
@@ -144,15 +160,15 @@ export default function AnalysisScreen() {
               
               {/* 詳細レポートボタンを最下部に配置 */}
               <TouchableOpacity 
-                style={[styles.detailReportButton, styles.developmentButton]}
+                style={styles.detailReportButton}
                 onPress={handleShowDetailedReport}
               >
                 <MaterialIcons 
-                  name="construction" 
+                  name="analytics" 
                   size={24} 
-                  color="#FFFFFF"
+                  color={theme.colors.primary}
                 />
-                <Text style={styles.detailButtonText}>詳細レポート（開発中）</Text>
+                <Text style={styles.detailButtonText}>詳細レポート</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -184,6 +200,11 @@ export default function AnalysisScreen() {
               )}
             </>
           )}
+          {/* シェアボタン */}
+          <TouchableOpacity style={styles.shareButtonInline} onPress={handleShare}>
+            <MaterialIcons name="share" size={20} color="#fff" />
+            <Text style={styles.shareButtonText}>この成果をシェア</Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -193,12 +214,12 @@ export default function AnalysisScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F6F7F9',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: 'transparent',
   },
   scrollContainer: {
     flex: 1,
@@ -210,71 +231,117 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    margin: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    backgroundColor: '#ECEFF1',
+    borderRadius: 12,
+    margin: 16,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   tabButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   activeTabButton: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#515BD4',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.10,
+    shadowRadius: 2,
+    elevation: 2,
   },
   tabText: {
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: 15,
+    marginLeft: 6,
     color: '#757575',
+    fontWeight: '500',
   },
   activeTabText: {
     color: '#515BD4',
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  additionalStatsContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+    color: '#222',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statCard: {
+    alignItems: 'center',
+    padding: 18,
+    borderRadius: 12,
+    backgroundColor: '#F8F9FA',
+    minWidth: 120,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  statNumber: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#515BD4',
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#888',
   },
   detailReportButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#515BD4',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 8,
-    marginTop: 24,
-    marginBottom: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  developmentButton: {
-    backgroundColor: '#757575',
+    backgroundColor: '#7C4DFF',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginTop: 28,
+    marginBottom: 16,
+    shadowColor: '#7C4DFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 2,
   },
   detailButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 8,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#fff',
+    marginLeft: 10,
   },
   calendarContainer: {
     padding: 14,
@@ -320,47 +387,97 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  additionalStatsContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+  heroGradient: {
+    width: '100%',
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    paddingTop: 16,
+    paddingBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 18,
+  heroIconWrap: {
+    backgroundColor: '#fff2',
+    borderRadius: 32,
+    padding: 4,
+    marginBottom: 6,
+  },
+  heroNumberSmall: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  heroCaption: {
+    fontSize: 16,
+    color: '#fff',
     fontWeight: '600',
-    marginBottom: 16,
+    marginBottom: 4,
+    textShadowColor: '#0002',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  statsRow: {
+  heroMotto: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '500',
+    marginTop: 4,
+    opacity: 0.85,
+  },
+  badgeRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-  },
-  statCard: {
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#F8F9FA',
-    minWidth: 120,
+    marginTop: -24,
+    marginBottom: 24,
+    paddingHorizontal: 12,
   },
-  statNumber: {
+  badgeCard: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    minWidth: 90,
+  },
+  badgeNumber: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#515BD4',
-    marginBottom: 4,
+    fontWeight: 'bold',
+    color: '#7C4DFF',
+    marginTop: 4,
+    marginBottom: 2,
   },
-  statLabel: {
-    fontSize: 14,
-    color: '#757575',
+  badgeLabel: {
+    fontSize: 13,
+    color: '#888',
+    fontWeight: '500',
+  },
+  shareButtonInline: {
+    backgroundColor: '#7C4DFF',
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginVertical: 16,
+    shadowColor: '#7C4DFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  shareButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
   },
 }); 

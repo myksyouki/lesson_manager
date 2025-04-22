@@ -83,6 +83,7 @@
     "react-native-svg": "^15.11.2",
     "react-native-tracking-transparency": "^0.1.2",
     "react-native-url-polyfill": "^2.0.0",
+    "react-native-view-shot": "~4.0.3",
     "react-native-web": "^0.19.13",
     "react-native-webview": "^13.13.5",
     "zustand": "^4.5.0"

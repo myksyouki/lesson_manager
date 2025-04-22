@@ -57,7 +57,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
       // ユーザーベースの構造を使用
       const tasksRef = collection(db, `users/${userId}/tasks`);
-      const q = query(tasksRef, orderBy('updatedAt', 'desc'));
+      // displayOrder(昇順)とupdatedAt(降順)で並び替えて取得し、入れ替え順を保持する
+      const q = query(
+        tasksRef,
+        orderBy('displayOrder', 'asc'),
+        orderBy('updatedAt', 'desc')
+      );
       const querySnapshot = await getDocs(q);
 
       const tasks = querySnapshot.docs.map(doc => {
@@ -67,7 +72,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           title: data.title || '',
           description: data.description || '',
           dueDate: data.dueDate || '',
-          isCompleted: data.isCompleted || false,
           completed: data.isCompleted || data.completed || false,
           isPinned: data.isPinned || false,
           createdAt: data.createdAt || '',
@@ -77,7 +81,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           lessonId: data.lessonId || '',
           chatRoomId: data.chatRoomId || '',
           tags: data.tags || [],
-          priority: data.priority || 'medium'
+          priority: data.priority || 'medium',
+          displayOrder: data.displayOrder ?? 0,
         };
         return task;
       }) as Task[];
@@ -101,7 +106,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         userId: user.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        isCompleted: false,
+        completed: false,
       };
 
       // ユーザーベースの構造を使用
@@ -114,7 +119,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         userId: user.uid,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        isCompleted: false,
         completed: false,
         isPinned: false,
       };
@@ -247,12 +251,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         }).replace(/\s/g, '');
         
         // 新しい課題を作成
-        const taskData = {
+        const taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
           title: taskTitle,
           description: taskDescription,
           dueDate: dueDateStr,
-          isCompleted: false,
-          attachments: []
+          completed: false,
+          isPinned: false,
+          attachments: [],
+          userId,
+          tags: [],
+          priority: 'medium'
         };
         
         // タスクを追加
@@ -271,7 +279,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   getCategoryCompletionCounts: () => {
     const { tasks } = get();
-    const completedTasks = tasks.filter(task => task.isCompleted || task.completed);
+    const completedTasks = tasks.filter(task => task.completed);
     
     // カテゴリごとにグループ化
     const categories: Record<string, number> = {};
@@ -324,7 +332,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       // ユーザーベースの構造を使用
       const taskRef = doc(db, `users/${user.uid}/tasks`, id);
       await updateDoc(taskRef, {
-        isCompleted: true,
         completedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -334,7 +341,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         tasks: state.tasks.map((t) =>
           t.id === id ? { 
             ...t, 
-            isCompleted: true, 
             completedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString() 
           } : t
@@ -378,11 +384,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const task = get().tasks.find(t => t.id === taskId);
     if (!task) return;
     
-    if (task.isCompleted) {
-      // タスクが完了状態の場合、未完了に戻す
-      get().updateTask(taskId, { isCompleted: false });
+    if (task.completed) {
+      // 完了状態の場合は未完了に戻す
+      get().updateTask(taskId, { completed: false });
     } else {
-      // タスクが未完了状態の場合、完了にする
+      // 未完了状態の場合は完了にする
       get().completeTask(taskId);
     }
   },

@@ -10,6 +10,7 @@
 import {onCall, onRequest, HttpsError} from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
+import * as functionsV1 from "firebase-functions/v1";
 import * as functions from "firebase-functions";
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 
@@ -20,7 +21,7 @@ import axios from "axios";
 // プロジェクトモジュール
 import {generateTasksFromLessons} from "./practice-menu/index";
 import { practiceMenuFunctions } from './practice-menu';
-import { testOpenAIConnection, generatePracticeRecommendation } from './practice-menu/genkit';
+import { testOpenAIConnection, generatePracticeRecommendation, generateTasksFromLesson } from './practice-menu/genkit';
 import { setAdminRole, initializeAdmin } from './tools/admin-setup';
 import { FUNCTION_REGION } from './config';
 import { processAudioOnUpload } from './summaries';
@@ -773,6 +774,11 @@ export {
   // 管理者設定関連
   setAdminRole,
   initializeAdmin,
+  // 練習メニュー関連の関数をエクスポート
+  testOpenAIConnection,
+  generatePracticeRecommendation,
+  generateTasksFromLesson,
+  // レッスンサマリー関連
   processAudioOnUpload,
 };
 
@@ -780,7 +786,6 @@ export {
 export const getSheetMusic = practiceMenuFunctions.getSheetMusic;
 export const createPracticeMenu = practiceMenuFunctions.createPracticeMenu;
 export const uploadSheetMusic = practiceMenuFunctions.uploadSheetMusic;
-export { testOpenAIConnection, generatePracticeRecommendation };
 
 /**
  * チャットルームの会話履歴からタスクを作成するCloud Function

@@ -171,8 +171,8 @@ export default function TabLayout() {
             iconName = 'checklist';
           } else if (route.name === 'ai-lesson') {
             iconName = 'smart-toy';
-          } else if (route.name === 'schedule') {
-            iconName = 'insights';
+          } else if (route.name === 'analysis') {
+            iconName = 'analytics';
           } else if (route.name === 'settings') {
             iconName = 'settings';
           }
@@ -180,6 +180,8 @@ export default function TabLayout() {
           return <AnimatedTabBarIcon name={iconName} color={color} size={ICON_SIZE} focused={focused} />;
         },
         tabBarLabel: ({ focused, color, children }) => {
+          let label = children;
+          if (route.name === 'analysis') label = '分析';
           return (
             <View style={{ position: 'relative', alignItems: 'center' }}>
               <Animated.Text
@@ -192,7 +194,7 @@ export default function TabLayout() {
                   letterSpacing: 0,
                 }}
               >
-                {children}
+                {label}
               </Animated.Text>
               <TabIndicator focused={focused} color={color} routeName={route.name} />
             </View>
@@ -224,7 +226,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="schedule"
+        name="analysis"
         options={{
           title: '分析',
         }}

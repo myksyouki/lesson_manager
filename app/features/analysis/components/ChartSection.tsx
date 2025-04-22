@@ -48,7 +48,7 @@ const getMonthFromDate = (dateString: string) => {
 };
 
 export default function ChartSection() {
-  const [selectedChart, setSelectedChart] = useState<'practice' | 'lessons'>('practice');
+  const [selectedChart, setSelectedChart] = useState<'practice' | 'lessons' | 'tasks'>('practice');
   const { tasks, taskCompletionHistory } = useTaskStore();
   const { lessons } = useLessonStore();
   const theme = useTheme();
@@ -61,7 +61,8 @@ export default function ChartSection() {
     // 月ごとのデータを初期化
     const monthlyData = {
       practice: Array(months.length).fill(0),
-      lessons: Array(months.length).fill(0)
+      lessons: Array(months.length).fill(0),
+      tasks: Array(months.length).fill(0)
     };
     
     // ユニークな練習日を月ごとに集計
@@ -96,6 +97,15 @@ export default function ChartSection() {
       }
     });
     
+    // タスク作成数を月ごとに集計
+    tasks.forEach(task => {
+      if (!task.createdAt) return;
+      const date = new Date(task.createdAt);
+      const mon = date.getMonth() + 1;
+      const idx = months.findIndex(m => parseInt(m) === mon);
+      if (idx !== -1) monthlyData.tasks[idx]++;
+    });
+    
     return {
       months,
       data: monthlyData
@@ -118,10 +128,16 @@ export default function ChartSection() {
     labels: months,
     datasets: [
       {
-        data: selectedChart === 'practice' ? data.practice : data.lessons,
+        data: selectedChart === 'practice'
+                ? data.practice
+                : selectedChart === 'lessons'
+                  ? data.lessons
+                  : data.tasks,
         color: (opacity = 1) => selectedChart === 'practice' 
           ? `rgba(76, 175, 80, ${opacity})` 
-          : `rgba(255, 152, 0, ${opacity})`,
+          : selectedChart === 'lessons'
+            ? `rgba(255, 152, 0, ${opacity})`
+            : `rgba(0, 0, 0, ${opacity})`,
       }
     ]
   };
@@ -170,6 +186,26 @@ export default function ChartSection() {
             レッスン
           </Text>
         </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[
+            styles.tabButton, 
+            selectedChart === 'tasks' && styles.selectedTab
+          ]}
+          onPress={() => setSelectedChart('tasks')}
+        >
+          <MaterialIcons 
+            name="checklist" 
+            size={16} 
+            color={selectedChart === 'tasks' ? theme.colors.primary : '#757575'} 
+          />
+          <Text style={[
+            styles.tabText, 
+            selectedChart === 'tasks' && styles.selectedTabText
+          ]}>
+            タスク
+          </Text>
+        </TouchableOpacity>
       </View>
       
       <View style={styles.chartContainer}>
@@ -192,12 +228,16 @@ export default function ChartSection() {
           <Text style={styles.statValue}>
             {selectedChart === 'practice'
                 ? data.practice.reduce((sum, val) => sum + val, 0)
-                : data.lessons.reduce((sum, val) => sum + val, 0)}
+                : selectedChart === 'lessons'
+                  ? data.lessons.reduce((sum, val) => sum + val, 0)
+                  : data.tasks.reduce((sum, val) => sum + val, 0)}
           </Text>
           <Text style={styles.statLabel}>
             {selectedChart === 'practice'
                 ? '半年間の練習日数'
-                : '半年間のレッスン数'}
+                : selectedChart === 'lessons'
+                  ? '半年間のレッスン数'
+                  : '半年間のタスク数'}
           </Text>
         </View>
         
@@ -205,7 +245,9 @@ export default function ChartSection() {
           <Text style={styles.statValue}>
             {selectedChart === 'practice'
                 ? Math.max(...data.practice)
-                : Math.max(...data.lessons)}
+                : selectedChart === 'lessons'
+                  ? Math.max(...data.lessons)
+                  : Math.max(...data.tasks)}
           </Text>
           <Text style={styles.statLabel}>最も多い月の回数</Text>
         </View>
@@ -250,7 +292,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 10,
     paddingHorizontal: 12,
-    width: '50%', // 2つのタブなので50%
+    width: '33.33%', // 3つのタブなので33.33%
   },
   selectedTab: {
     backgroundColor: '#ffffff',

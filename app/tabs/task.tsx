@@ -224,12 +224,14 @@ export default function TaskScreen() {
           />
         )}
         
-        <TaskList 
-          tasks={filteredTasks}
-          isLoading={refreshing}
-          error={null}
-          themeColor={TASK_THEME_COLOR}
-        />
+        <View style={styles.taskListContainer}>
+          <TaskList 
+            tasks={filteredTasks}
+            isLoading={refreshing}
+            error={null}
+            themeColor={TASK_THEME_COLOR}
+          />
+        </View>
       </View>
       
       {/* FABボタン */}
@@ -257,12 +259,19 @@ export default function TaskScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f8f8',
     position: 'relative',
     overflow: 'hidden',
   },
   content: {
     flex: 1,
+  },
+  taskListContainer: {
+    flex: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+    marginTop: 4,
   },
   fab: {
     position: 'absolute',

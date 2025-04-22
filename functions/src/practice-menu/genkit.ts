@@ -485,4 +485,53 @@ export const generatePracticeRecommendation = onCall({
       }
     };
   }
+});
+
+// 新規: レッスン詳細画面のAIサマリーからタスクを生成するCloud Functionを追加
+export const generateTasksFromLesson = onCall({
+  enforceAppCheck: false, // 本番環境ではtrueに設定
+  region: FUNCTION_REGION,
+}, async (request) => {
+  // 認証チェック
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', '認証が必要です');
+  }
+  const userId = request.auth.uid;
+  // パラメータ取得
+  const {
+    lessonId,
+    aiSummary,
+    tags,
+    instrument,
+    difficulty
+  } = request.data as {
+    lessonId: string;
+    aiSummary: string;
+    tags: string[];
+    instrument: string;
+    difficulty?: string;
+  };
+  logger.info('generateTasksFromLesson: リクエスト受信', { userId, lessonId, instrument, difficulty, tags });
+
+  // 難易度をEnumに変換
+  let level: DifficultyLevel;
+  switch (difficulty) {
+    case DifficultyLevel.BEGINNER:
+    case '初級':
+      level = DifficultyLevel.BEGINNER;
+      break;
+    case DifficultyLevel.ADVANCED:
+    case '上級':
+      level = DifficultyLevel.ADVANCED;
+      break;
+    default:
+      level = DifficultyLevel.INTERMEDIATE;
+      break;
+  }
+
+  // Firestoreから練習メニューを検索（最大5件）
+  const menus = await searchPracticeMenuRecommendations(aiSummary, instrument, level, 5);
+
+  // レスポンスを返却
+  return { menus };
 }); 
