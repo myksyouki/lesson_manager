@@ -385,11 +385,31 @@ export default function AILessonScreen() {
 
   const renderChatRoomItem = useCallback(({ item, index }: { item: ChatRoom, index: number }) => {
     const isSelected = selectedRoomIds.includes(item.id);
-    
+    // 最終メッセージ取得
+    const lastMessage = item.messages && item.messages.length > 0 ? item.messages[item.messages.length - 1] : null;
+    // 未読件数（現状は0固定。将来的にサーバー連携で管理）
+    const unreadCount = 0;
+
+    // 日付の人間的表現
+    let dateLabel = '日付なし';
+    if (item.updatedAt && item.updatedAt.seconds) {
+      const date = new Date(item.updatedAt.seconds * 1000);
+      const now = new Date();
+      if (date.toDateString() === now.toDateString()) {
+        dateLabel = '今日';
+      } else {
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        if (date.toDateString() === yesterday.toDateString()) {
+          dateLabel = '昨日';
+        } else {
+          dateLabel = `${date.getMonth() + 1}/${date.getDate()}`;
+        }
+      }
+    }
+
     return (
-      <Animated.View 
-        entering={SlideInRight.delay(index * 100).springify().damping(15)}
-      >
+      <View>
         <RippleButton
           onPress={() => handleOpenRoom(item.id)}
           onLongPress={() => handleLongPress(item.id)}
@@ -411,57 +431,55 @@ export default function AILessonScreen() {
               </View>
             </View>
           )}
-          
           <View style={styles.chatRoomContent}>
-            <Text style={[styles.chatRoomTitle, { color: theme.colors.text }]}>{item.title}</Text>
-            <View style={styles.topicContainer}>
-              <Text style={[styles.chatRoomTopic, { backgroundColor: theme.colors.primaryLight, color: theme.colors.textInverse }]}>
-                {item.topic}
-              </Text>
-              {item.modelType && (
-                <Text style={[styles.modelType, { backgroundColor: theme.colors.secondaryLight, color: theme.colors.textInverse }]}>
-                  {getModelDisplayName(item.modelType)}
-                </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[styles.chatRoomTitle, { color: theme.colors.text, flex: 1 }]} numberOfLines={1}>{item.title}</Text>
+              {/* 未読バッジ */}
+              {unreadCount > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+                </View>
               )}
             </View>
-            <Text style={[styles.date, { color: theme.colors.textTertiary }]}>
-              {!item.updatedAt ? '日付なし' 
-                : new Date(item.updatedAt.seconds * 1000).toLocaleDateString('ja-JP')}
-            </Text>
+            <View style={styles.topicContainer}>
+              <Text style={[styles.chatRoomTopic, { backgroundColor: theme.colors.primaryLight, color: theme.colors.textInverse }]}> {item.topic} </Text>
+            </View>
+            {/* 最終メッセージプレビュー */}
+            {lastMessage && (
+              <Text style={styles.lastMessagePreview} numberOfLines={1}>
+                {lastMessage.sender === 'user' ? 'あなた: ' : lastMessage.sender === 'ai' ? 'AI: ' : ''}{lastMessage.content}
+              </Text>
+            )}
+            <Text style={[styles.date, { color: theme.colors.textTertiary }]}> {dateLabel} </Text>
           </View>
-          
           {!isSelectionMode && (
             <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
           )}
         </RippleButton>
-      </Animated.View>
+      </View>
     );
   }, [theme.colors, handleOpenRoom, handleLongPress, isSelectionMode, selectedRoomIds]);
 
   const renderPracticeChatRoomItem = useCallback(({ item, index }: { item: ChatRoom, index: number }) => (
-    <Animated.View 
-      entering={SlideInRight.delay(index * 100).springify().damping(15)}
+  <View>
+    <RippleButton
+      onPress={() => handleOpenRoom(item.id)}
+      rippleColor={theme.colors.ripple} 
+      style={styles.chatRoomItem}
     >
-      <RippleButton
-        onPress={() => handleOpenRoom(item.id)}
-        rippleColor={theme.colors.ripple} 
-        style={styles.chatRoomItem}
-      >
-        <View style={styles.practiceIconContainer}>
-          <FontAwesome5 name="music" size={20} color={'#FFFFFF'} />
+      <View style={styles.practiceIconContainer}>
+        <FontAwesome5 name="music" size={20} color={'#FFFFFF'} />
+      </View>
+      <View style={styles.chatRoomContent}>
+        <Text style={[styles.chatRoomTitle, { color: theme.colors.text }]}>{item.title}</Text>
+        <View style={styles.topicContainer}>
+          <Text style={[styles.chatRoomTopic, { backgroundColor: theme.colors.primaryLight, color: theme.colors.textInverse }]}> {item.topic} </Text>
         </View>
-        <View style={styles.chatRoomContent}>
-          <Text style={[styles.chatRoomTitle, { color: theme.colors.text }]}>{item.title}</Text>
-          <View style={styles.topicContainer}>
-            <Text style={[styles.chatRoomTopic, { backgroundColor: theme.colors.primaryLight, color: theme.colors.textInverse }]}>
-              {item.topic}
-            </Text>
-          </View>
-        </View>
-        <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
-      </RippleButton>
-    </Animated.View>
-  ), [theme.colors, handleOpenRoom]);
+      </View>
+      <MaterialIcons name="chevron-right" size={24} color={theme.colors.primary} />
+    </RippleButton>
+  </View>
+), [theme.colors, handleOpenRoom]);
 
   const EmptyState = useCallback(() => {
     console.log('Rendering EmptyState');
@@ -765,14 +783,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginRight: 8,
   },
-  modelType: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    fontSize: 12,
-    fontWeight: '500',
-    overflow: 'hidden',
-  },
   date: {
     fontSize: 12,
     color: '#9AA0A6',
@@ -963,5 +973,27 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  lastMessagePreview: {
+    fontSize: 13,
+    color: '#5F6368',
+    marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  unreadBadge: {
+    backgroundColor: '#EA4335',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+    paddingHorizontal: 6,
+  },
+  unreadBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });

@@ -174,7 +174,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
       style={[
         styles.container, 
         task.completed && styles.completedContainer,
-        isSelected && styles.selectedContainer
+        isSelected && styles.selectedContainer,
+        task.isPinned && styles.pinnedContainer
       ]}
       onPress={handlePress}
       onLongPress={handleLongPress}
@@ -200,12 +201,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {isSelected && (
               <View style={styles.selectedIndicator}>
                 <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
-              </View>
-            )}
-            
-            {!isSelected && task.isPinned && (
-              <View style={styles.pinnedIndicator}>
-                <MaterialIcons name="push-pin" size={16} color="#FFD700" />
               </View>
             )}
           </View>
@@ -301,6 +296,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#4CAF50',
     backgroundColor: '#E8F5E9',
+  },
+  pinnedContainer: {
+    backgroundColor: '#FFF9E1',
   },
   card: {
     backgroundColor: 'transparent',

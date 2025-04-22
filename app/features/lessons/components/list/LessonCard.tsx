@@ -62,7 +62,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
       if (onPress) {
         onPress();
       } else {
-        router.push(`/(lesson-detail)/${lessonId}` as any);
+        router.push(`/lesson-detail/${lessonId}`);
       }
     }
   };

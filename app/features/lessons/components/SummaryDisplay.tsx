@@ -114,6 +114,12 @@ export const SummaryDisplay: React.FC<SummaryDisplayProps> = ({
           </View>
         ) : (
           <View style={styles.placeholderContainer}>
+            {status === 'error' && (
+              <>
+                <MaterialIcons name="error-outline" size={24} color="#EA4335" style={styles.placeholderIcon} />
+                <Text style={styles.placeholderText}>サマリー取得エラー</Text>
+              </>
+            )}
             {status === 'processing' && (
               <>
                 <MaterialIcons name="hourglass-bottom" size={24} color="#8E8E93" style={styles.placeholderIcon} />

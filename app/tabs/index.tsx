@@ -26,7 +26,7 @@ import { MaterialCommunityIcons, Ionicons, MaterialIcons } from '@expo/vector-ic
 import { FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { getUserChatRooms, ChatRoom as ChatRoomType } from '../../services/chatRoomService';
-import { auth } from '../config/firebase';
+import { auth } from '../../config/firebase';
 import { getAIRecommendedPracticeMenus } from '../../services/practiceRecommendationService';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -1233,22 +1233,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 2,
   },
-  practiceMenuTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 8,
-  },
-  practiceMenuTag: {
-    backgroundColor: '#E3F2FD',
-    color: '#1976D2',
-    fontSize: 12,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginRight: 4,
-    marginBottom: 2,
-  },
   practiceMenuDescription: {
     fontSize: 15,
     color: '#444',
@@ -1320,5 +1304,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  practiceMenuTags: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 6,
+  },
+  practiceMenuTag: {
+    backgroundColor: '#F0EDFF',
+    color: '#7C4DFF',
+    fontWeight: '600',
+    fontSize: 13,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
   },
 });

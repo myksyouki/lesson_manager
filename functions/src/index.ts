@@ -10,7 +10,9 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
+import * as functionsV1 from "firebase-functions/v1";
 import * as functions from "firebase-functions";
+// pubsubのimportは不要です。functionsV1から直接アクセス可能です
 
 // ユーティリティ
 import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
@@ -19,10 +21,10 @@ import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
 // プロジェクトモジュール
 import {generateTasksFromLessons} from "./practice-menu/index";
 import { practiceMenuFunctions } from './practice-menu';
-import { testOpenAIConnection, generatePracticeRecommendation } from './practice-menu/genkit';
+import { testOpenAIConnection, generatePracticeRecommendation, generateTasksFromLesson } from './practice-menu/genkit';
 import { setAdminRole, initializeAdmin } from './tools/admin-setup';
 import { FUNCTION_REGION } from './config';
-import { processAudioOnUpload } from "./summaries/triggers";
+import { processAudioOnUpload } from "./summaries";
 
 // Firebaseの初期化（まだ初期化されていない場合）
 if (admin.apps.length === 0) {
@@ -772,13 +774,18 @@ export {
   // 管理者設定関連
   setAdminRole,
   initializeAdmin,
+  // 練習メニュー関連の関数をエクスポート
+  testOpenAIConnection,
+  generatePracticeRecommendation,
+  generateTasksFromLesson,
+  // レッスンサマリー関連
+  processAudioOnUpload,
 };
 
 // 練習メニュー関連の関数をエクスポート
 export const getSheetMusic = practiceMenuFunctions.getSheetMusic;
 export const createPracticeMenu = practiceMenuFunctions.createPracticeMenu;
 export const uploadSheetMusic = practiceMenuFunctions.uploadSheetMusic;
-export { testOpenAIConnection, generatePracticeRecommendation };
 
 /**
  * チャットルームの会話履歴からタスクを作成するCloud Function
@@ -981,9 +988,8 @@ export const testPracticeRecommendation = onCall({
  * 予約されたアカウントの削除処理を行うスケジュール関数
  * 毎日午前3時に実行され、削除期限が過ぎたアカウントを削除する
  */
-export const processScheduledAccountDeletions = functions
-  .region('asia-northeast1')
-  .pubsub.schedule('0 3 * * *')  // 毎日午前3時に実行
+export const processScheduledAccountDeletions = functionsV1.pubsub
+  .schedule('0 3 * * *')
   .timeZone('Asia/Tokyo')
   .onRun(async (context) => {
     const now = admin.firestore.Timestamp.now();

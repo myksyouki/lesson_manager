@@ -43,7 +43,7 @@ export const Calendar: React.FC<CalendarProps> = ({
   const daySize = Math.floor(calendarWidth / 7);
   
   const translateX = useSharedValue(0);
-  const context = useSharedValue({ x: 0 });
+  const startX = useSharedValue(0);
 
   const changeMonth = (increment: number) => {
     const newMonth = new Date(currentMonth);
@@ -53,10 +53,10 @@ export const Calendar: React.FC<CalendarProps> = ({
 
   const panGesture = Gesture.Pan()
     .onStart(() => {
-      context.value = { x: translateX.value };
+      startX.value = translateX.value;
     })
     .onUpdate((event) => {
-      translateX.value = event.translationX + context.value.x;
+      translateX.value = event.translationX + startX.value;
     })
     .onEnd((event) => {
       const threshold = calendarWidth / 3;
