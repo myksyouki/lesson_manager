@@ -511,80 +511,6 @@ export default function PracticeMenuGenerator() {
     }
   };
 
-  // サンプルタスクを作成する処理
-  const handleCreateSampleTask = async () => {
-    try {
-      // サンプルの練習ステップを作成
-      const sampleSteps = [
-        {
-          id: `step_${Date.now()}_1`,
-          title: 'ロングトーン練習',
-          description: '息の流れを一定に保ちながら、音の強弱をコントロールする練習です。',
-          duration: '10',
-          orderIndex: 0
-        },
-        {
-          id: `step_${Date.now()}_2`,
-          title: '指のトレーニング',
-          description: '特に難しいフレーズを集中的に練習し、指の独立性を高めます。',
-          duration: '15',
-          orderIndex: 1
-        },
-        {
-          id: `step_${Date.now()}_3`,
-          title: '表現力の向上',
-          description: '曲の感情表現に焦点を当て、強弱とリズムの変化を意識します。',
-          duration: '15',
-          orderIndex: 2
-        }
-      ];
-
-      // タスクデータを構築
-      const taskData = {
-        title: 'ムーンライト・ソナタの練習',
-        description: '第1楽章の冒頭部分を中心に、ペダリングと音色の変化に注意して練習しましょう。特に右手のアルペジオ部分はなめらかさを意識し、左手の低音部は音が膨らみすぎないように注意してください。',
-        content: '第1楽章の冒頭部分を中心に、ペダリングと音色の変化に注意して練習',
-        dueDate: new Date(),
-        completed: false,
-        isCompleted: false,
-        tags: ['ピアノ', 'クラシック', '表現'],
-        practiceDate: new Date().toISOString(),
-        priority: 'medium',
-        steps: sampleSteps,
-        attachments: [{
-          type: 'image' as const,
-          url: '/assets/images/music-note.png',
-          format: 'image/png'
-        }]
-      };
-
-      // タスクを作成
-      await addTask(taskData);
-      
-      // タスク一覧画面に戻る
-      router.replace({
-        pathname: '/tabs/task',
-        params: { isNewlyCreated: 'true' }
-      });
-      
-      // 成功メッセージを表示
-      Alert.alert(
-        'サンプルタスク作成完了',
-        'ムーンライト・ソナタの練習メニューを作成しました',
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      console.error('タスク作成エラー:', error);
-      
-      // エラーメッセージを表示
-      Alert.alert(
-        'タスク作成エラー',
-        'タスクの作成に失敗しました',
-        [{ text: 'OK' }]
-      );
-    }
-  };
-
   // 楽譜表示処理
   const handleShowSheetMusic = (url: string) => {
     setSelectedSheetMusicUrl(url);
@@ -717,15 +643,6 @@ export default function PracticeMenuGenerator() {
                     textAlignVertical="top"
                   />
                 </View>
-              </View>
-
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity
-                  style={styles.generateButton}
-                  onPress={handleCreateSampleTask}
-                >
-                  <Text style={styles.generateButtonText}>サンプルタスクを作成</Text>
-                </TouchableOpacity>
               </View>
 
               <View style={styles.buttonContainer}>

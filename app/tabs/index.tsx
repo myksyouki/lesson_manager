@@ -79,7 +79,7 @@ export default function HomeScreen() {
   const isLargeDevice = width >= 428; // iPhone Max等の大型デバイス
 
   const [isLoading, setIsLoading] = useState(false);
-  const { getFavorites } = useLessonStore();
+  const { getFavorites, fetchLessons } = useLessonStore();
   const { tasks, fetchTasks, generateTasksFromLessons, getMonthlyPracticeCount, getPinnedTasks, toggleTaskCompletion, addTask } = useTaskStore();
   const { user } = useAuthStore();
   const favoriteLesson = getFavorites();
@@ -183,7 +183,13 @@ export default function HomeScreen() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      await fetchTasks(user?.uid || '');
+      if (user) {
+        // タスクとレッスンを読み込む
+        await Promise.all([
+          fetchTasks(user.uid),
+          fetchLessons(user.uid)
+        ]);
+      }
       setIsLoading(false);
     } catch (error) {
       console.error('データ読み込みエラー:', error);
@@ -223,7 +229,7 @@ export default function HomeScreen() {
 
   const navigateToChatRoom = (chatId: string) => {
     router.push({
-      pathname: '/chat/[id]',
+      pathname: '/chat-room',
       params: { id: chatId }
     } as any);
   };
@@ -456,8 +462,13 @@ export default function HomeScreen() {
       const rooms = await getUserChatRooms(user.uid);
       console.log(`ホーム画面: チャットルーム取得完了 (${rooms.length}件)`);
       
-      // 最新の3件だけを表示
-      setRecentChatRooms(rooms.slice(0, 3));
+      // 作成日時(createdAt)の降順でソートして最新作成チャットルームを先頭にする
+      const sorted = rooms.slice().sort((a, b) => {
+        const getMillis = (ts: any) => ts.toMillis ? ts.toMillis() : (ts.seconds * 1000 + (ts.nanoseconds || 0) / 1e6);
+        return getMillis(b.createdAt) - getMillis(a.createdAt);
+      });
+      // 最新の3件を表示
+      setRecentChatRooms(sorted.slice(0, 3));
     } catch (error) {
       console.error('ホーム画面: チャットルーム取得エラー:', error);
     } finally {
@@ -567,7 +578,7 @@ export default function HomeScreen() {
       {
         title: 'チャット',
         subtitle: latestChatRoom ? latestChatRoom.title : 'なし',
-        icon: <MaterialIcons name="chat" size={28} color={theme.colors.accent} />,
+        icon: <MaterialIcons name="chat" size={28} color={theme.colors.tertiary} />,
         onPress: () => latestChatRoom && navigateToChatRoom(latestChatRoom.id),
         disabled: !latestChatRoom,
       },
