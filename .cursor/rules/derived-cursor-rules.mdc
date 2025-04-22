@@ -44,7 +44,7 @@ functions/src/
       ├── firestore.ts           # Firestore操作
       ├── audio.ts             # 音声ファイル操作
       ├── llm.ts               # AI/LLM共通処理
-      ├── errors.ts            # エラー処理
+      ├── errors.ts             # エラー処理
       ├── secret.ts            # シークレット管理
       └── dify.ts              # Dify API連携機能
 ```
@@ -70,7 +70,8 @@ app/
   │   └── forgot-password.tsx
   ├── subscription/            # サブスクリプション管理
   │   ├── subscription.tsx
-  │   └── settings.tsx
+  │   ├── plans.tsx
+  │   └── manage.tsx
   ├── tabs/                    # メインタブ
   │   ├── _layout.tsx          # タブレイアウト
   │   ├── index.tsx            # ホーム画面
@@ -350,7 +351,7 @@ app/
 + アプリ内サブスクリプション機能を実装する
 + App StoreとGoogle Playのサブスクリプション管理へのリンクを追加する
 + ログイン画面のアプリ名を「Resonote」に変更する。(更新)
-+ 設定画面のバージョン表示を0.0.2に変更する
++ 設定画面のバージョンの表示を0.0.2に変更する
 + ログイン画面のテストユーザーボタンを一時的に非表示にする
 + 設定画面のGoogleクライアントIDの更新が必要
 + Googleログインボタンのディセンダーが切れている問題を修正する
@@ -421,4 +422,4 @@ app/
 
 ## プロジェクト概要
 
-Resonoteは、ユーザーが音楽レッスンの録音をアップロードするとOpenAI Whisper APIで文字起こしし、Dify APIで要約・タグ付けを自動生成します。バックエンドにFirebase Functions/Firestore/Storageを採用し、フロントエンドはReact Native (Expo)およびExpo RouterでAndroid/iOS/Web向けにクロスプラットフォーム対応。AI
+Resonoteは、ユーザーが音楽レッスンの録音をアップロードするとOpenAI Whisper APIで文字起こしし、Dify APIで要約・タグ付けを自動生成します。バックエンドにFirebase Functions/Firestore/Storageを採用し、フロントエンドはReact Native (Expo)およびExpo RouterでAndroid/iOS/
