@@ -460,41 +460,32 @@ export default function LessonsScreen() {
       >
         {archivedSections.map(section => {
           const isExpanded = expandedSections.includes(section.title);
-          
           return (
-            <View key={section.title} style={styles.monthSection}>
-              {/* 月ヘッダー（フォルダー） - タップで開閉 */}
+            <View key={section.title} style={styles.archiveSectionContainer}>
+              {/* セクションヘッダー */}
               <TouchableOpacity
-                style={styles.monthHeader}
+                style={styles.archiveSectionHeader}
                 onPress={() => toggleSection(section.title)}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
               >
-                <View style={styles.monthHeaderLeft}>
-                  <MaterialIcons 
-                    name={isExpanded ? "folder-open" : "folder"} 
-                    size={24} 
-                    color="#4285F4" 
-                    style={styles.folderIcon} 
-                  />
-                  <Text style={styles.monthHeaderText}>{section.title}</Text>
+                <View style={styles.archiveSectionIcon}>
+                  <MaterialIcons name={isExpanded ? 'folder-open' : 'folder'} size={22} color="#4285F4" />
                 </View>
-                <View style={styles.monthHeaderRight}>
-                  <Text style={styles.monthHeaderCount}>{section.data.length}件</Text>
-                  <MaterialIcons
-                    name={isExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"}
-                    size={24}
-                    color="#5F6368"
-                    style={{ marginLeft: 8 }}
-                  />
+                <Text style={styles.archiveSectionTitle}>{section.title}</Text>
+                <View style={styles.archiveSectionCountBadge}>
+                  <Text style={styles.archiveSectionCountText}>{section.data.length}件</Text>
                 </View>
+                <MaterialIcons
+                  name={isExpanded ? 'expand-less' : 'expand-more'}
+                  size={24}
+                  color="#4285F4"
+                />
               </TouchableOpacity>
-              
               {/* 折りたたみ可能なレッスン一覧 */}
               <Collapsible collapsed={!isExpanded} duration={300}>
-                <View style={styles.monthContent}>
+                <View style={styles.archiveSectionContent}>
                   {section.data.map(item => (
-                    <View key={item.id} style={[styles.lessonCardContainer, styles.folderItemContainer]}>
-                      <View style={styles.folderItemLine} />
+                    <View key={item.id} style={styles.archiveLessonCardWrap}>
                       <LessonCard
                         lesson={item}
                         onPress={() => {
@@ -1118,5 +1109,60 @@ const styles = StyleSheet.create({
     width: 2,
     backgroundColor: 'rgba(66, 133, 244, 0.3)',
     zIndex: 1,
+  },
+  archiveSectionContainer: {
+    backgroundColor: '#F6FAFF',
+    borderRadius: 16,
+    marginHorizontal: 4,
+    marginBottom: 18,
+    paddingBottom: 8,
+    paddingTop: 2,
+    shadowColor: '#4285F4',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  archiveSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F0FF',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
+    marginHorizontal: 8,
+    shadowColor: '#4285F4',
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  archiveSectionIcon: {
+    marginRight: 8,
+  },
+  archiveSectionTitle: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#4285F4',
+    flex: 1,
+  },
+  archiveSectionCountBadge: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#B3D1FF',
+  },
+  archiveSectionCountText: {
+    color: '#4285F4',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  archiveSectionContent: {
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+  },
+  archiveLessonCardWrap: {
+    marginBottom: 14,
   },
 });
