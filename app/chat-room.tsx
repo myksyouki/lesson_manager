@@ -337,7 +337,7 @@ export default function ChatRoomScreen() {
       <Modal
         visible={isModelModalVisible}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setIsModelModalVisible(false)}
       >
         <View style={styles.modalOverlay}>

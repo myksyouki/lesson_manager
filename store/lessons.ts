@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { db, auth } from '../config/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, serverTimestamp, FieldValue } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const FAVORITES_KEY = 'lessonFavorites';
 
 export interface Lesson {
   id: string;
@@ -37,7 +40,7 @@ interface LessonStore {
   addLesson: (lesson: Omit<Lesson, 'id' | 'created_at' | 'updated_at'>) => Promise<string>;
   updateLesson: (lesson: Lesson) => Promise<void>;
   deleteLesson: (id: string) => Promise<void>;
-  toggleFavorite: (id: string) => void;
+  toggleFavorite: (id: string) => Promise<void>;
   getFavorites: () => Lesson[];
   setLessons: (lessons: Lesson[]) => void;
   updateLocalLesson: (id: string, lessonData: Partial<Lesson>) => void;
@@ -125,23 +128,15 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
       });
 
       console.log(`有効なレッスン数: ${lessons.length}`);
-      const archivedCount = lessons.filter(lesson => lesson.isArchived === true).length;
-      console.log(`うちアーカイブされたレッスン: ${archivedCount}件`);
-      
-      if (lessons.length > 0) {
-        console.log('最初のレッスンサンプル:', {
-          id: lessons[0].id,
-          teacher: lessons[0].teacher,
-          date: lessons[0].date,
-          pieces: lessons[0].pieces,
-          status: lessons[0].status,
-          summaryExists: !!lessons[0].summary,
-          tagsCount: lessons[0].tags?.length || 0,
-          isArchived: lessons[0].isArchived
-        });
-      }
-
-      set({ lessons, isLoading: false });
+      // 永続化されたお気に入り順に並べ替え
+      const stored = await AsyncStorage.getItem(FAVORITES_KEY);
+      const favOrder: string[] = stored ? JSON.parse(stored) : [];
+      const favLessons = lessons.filter(l => favOrder.includes(l.id));
+      const orderedFav = favOrder.map(id => favLessons.find(l => l.id === id)).filter(Boolean) as Lesson[];
+      const nonFav = lessons.filter(l => !favOrder.includes(l.id));
+      // isFavoriteをAsyncStorageに基づいて上書き
+      const combined = [...orderedFav, ...nonFav].map(l => ({ ...l, isFavorite: favOrder.includes(l.id) }));
+      set({ lessons: combined, isLoading: false });
     } catch (error: any) {
       console.error('レッスンデータ取得エラー:', error);
       set({ error: error.message, isLoading: false });
@@ -227,12 +222,29 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
     }
   },
 
-  toggleFavorite: (id) => {
-    set((state) => ({
-      lessons: state.lessons.map((lesson) =>
-        lesson.id === id ? { ...lesson, isFavorite: !lesson.isFavorite } : lesson
-      ),
-    }));
+  // お気に入りのトグルと永続化
+  toggleFavorite: async (id: string): Promise<void> => {
+    // お気に入りIDリストをAsyncStorageから取得
+    const stored = await AsyncStorage.getItem(FAVORITES_KEY);
+    const favOrder: string[] = stored ? JSON.parse(stored) : [];
+    const stateLessons = get().lessons;
+    const isNowFav = !stateLessons.find(l => l.id === id)?.isFavorite;
+    // 新しいお気に入り順を構築
+    const newFavOrder = isNowFav
+      ? [id, ...favOrder.filter(fid => fid !== id)]
+      : favOrder.filter(fid => fid !== id);
+    await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(newFavOrder));
+    // lessonsの更新
+    const updatedLessons = stateLessons.map(l =>
+      l.id === id ? { ...l, isFavorite: isNowFav } : l
+    );
+    // お気に入りを先頭に並べ替え
+    const favLessonsList = updatedLessons.filter(l => newFavOrder.includes(l.id));
+    const orderedFavList = newFavOrder
+      .map(fid => favLessonsList.find(l => l.id === fid))
+      .filter(Boolean) as Lesson[];
+    const nonFavList = updatedLessons.filter(l => !newFavOrder.includes(l.id));
+    set({ lessons: [...orderedFavList, ...nonFavList] });
   },
 
   getFavorites: () => {
