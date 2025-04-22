@@ -480,7 +480,9 @@ export default function HomeScreen() {
       // Firestore から全メニューを取得し、楽器ごとにフィルタ
       const menus = await getPracticeMenus();
       const filtered = menus.filter(menu => menu.instrument === instrument);
-      setPracticeMenus(filtered.slice(0, 3)); // 最大3件まで表示
+      // ランダム表示するためにシャッフル
+      const shuffled = [...filtered].sort(() => Math.random() - 0.5);
+      setPracticeMenus(shuffled.slice(0, 3)); // 先頭3件を表示
     } catch (error) {
       console.error('練習メニューの取得に失敗しました:', error);
     } finally {
