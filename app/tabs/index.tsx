@@ -222,7 +222,7 @@ export default function HomeScreen() {
 
   const navigateToTaskDetail = (taskId: string) => {
     router.push({
-      pathname: '/tabs/task/[id]',
+      pathname: '/task-detail',
       params: { id: taskId }
     } as any);
   };
@@ -714,12 +714,6 @@ export default function HomeScreen() {
                         </LinearGradient>
                         {/* タイトル */}
                         <Text style={styles.practiceMenuTitle}>{menu.title}</Text>
-                        {/* ラベル群 */}
-                        <View style={styles.practiceMenuLabels}>
-                          <Text style={styles.practiceMenuLabel}>{menu.category}</Text>
-                          <Text style={styles.practiceMenuLabel}>{menu.difficulty}</Text>
-                          <Text style={styles.practiceMenuLabel}>{menu.duration}分</Text>
-                        </View>
                         {/* 説明 */}
                         <Text style={styles.practiceMenuDescription}>{menu.description}</Text>
                         {/* ステップリスト */}
@@ -1204,20 +1198,6 @@ const styles = StyleSheet.create({
     color: '#222',
     marginBottom: 10,
     lineHeight: 28,
-  },
-  practiceMenuLabels: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 6,
-  },
-  practiceMenuLabel: {
-    backgroundColor: '#F0EDFF',
-    color: '#7C4DFF',
-    fontWeight: '600',
-    fontSize: 13,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
   },
   practiceMenuDescription: {
     fontSize: 15,
