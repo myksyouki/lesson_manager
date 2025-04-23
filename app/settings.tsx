@@ -21,6 +21,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSettingsStore } from '../store/settings';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { useTheme } from '@react-navigation/native';
 
 // MenuItemの型定義
 interface MenuItemProps {
@@ -31,12 +32,13 @@ interface MenuItemProps {
 }
 
 export default function SettingsScreen() {
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, signOut, isDemo, exitDemoMode } = useAuthStore();
   const { theme, clearCache } = useSettingsStore();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const themeStyles = useTheme();
 
   const handleLogout = async () => {
     try {
@@ -165,18 +167,68 @@ export default function SettingsScreen() {
     );
   }
 
+  // デモモードからアカウント作成画面への遷移
+  const handleCreateAccount = () => {
+    router.push('/auth/login');
+  };
+
+  // デモモードを終了して通常のログイン画面に戻る
+  const handleExitDemo = async () => {
+    try {
+      await exitDemoMode();
+      router.replace('/auth/login');
+    } catch (error) {
+      console.error('デモモード終了エラー:', error);
+    }
+  };
+
+  // デモモード時のアカウント作成セクション
+  const renderDemoModeSection = () => {
+    if (!isDemo) return null;
+    
+    return (
+      <View style={[styles.section, { backgroundColor: '#F5F5F5' }]}>
+        <View style={styles.sectionTitleContainer}>
+          <MaterialIcons name="account-circle" size={24} color="#4285F4" />
+          <Text style={styles.sectionTitle}>デモモード</Text>
+        </View>
+        
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={[styles.accountButton, { backgroundColor: '#4285F4' }]}
+            onPress={handleCreateAccount}
+          >
+            <MaterialIcons name="person-add" size={20} color="white" />
+            <Text style={styles.accountButtonText}>アカウントを作成する</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.exitButton, { backgroundColor: 'white', borderColor: '#DDDDDD' }]}
+            onPress={handleExitDemo}
+          >
+            <MaterialIcons name="logout" size={20} color="#333333" />
+            <Text style={[styles.exitButtonText, { color: '#333333' }]}>デモモードを終了</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeStyles.colors.background }]}>
       <StatusBar style="dark" />
       <ScrollView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>設定</Text>
+          <Text style={[styles.title, { color: themeStyles.colors.text }]}>設定</Text>
           {user && (
             <Text style={styles.subtitle}>
               ログイン中: {user.email}
             </Text>
           )}
         </View>
+
+        {/* デモモード時のアカウント作成セクション */}
+        {renderDemoModeSection()}
 
         {/* アカウントセクション */}
         <View style={styles.section}>
@@ -550,5 +602,45 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
     marginLeft: 16,
+  },
+  buttonContainer: {
+    marginVertical: 16,
+    alignItems: 'center',
+  },
+  accountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginBottom: 12,
+    width: '100%',
+  },
+  accountButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  exitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    width: '100%',
+  },
+  exitButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
 });

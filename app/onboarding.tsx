@@ -237,7 +237,8 @@ export default function OnboardingScreen() {
   const [currentInstrument, setCurrentInstrument] = useState<Instrument | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { setIsNewUser } = useAuthStore();
+  const { setOnboardingCompleted } = useAuthStore();
+  const [error, setError] = useState('');
 
   // 初期ロード時に既存のユーザープロファイルを確認
   useEffect(() => {
@@ -372,19 +373,15 @@ export default function OnboardingScreen() {
     try {
       setIsLoading(true);
       
-      // オンボーディング完了を保存
+      // オンボーディング完了フラグを設定
       await completeOnboarding();
+      setOnboardingCompleted(true);
       
-      // 新規ユーザーフラグをリセット
-      setIsNewUser(false);
-      
-      // ホーム画面に移動（正しいパスに修正）
-      console.log('ホーム画面へリダイレクト開始...');
-      router.replace('/'); // ルートパスへ直接リダイレクト
-      console.log('router.replace呼び出し完了 - ルートパスへリダイレクト');
+      // モード選択画面に遷移
+      router.replace('/mode-selection');
     } catch (error) {
       console.error('オンボーディング完了エラー:', error);
-      Alert.alert('エラー', 'オンボーディングの完了に失敗しました。再度お試しください。');
+      setError('オンボーディングの完了に失敗しました。もう一度お試しください。');
     } finally {
       setIsLoading(false);
     }

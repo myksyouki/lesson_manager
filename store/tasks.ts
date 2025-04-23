@@ -44,6 +44,7 @@ interface TaskStore {
   canPinMoreTasks: () => boolean;
   updateTaskOrder: (tasks: Task[], taskType: 'incomplete' | 'completed') => Promise<void>;
   fetchTasksWhenAuthenticated: () => Promise<boolean>;
+  setTasks: (tasks: Task[]) => void;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
@@ -51,6 +52,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   taskCompletionHistory: [],
   isLoading: false,
   error: null,
+
+  setTasks: (tasks) => {
+    console.log(`タスクストアを直接更新: ${tasks.length}件のタスクをセット`);
+    set({ tasks, isLoading: false });
+  },
 
   fetchTasks: async (userId) => {
     try {

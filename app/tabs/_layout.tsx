@@ -1,13 +1,14 @@
 import { Tabs } from 'expo-router';
-import { Platform, Dimensions, useWindowDimensions } from 'react-native';
+import { Platform, Dimensions, useWindowDimensions, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { TouchableOpacity, Text, StyleSheet, Animated, View } from 'react-native';
 import { useAuthStore } from '../../store/auth';
 import { useSettingsStore } from '../../store/settings';
 import { useTheme } from '../../theme';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
 // LINE風のタブバーの高さ設定
 const useTabBarHeight = () => {
@@ -123,7 +124,7 @@ const TabIndicator = ({
 export default function TabLayout() {
   const { tabHeight, bottomInset } = useTabBarHeight();
   const ICON_SIZE = 24; // LINE風のアイコンサイズ
-  const { signOut } = useAuthStore();
+  const { signOut, isDemo } = useAuthStore();
   const theme = useTheme();
   const { theme: themeName } = useSettingsStore();
 
@@ -177,16 +178,19 @@ export default function TabLayout() {
             iconName = 'settings';
           }
           
+          // ロックアイコンを削除し、全てのタブが利用可能にする
           return <AnimatedTabBarIcon name={iconName} color={color} size={ICON_SIZE} focused={focused} />;
         },
         tabBarLabel: ({ focused, color, children }) => {
           let label = children;
           if (route.name === 'analysis') label = '分析';
+          
+          // デモモード時のスタイル差異を削除
           return (
             <View style={{ position: 'relative', alignItems: 'center' }}>
               <Animated.Text
                 style={{
-                  color,
+                  color: color,
                   fontSize: 10,
                   fontFamily: theme.typography.fontFamily.medium,
                   fontWeight: focused ? '600' : '400',
@@ -216,7 +220,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="task"
         options={{
-          title: '練習',
+          title: 'タスク',
         }}
       />
       <Tabs.Screen
@@ -245,5 +249,13 @@ const styles = StyleSheet.create({
   logoutButton: {
     marginRight: 16,
     padding: 10,
+  },
+  lockIcon: {
+    position: 'absolute',
+    bottom: -2,
+    right: -6,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
 });

@@ -1,84 +1,78 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import React from 'react';
+import { Redirect } from 'expo-router';
 import { useAuthStore } from '../store/auth';
-import { auth } from '../config/firebase';
-import { checkOnboardingStatus } from '../services/userProfileService';
+import { ActivityIndicator, View, StyleSheet, Platform } from 'react-native';
+import { Text, Button } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '../constants/colors';
+import { Image } from 'react-native';
+import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
-// Firebase Functionsのエミュレータ設定（開発時に必要な場合）
-// import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
-// const functions = getFunctions();
-// if (__DEV__) {
-//   connectFunctionsEmulator(functions, 'localhost', 5001);
-// }
+export default function RootScreen() {
+  const { isAuthenticated, isDemo, isLoading, enterDemoMode } = useAuthStore();
+  const insets = useSafeAreaInsets();
 
-export default function IndexScreen() {
-  const router = useRouter();
-  const { user, isLoading } = useAuthStore();
-  const [initializing, setInitializing] = useState(true);
-  
-  // 適切な画面に遷移
-  useEffect(() => {
-    let isMounted = true;
-    
-    const checkAuthAndRedirect = async () => {
-      // 少し遅延を入れて他のコンポーネントのマウントを待つ
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      try {
-        console.log('🔍 認証状態確認中...');
-        
-        // ユーザーが認証されていない場合
-        if (!auth.currentUser && !isLoading) {
-          console.log('➡️ ログインへリダイレクト');
-          if (isMounted) {
-            router.replace('/auth/login');
-          }
-          return;
-        }
-        
-        // ユーザーが認証されている場合
-        if (auth.currentUser) {
-          // オンボーディング状態を確認
-          const onboardingCompleted = await checkOnboardingStatus();
-          
-          if (!onboardingCompleted) {
-            console.log('➡️ オンボーディングへリダイレクト');
-            if (isMounted) {
-              router.replace('/onboarding');
-            }
-          } else {
-            console.log('➡️ メイン画面へリダイレクト');
-            if (isMounted) {
-              router.replace('/tabs');
-            }
-          }
-        }
-      } catch (error) {
-        console.error('認証確認エラー:', error);
-        if (isMounted) {
-          router.replace('/auth/login');
-        }
-      } finally {
-        if (isMounted) {
-          setInitializing(false);
-        }
-      }
-    };
-    
-    checkAuthAndRedirect();
-    
-    // クリーンアップ関数
-    return () => {
-      isMounted = false;
-    };
-  }, [isLoading, router]);
-  
-  // ローディング中の表示
+  // 認証中はローディングを表示
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.text.accent} />
+        <Text style={styles.loadingText}>読み込み中...</Text>
+      </View>
+    );
+  }
+
+  // ログイン済みまたはデモモードの場合はタブ画面にリダイレクト
+  if (isAuthenticated || isDemo) {
+    return <Redirect href="/tabs" />;
+  }
+
+  // ユーザーがログインしていない場合はスタート画面を表示
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#007BFF" />
-      <Text style={styles.loadingText}>読み込み中...</Text>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar style="light" />
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('../assets/images/app-logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.title}>Resonote</Text>
+        <Text style={styles.subtitle}>練習をデザインする</Text>
+      </View>
+
+      <View style={styles.buttonContainer}>
+        <Button
+          mode="contained"
+          style={styles.loginButton}
+          labelStyle={styles.buttonLabel}
+          onPress={() => router.push('/auth/login')}
+        >
+          ログイン
+        </Button>
+        
+        <Button
+          mode="contained"
+          style={styles.signupButton}
+          labelStyle={styles.buttonLabel}
+          onPress={() => router.push('/auth/register')}
+        >
+          新規登録
+        </Button>
+        
+        <Button
+          mode="outlined"
+          style={styles.demoButton}
+          labelStyle={styles.demoButtonLabel}
+          onPress={() => enterDemoMode().then(() => router.push('/tabs'))}
+        >
+          デモモードで試す
+        </Button>
+      </View>
+      <Text style={styles.footer}>
+        {Platform.OS === 'web' ? 'v' + '1.0.0' : null}
+      </Text>
     </View>
   );
 }
@@ -86,13 +80,95 @@ export default function IndexScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background.primary,
+    padding: 20,
+  },
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.primary,
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: 10,
     fontSize: 16,
-    color: '#333',
+    color: colors.text.secondary,
+  },
+  logoContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 140,
+    height: 140,
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 14,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 20,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    letterSpacing: 1,
+    lineHeight: 28,
+  },
+  buttonContainer: {
+    width: '100%',
+    marginBottom: 40,
+  },
+  loginButton: {
+    marginBottom: 16,
+    backgroundColor: '#4A6572',
+    paddingVertical: 6,
+    borderRadius: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  signupButton: {
+    marginBottom: 16,
+    backgroundColor: '#344955',
+    paddingVertical: 6,
+    borderRadius: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  demoButton: {
+    borderColor: colors.text.accent,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  buttonLabel: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    paddingVertical: 4,
+    letterSpacing: 0.5,
+  },
+  demoButtonLabel: {
+    fontSize: 17,
+    color: colors.text.accent,
+    paddingVertical: 4,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center',
+    fontSize: 12,
+    color: colors.text.tertiary,
   },
 });

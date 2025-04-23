@@ -10,17 +10,17 @@ export interface PracticeMenu {
   title: string;
   description: string;
   instrumentId: string;
-  duration: number; // 分単位
-  sections: PracticeSection[];
+  duration: number;
+  exercises: {
+    id: string;
+    title: string;
+    description?: string;
+    duration: number;
+  }[];
+  isCompleted: boolean;
+  isFavorite: boolean;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface PracticeSection {
-  id: string;
-  title: string;
-  duration: number; // 分単位
-  description?: string;
 }
 
 /**
@@ -77,7 +77,9 @@ export const getPracticeMenus = async (): Promise<PracticeMenu[]> => {
         description: data.description,
         instrumentId: data.instrumentId,
         duration: data.duration,
-        sections: data.sections || [],
+        exercises: data.exercises || [],
+        isCompleted: data.isCompleted,
+        isFavorite: data.isFavorite || false,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
       });
@@ -93,7 +95,7 @@ export const getPracticeMenus = async (): Promise<PracticeMenu[]> => {
 /**
  * 特定の練習メニューを取得する
  */
-export const getPracticeMenu = async (menuId: string): Promise<PracticeMenu> => {
+export const getPracticeMenu = async (practiceMenuId: string): Promise<PracticeMenu> => {
   const { user, isDemo } = useAuthStore.getState();
   
   if (!user) {
@@ -117,7 +119,7 @@ export const getPracticeMenu = async (menuId: string): Promise<PracticeMenu> => 
         }
       }
       
-      const practiceMenu = practiceMenus.find(menu => menu.id === menuId);
+      const practiceMenu = practiceMenus.find(menu => menu.id === practiceMenuId);
       
       if (!practiceMenu) {
         throw new Error('練習メニューが見つかりませんでした');
@@ -132,22 +134,24 @@ export const getPracticeMenu = async (menuId: string): Promise<PracticeMenu> => 
   
   // 通常モードの場合
   try {
-    const menuDoc = await getDoc(doc(db, 'practiceMenus', menuId));
+    const practiceMenuDoc = await getDoc(doc(db, 'practiceMenus', practiceMenuId));
     
-    if (!menuDoc.exists()) {
+    if (!practiceMenuDoc.exists()) {
       throw new Error('練習メニューが見つかりませんでした');
     }
     
-    const data = menuDoc.data();
+    const data = practiceMenuDoc.data();
     
     return {
-      id: menuDoc.id,
+      id: practiceMenuDoc.id,
       userId: data.userId,
       title: data.title,
       description: data.description,
       instrumentId: data.instrumentId,
       duration: data.duration,
-      sections: data.sections || [],
+      exercises: data.exercises || [],
+      isCompleted: data.isCompleted,
+      isFavorite: data.isFavorite || false,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
     };
@@ -161,7 +165,7 @@ export const getPracticeMenu = async (menuId: string): Promise<PracticeMenu> => 
  * 練習メニューを作成する
  */
 export const createPracticeMenu = async (
-  menuData: Omit<PracticeMenu, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
+  practiceMenuData: Omit<PracticeMenu, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
 ): Promise<PracticeMenu> => {
   const { user, isDemo } = useAuthStore.getState();
   
@@ -170,8 +174,8 @@ export const createPracticeMenu = async (
   }
   
   const now = new Date().toISOString();
-  const newMenu: Omit<PracticeMenu, 'id'> = {
-    ...menuData,
+  const newPracticeMenu: Omit<PracticeMenu, 'id'> = {
+    ...practiceMenuData,
     userId: user.uid,
     createdAt: now,
     updatedAt: now,
@@ -194,12 +198,12 @@ export const createPracticeMenu = async (
         }
       }
       
-      const createdMenu: PracticeMenu = {
-        ...newMenu as any,
-        id: `demo-practice-${Date.now()}`,
+      const createdPracticeMenu: PracticeMenu = {
+        ...newPracticeMenu as any,
+        id: `demo-practice-menu-${Date.now()}`,
       };
       
-      practiceMenus.push(createdMenu);
+      practiceMenus.push(createdPracticeMenu);
       
       if (Platform.OS === 'web') {
         localStorage.setItem('demoPracticeMenus', JSON.stringify(practiceMenus));
@@ -207,7 +211,7 @@ export const createPracticeMenu = async (
         await AsyncStorage.setItem('demoPracticeMenus', JSON.stringify(practiceMenus));
       }
       
-      return createdMenu;
+      return createdPracticeMenu;
     } catch (error) {
       console.error('デモ練習メニューの作成に失敗しました:', error);
       throw new Error('デモ練習メニューの作成に失敗しました');
@@ -216,10 +220,10 @@ export const createPracticeMenu = async (
   
   // 通常モードの場合
   try {
-    const docRef = await addDoc(collection(db, 'practiceMenus'), newMenu);
+    const docRef = await addDoc(collection(db, 'practiceMenus'), newPracticeMenu);
     
     return {
-      ...newMenu,
+      ...newPracticeMenu,
       id: docRef.id,
     };
   } catch (error) {
@@ -232,8 +236,8 @@ export const createPracticeMenu = async (
  * 練習メニューを更新する
  */
 export const updatePracticeMenu = async (
-  menuId: string,
-  menuData: Partial<PracticeMenu>
+  practiceMenuId: string,
+  practiceMenuData: Partial<PracticeMenu>
 ): Promise<PracticeMenu> => {
   const { user, isDemo } = useAuthStore.getState();
   
@@ -242,7 +246,7 @@ export const updatePracticeMenu = async (
   }
   
   const updateData = {
-    ...menuData,
+    ...practiceMenuData,
     updatedAt: new Date().toISOString(),
   };
   
@@ -263,18 +267,18 @@ export const updatePracticeMenu = async (
         }
       }
       
-      const menuIndex = practiceMenus.findIndex(menu => menu.id === menuId);
+      const practiceMenuIndex = practiceMenus.findIndex(menu => menu.id === practiceMenuId);
       
-      if (menuIndex === -1) {
+      if (practiceMenuIndex === -1) {
         throw new Error('練習メニューが見つかりませんでした');
       }
       
-      const updatedMenu = {
-        ...practiceMenus[menuIndex],
+      const updatedPracticeMenu = {
+        ...practiceMenus[practiceMenuIndex],
         ...updateData,
       };
       
-      practiceMenus[menuIndex] = updatedMenu;
+      practiceMenus[practiceMenuIndex] = updatedPracticeMenu;
       
       if (Platform.OS === 'web') {
         localStorage.setItem('demoPracticeMenus', JSON.stringify(practiceMenus));
@@ -282,7 +286,7 @@ export const updatePracticeMenu = async (
         await AsyncStorage.setItem('demoPracticeMenus', JSON.stringify(practiceMenus));
       }
       
-      return updatedMenu;
+      return updatedPracticeMenu;
     } catch (error) {
       console.error('デモ練習メニューの更新に失敗しました:', error);
       throw new Error('デモ練習メニューの更新に失敗しました');
@@ -291,21 +295,23 @@ export const updatePracticeMenu = async (
   
   // 通常モードの場合
   try {
-    const menuRef = doc(db, 'practiceMenus', menuId);
-    await updateDoc(menuRef, updateData);
+    const practiceMenuRef = doc(db, 'practiceMenus', practiceMenuId);
+    await updateDoc(practiceMenuRef, updateData);
     
     // 更新後のデータを取得
-    const updatedDoc = await getDoc(menuRef);
+    const updatedDoc = await getDoc(practiceMenuRef);
     const data = updatedDoc.data();
     
     return {
-      id: menuId,
+      id: practiceMenuId,
       userId: data?.userId,
       title: data?.title,
       description: data?.description,
       instrumentId: data?.instrumentId,
       duration: data?.duration,
-      sections: data?.sections || [],
+      exercises: data?.exercises || [],
+      isCompleted: data?.isCompleted,
+      isFavorite: data?.isFavorite || false,
       createdAt: data?.createdAt,
       updatedAt: data?.updatedAt,
     } as PracticeMenu;
@@ -318,7 +324,7 @@ export const updatePracticeMenu = async (
 /**
  * 練習メニューを削除する
  */
-export const deletePracticeMenu = async (menuId: string): Promise<void> => {
+export const deletePracticeMenu = async (practiceMenuId: string): Promise<void> => {
   const { user, isDemo } = useAuthStore.getState();
   
   if (!user) {
@@ -342,12 +348,12 @@ export const deletePracticeMenu = async (menuId: string): Promise<void> => {
         }
       }
       
-      const filteredMenus = practiceMenus.filter(menu => menu.id !== menuId);
+      const filteredPracticeMenus = practiceMenus.filter(menu => menu.id !== practiceMenuId);
       
       if (Platform.OS === 'web') {
-        localStorage.setItem('demoPracticeMenus', JSON.stringify(filteredMenus));
+        localStorage.setItem('demoPracticeMenus', JSON.stringify(filteredPracticeMenus));
       } else {
-        await AsyncStorage.setItem('demoPracticeMenus', JSON.stringify(filteredMenus));
+        await AsyncStorage.setItem('demoPracticeMenus', JSON.stringify(filteredPracticeMenus));
       }
       
       return;
@@ -359,9 +365,9 @@ export const deletePracticeMenu = async (menuId: string): Promise<void> => {
   
   // 通常モードの場合
   try {
-    await deleteDoc(doc(db, 'practiceMenus', menuId));
+    await deleteDoc(doc(db, 'practiceMenus', practiceMenuId));
   } catch (error) {
     console.error('練習メニューの削除に失敗しました:', error);
     throw new Error('練習メニューの削除に失敗しました');
   }
-};
+}; 

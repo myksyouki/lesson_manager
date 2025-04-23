@@ -13,6 +13,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import ErrorBoundary from 'react-native-error-boundary';
 import { checkOnboardingStatus } from '../services/userProfileService';
 import { requestTracking } from '../utils/trackingTransparency';
+import { useRouter } from 'expo-router';
 
 // Expo Router内部のHooks呼び出し警告を無視
 LogBox.ignoreLogs(['Do not call Hooks inside useEffect']);
@@ -50,9 +51,10 @@ const ErrorBoundaryComponent: any = ErrorBoundary;
 
 export default function RootLayout() {
   const { theme: themeName } = useSettingsStore();
-  const { user, isOnboardingCompleted, setOnboardingCompleted } = useAuthStore();
+  const { user, isOnboardingCompleted, setOnboardingCompleted, isDemo } = useAuthStore();
   const theme = useTheme();
   const [loaded] = useFonts(FontAwesome.font);
+  const router = useRouter();
 
   // スプラッシュ画面を非表示にする
   useEffect(() => {
@@ -124,11 +126,13 @@ export default function RootLayout() {
               <Stack.Screen name="auth/register" options={{ headerShown: false }} />
               <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
               <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+              <Stack.Screen name="mode-selection" options={{ headerShown: false }} />
             </>
           ) : isOnboardingCompleted === false ? (
             // オンボーディングが完了していない場合は、オンボーディング画面にリダイレクト
             <>
               <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+              <Stack.Screen name="mode-selection" options={{ headerShown: false }} />
             </>
           ) : (
             <>
@@ -168,6 +172,17 @@ export default function RootLayout() {
             </>
           )}
         </Stack>
+        {isDemo && (
+          <View style={styles.demoIndicator}>
+            <Text style={styles.demoText}>デモモード</Text>
+            <TouchableOpacity 
+              style={styles.createAccountButton}
+              onPress={() => router.push('/auth/login')}
+            >
+              <Text style={styles.createAccountText}>アカウント作成</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
       </GestureHandlerRootView>
     </ErrorBoundaryComponent>
@@ -207,6 +222,42 @@ const styles = StyleSheet.create({
   resetButtonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  demoIndicator: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 80 : 60,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    zIndex: 999,
+    borderRadius: 20,
+    marginHorizontal: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  demoText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  createAccountButton: {
+    backgroundColor: '#4285F4',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  createAccountText: {
+    color: 'white',
+    fontSize: 12,
     fontWeight: '600',
   },
 });
