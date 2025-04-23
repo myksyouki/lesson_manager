@@ -104,13 +104,18 @@ export default function HomeScreen() {
   const [practiceMenus, setPracticeMenus] = useState<PracticeMenu[]>([]);
   const [isLoadingPracticeMenus, setIsLoadingPracticeMenus] = useState(false);
 
-  // 最新のレッスン、タスク、チャットルームを取得
-  const latestLesson = useLessonStore(state => state.lessons[0]);
+  // 最新のタスク、チャットルームを取得
   const latestTask = tasks[0];
   const latestChatRoom = recentChatRooms[0];
 
-  // レッスンストアからレッスン一覧を取得
+  // レッスン一覧を取得し、日付降順で最新レッスンを選択
   const lessons = useLessonStore(state => state.lessons);
+  const latestLesson = useMemo(() => {
+    if (lessons.length === 0) return undefined;
+    // dateは'YYYY-MM-DD'形式の文字列を想定
+    const sorted = [...lessons].sort((a, b) => b.date.localeCompare(a.date));
+    return sorted[0];
+  }, [lessons]);
 
   // 画面サイズに応じたスタイルを計算
   const dynamicStyles = useMemo(() => {

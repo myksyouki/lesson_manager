@@ -86,9 +86,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           title: data.title || '',
           description: data.description || '',
           dueDate: data.dueDate || '',
-          // isCompletedまたはcompletedフィールドのチェック
           completed: data.isCompleted || data.completed || false,
           isPinned: data.isPinned || false,
+          practiceDate: data.practiceDate || null,
           createdAt: data.createdAt || '',
           updatedAt: data.updatedAt || '',
           attachments: data.attachments || [],
@@ -97,9 +97,17 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           chatRoomId: data.chatRoomId || '',
           tags: data.tags || [],
           priority: data.priority || 'medium',
+          // 練習ステップを含める
+          steps: Array.isArray(data.steps) ? data.steps.map((step: any) => ({
+            id: step.id,
+            title: step.title,
+            description: step.description,
+            duration: step.duration,
+            orderIndex: step.orderIndex,
+          })) : [],
           // displayOrderの代わりにorderまたはorderIndexを使用
           displayOrder: data.displayOrder ?? data.orderIndex ?? data.order ?? 0,
-        };
+        } as Task;
         return task;
       }) as Task[];
 

@@ -86,30 +86,28 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
         </View>
         
         {/* 練習ステップセクション */}
-        {practiceSteps.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>練習ステップ</Text>
-            <View style={styles.stepsContainer}>
-              {practiceSteps.map((step: any, index: number) => (
-                <View key={index} style={styles.stepItem}>
-                  <View style={styles.stepNumberContainer}>
-                    <Text style={styles.stepNumber}>{index + 1}</Text>
-                  </View>
-                  <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>{step.title}</Text>
-                    <Text style={styles.stepDescription}>{step.description}</Text>
-                    {step.duration && (
-                      <View style={styles.stepDuration}>
-                        <MaterialIcons name="timer" size={14} color="#4285F4" />
-                        <Text style={styles.stepDurationText}>{step.duration}分</Text>
-                      </View>
-                    )}
-                  </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>練習ステップ</Text>
+          <View style={styles.stepsContainer}>
+            {practiceSteps.map((step: any, index: number) => (
+              <View key={index} style={styles.stepItem}>
+                <View style={styles.stepNumberContainer}>
+                  <Text style={styles.stepNumber}>{index + 1}</Text>
                 </View>
-              ))}
-            </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepTitle}>{step.title}</Text>
+                  <Text style={styles.stepDescription}>{step.description}</Text>
+                  {step.duration && (
+                    <View style={styles.stepDuration}>
+                      <MaterialIcons name="timer" size={14} color="#4285F4" />
+                      <Text style={styles.stepDurationText}>{step.duration}分</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ))}
           </View>
-        )}
+        </View>
         
         {/* 楽譜セクション */}
         {sheetMusicUrl && (

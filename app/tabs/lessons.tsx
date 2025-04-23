@@ -475,11 +475,11 @@ export default function LessonsScreen() {
                 <View style={styles.archiveSectionCountBadge}>
                   <Text style={styles.archiveSectionCountText}>{section.data.length}件</Text>
                 </View>
-                <MaterialIcons
+                  <MaterialIcons 
                   name={isExpanded ? 'expand-less' : 'expand-more'}
-                  size={24}
-                  color="#4285F4"
-                />
+                    size={24} 
+                    color="#4285F4" 
+                  />
               </TouchableOpacity>
               {/* 折りたたみ可能なレッスン一覧 */}
               <Collapsible collapsed={!isExpanded} duration={300}>

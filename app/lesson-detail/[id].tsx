@@ -11,6 +11,7 @@ import {
   ScrollView
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { doc, onSnapshot, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { getApp } from 'firebase/app';
@@ -50,6 +51,7 @@ interface PracticeMenu {
 }
 
 export default function LessonDetail() {
+  const isActive = useIsFocused();
   const params = useLocalSearchParams();
   const lessonId = params.id as string;
   console.log('レッスン詳細画面: パラメータID=', lessonId);

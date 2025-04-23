@@ -77,7 +77,7 @@ app/
   │   ├── lessons.tsx          # レッスン一覧
   │   ├── task.tsx             # タスク一覧
   │   ├── ai-lesson.tsx        # AIレッスン
-  │   └── schedule.tsx         # スケジュール
+  │   └── schedule.tsx          # スケジュール
   ├── admin/                   # 管理者画面
   │   └── admin.tsx
   ├── (lesson-detail)/         # レッスン詳細
@@ -228,6 +228,7 @@ app/
     5. `git push -u origin <ブランチ名>` (例: `git push -u origin auth/apple`)
 - 現在のブランチをプッシュする手順: `git push -u origin <ブランチ名>`
 -  `practiceMenuService.ts` ファイルにFirestoreから練習メニューを取得する関数 `getPracticeMenus` を追加
+- データ構造の追加: `project-rules.md`にレッスンデータと練習メニューデータのスキーマを追加しました。
 
 
 ## DEBUGGING
@@ -242,6 +243,7 @@ app/
 - "ユーザーがログインしていません"というエラーは、ログイン状態の確認と適切なエラーハンドリングが必要です。該当箇所でログイン状態をチェックし、ログインしていない場合は適切なメッセージを表示するか、ログイン画面にリダイレクトする必要があります。
 - Expo Routerの警告「Too many screens defined. Route "settings" is extraneous.」は無視して構いません。
 - Info.plistファイルの`UIBackgroundModes`キーから`audio`を削除する。これはバックグラウンドオーディオが不要な場合のApple審査対応です。
+- Firestoreセキュリティルールを更新しました。エラー報告コレクションへの書き込み権限を追加しました。
 
 
 ## FINAL DOs AND DON'Ts
@@ -414,9 +416,8 @@ app/
 
 + **`app/navigation/types.ts`ファイルの更新**: `useRouter`が依存関係に追加されました。
 
-+ Firestoreのセキュリティルールにエラー報告コレクションへの書き込み権限を追加する必要があります。
-+ Firestoreセキュリティルールを更新しました。エラー報告コレクションへの書き込み権限を追加しました。
++ `app/tabs/index.tsx` の QuickAccessColumn において、最新レッスンの取得ロジックを `created_at` を基準としたソートに変更しました。
 
-+ **データ構造の追加**: `project-rules.md`にレッスンデータと練習メニューデータのスキーマを追加しました。
-+ **エラーハンドリングの改善**:  `app/App.tsx`に`react-native-error-boundary`を追加し、エラーバウンダリを実装しました。
-+ **Firestoreセキュリティルールの修正**:  匿名ユーザーによるエラー報告の送信を許可するように`firestore.rules`
++ レッスンカードのスタイルを修正し、アーカイブセクションのデザインをブラッシュアップしました。
+
++  `app/lesson-detail/[id].tsx` に `useIsFocused` を追加し

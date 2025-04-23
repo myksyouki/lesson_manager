@@ -12,6 +12,10 @@ export interface Task {
   tags: string[];              // タグリスト
   priority: string;            // 優先度
   displayOrder?: number;       // 表示順序 (Firestoreでは orderIndex または order の場合もある)
+  // 練習予定日
+  practiceDate?: string | { seconds: number; nanoseconds: number } | Date | null;
+  // 練習ステップの配列（任意）
+  steps?: Array<{ id?: string; title: string; description: string; duration?: number; orderIndex?: number }>;
   createdAt: string;           // 作成日時
   updatedAt: string;           // 更新日時
 } 
