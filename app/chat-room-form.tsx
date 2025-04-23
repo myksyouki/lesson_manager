@@ -31,6 +31,24 @@ const TOPICS = [
   'その他',
 ];
 
+// 楽器ID→カタカナ表記のマッピング
+const INSTRUMENT_KATAKANA_MAP: Record<string, string> = {
+  saxophone: 'サックス',
+  flute: 'フルート',
+  clarinet: 'クラリネット',
+  trumpet: 'トランペット',
+  trombone: 'トロンボーン',
+  piano: 'ピアノ',
+  violin: 'バイオリン',
+  guitar: 'ギター',
+  // 必要に応じて追加
+};
+
+function getInstrumentKatakana(id: string | undefined): string {
+  if (!id) return '';
+  return INSTRUMENT_KATAKANA_MAP[id] || id;
+}
+
 export default function ChatRoomFormScreen() {
   const [title, setTitle] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
@@ -38,6 +56,7 @@ export default function ChatRoomFormScreen() {
   const [initialMessage, setInitialMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [userModelType, setUserModelType] = useState<string>('');
+  const [instrumentName, setInstrumentName] = useState<string>('');
   const router = useRouter();
   const { user } = useAuthStore();
   const params = useLocalSearchParams();
@@ -55,13 +74,16 @@ export default function ChatRoomFormScreen() {
           
           console.log('ユーザーモデルタイプ:', modelType);
           setUserModelType(modelType);
+          setInstrumentName(getInstrumentKatakana(profile.selectedInstrument));
         } else {
           console.log('ユーザープロファイルが見つかりません、デフォルト設定を使用します');
           setUserModelType('standard');
+          setInstrumentName('');
         }
       } catch (error) {
         console.error('ユーザープロファイル取得エラー:', error);
         setUserModelType('standard');
+        setInstrumentName('');
       }
     };
     
@@ -191,45 +213,46 @@ export default function ChatRoomFormScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <ScrollView style={styles.scrollView}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
           <View style={styles.header}>
             <Text style={styles.title}>新しいチャットを開始</Text>
             <Text style={styles.subtitle}>
-              AIと対話して練習メニューを作成しましょう
+              {instrumentName ? `${instrumentName}AIコーチに質問や相談ができます` : 'AIコーチに質問や相談ができます'}
             </Text>
           </View>
 
-          <View style={styles.formContainer}>
+          <View style={styles.cardFormContainer}>
             <Text style={styles.label}>タイトル</Text>
             <TextInput
-              style={styles.input}
+              style={styles.inputLarge}
               value={title}
               onChangeText={setTitle}
-              placeholder="例: フルートのタンギング練習について"
+              placeholder="例: タンギングのコツについて"
               maxLength={50}
             />
 
             <Text style={styles.label}>トピック</Text>
-            <View style={styles.topicsContainer}>
+            <View style={styles.topicsContainerImproved}>
               {TOPICS.map((topic) => (
                 <TouchableOpacity
                   key={topic}
                   style={[
-                    styles.topicButton,
-                    selectedTopic === topic && styles.selectedTopic,
+                    styles.topicButtonImproved,
+                    selectedTopic === topic && styles.selectedTopicImproved,
                   ]}
                   onPress={() => {
                     setSelectedTopic(topic);
                     setCustomTopic(topic);
                   }}
+                  activeOpacity={0.8}
                 >
                   <Text
                     style={[
-                      styles.topicText,
-                      selectedTopic === topic && styles.selectedTopicText,
+                      styles.topicTextImproved,
+                      selectedTopic === topic && styles.selectedTopicTextImproved,
                     ]}
                   >
-                    {topic}
+                    {selectedTopic === topic ? '✔️ ' : ''}{topic}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -247,37 +270,27 @@ export default function ChatRoomFormScreen() {
               placeholder="トピックを自由に入力（または上から選択）"
               maxLength={30}
             />
-
-            <Text style={styles.label}>最初のメッセージ</Text>
-            <TextInput
-              style={styles.messageInput}
-              value={initialMessage}
-              onChangeText={setInitialMessage}
-              placeholder="AIに質問や相談したいことを入力してください"
-              multiline
-              textAlignVertical="top"
-              maxLength={500}
-            />
           </View>
         </ScrollView>
 
-        <View style={styles.buttonContainer}>
+        <View style={styles.buttonContainerImproved}>
           <TouchableOpacity
-            style={styles.cancelButton}
+            style={styles.cancelButtonImproved}
             onPress={() => router.back()}
             disabled={loading}
           >
-            <Text style={styles.cancelButtonText}>キャンセル</Text>
+            <Text style={styles.cancelButtonTextImproved}>キャンセル</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.createButton, loading && styles.disabledButton]}
+            style={[styles.createButtonImproved, loading && styles.disabledButton]}
             onPress={handleCreateRoom}
             disabled={loading || !title.trim()}
+            activeOpacity={0.8}
           >
             {loading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.createButtonText}>作成</Text>
+              <Text style={styles.createButtonTextImproved}>作成</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -315,8 +328,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  formContainer: {
-    padding: 20,
+  cardFormContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    marginHorizontal: 16,
+    marginBottom: 32,
+    shadowColor: '#7C4DFF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.10,
+    shadowRadius: 16,
+    elevation: 6,
   },
   label: {
     fontSize: 16,
@@ -324,6 +346,53 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
     marginBottom: 8,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+  },
+  inputLarge: {
+    backgroundColor: 'white',
+    borderRadius: 14,
+    padding: 20,
+    fontSize: 18,
+    marginBottom: 24,
+    borderWidth: 1.5,
+    borderColor: '#B39DDB',
+    fontWeight: '600',
+  },
+  topicsContainerImproved: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 24,
+    gap: 8,
+  },
+  topicButtonImproved: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    shadowColor: '#7C4DFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  selectedTopicImproved: {
+    backgroundColor: '#E1F0FF',
+    borderColor: '#7C4DFF',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  topicTextImproved: {
+    fontSize: 15,
+    color: '#7C4DFF',
+    fontWeight: '500',
+  },
+  selectedTopicTextImproved: {
+    color: '#4285F4',
+    fontWeight: '700',
   },
   input: {
     backgroundColor: 'white',
@@ -335,31 +404,6 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  topicsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 20,
-  },
-  topicButton: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  selectedTopic: {
-    backgroundColor: '#E1F0FF',
-  },
-  topicText: {
-    fontSize: 14,
-    color: '#8E8E93',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  selectedTopicText: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
   messageInput: {
     backgroundColor: 'white',
     borderRadius: 12,
@@ -370,43 +414,45 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  buttonContainer: {
+  buttonContainerImproved: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 20,
+    padding: 24,
     borderTopWidth: 1,
     borderTopColor: '#E5E5EA',
     backgroundColor: 'white',
   },
-  cancelButton: {
+  cancelButtonImproved: {
     flex: 1,
     backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    padding: 16,
-    marginRight: 10,
+    borderRadius: 14,
+    padding: 18,
+    marginRight: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
-  cancelButtonText: {
+  cancelButtonTextImproved: {
     fontSize: 16,
     fontWeight: '600',
     color: '#8E8E93',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
-  createButton: {
+  createButtonImproved: {
     flex: 1,
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    padding: 16,
-    marginLeft: 10,
+    backgroundColor: '#7C4DFF',
+    borderRadius: 14,
+    padding: 18,
+    marginLeft: 12,
     alignItems: 'center',
+    borderWidth: 0,
   },
   disabledButton: {
     backgroundColor: '#A2A2A2',
   },
-  createButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  createButtonTextImproved: {
+    fontSize: 17,
+    fontWeight: '700',
     color: 'white',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    letterSpacing: 1,
   },
 });
