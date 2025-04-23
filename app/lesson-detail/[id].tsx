@@ -832,29 +832,43 @@ export default function LessonDetail() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>エクスポート</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>エクスポート</Text>
+            </View>
             
             <TouchableOpacity 
-              style={styles.modalOption}
+              style={styles.modalOptionCard}
               onPress={() => handleGenerateTasks()}
             >
-              <MaterialIcons name="assignment" size={24} color="#007AFF" />
-              <Text style={styles.modalOptionText}>タスク生成</Text>
+              <View style={[styles.modalOptionIcon, { backgroundColor: 'rgba(0, 122, 255, 0.1)' }]}>
+                <MaterialIcons name="assignment" size={28} color="#007AFF" />
+              </View>
+              <View style={styles.modalOptionTextContainer}>
+                <Text style={styles.modalOptionTitle}>練習生成</Text>
+                <Text style={styles.modalOptionSubtitle}>レッスン内容から練習メニューを作成</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={24} color="#CCCCCC" />
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={styles.modalOption}
+              style={styles.modalOptionCard}
               onPress={() => handleChat()}
             >
-              <MaterialIcons name="smart-toy" size={24} color="#5856D6" />
-              <Text style={styles.modalOptionText}>AIに相談</Text>
+              <View style={[styles.modalOptionIcon, { backgroundColor: 'rgba(88, 86, 214, 0.1)' }]}>
+                <MaterialIcons name="smart-toy" size={28} color="#5856D6" />
+              </View>
+              <View style={styles.modalOptionTextContainer}>
+                <Text style={styles.modalOptionTitle}>AIに相談</Text>
+                <Text style={styles.modalOptionSubtitle}>AIにレッスン内容について質問する</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={24} color="#CCCCCC" />
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={[styles.modalOption, styles.cancelOption]}
+              style={styles.cancelButton2}
               onPress={() => setShowExportModal(false)}
             >
-              <Text style={styles.cancelText}>キャンセル</Text>
+              <Text style={styles.cancelText2}>キャンセル</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1014,42 +1028,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    width: '80%',
+    width: '90%',
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    elevation: 5,
+    borderRadius: 20,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    maxWidth: 400,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1C1C1E',
     textAlign: 'center',
   },
-  modalOption: {
+  modalOptionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E9ECEF',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    padding: 16,
+    marginVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  modalOptionText: {
-    fontSize: 16,
-    marginLeft: 16,
-  },
-  cancelOption: {
+  modalOptionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
-    borderBottomWidth: 0,
-    marginTop: 8,
+    alignItems: 'center',
+    marginRight: 16,
   },
-  cancelText: {
+  modalOptionTextContainer: {
+    flex: 1,
+  },
+  modalOptionTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginBottom: 4,
+  },
+  modalOptionSubtitle: {
+    fontSize: 14,
+    color: '#8E8E93',
+  },
+  cancelButton2: {
+    marginTop: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  cancelText2: {
     fontSize: 16,
+    fontWeight: '600',
     color: '#FF3B30',
-    textAlign: 'center',
   },
   archiveBanner: {
     position: 'absolute',

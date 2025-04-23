@@ -13,7 +13,7 @@ export const TaskHeader: React.FC<TaskHeaderProps> = ({
 }) => {
   return (
     <View style={styles.headerContainer}>
-      <Text style={styles.headerTitle}>タスク</Text>
+      <Text style={styles.headerTitle}>練習</Text>
       <TaskFilter 
         currentFilter={currentFilter} 
         onFilterChange={onFilterChange} 

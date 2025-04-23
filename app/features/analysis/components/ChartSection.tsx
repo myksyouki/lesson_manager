@@ -203,7 +203,7 @@ export default function ChartSection() {
             styles.tabText, 
             selectedChart === 'tasks' && styles.selectedTabText
           ]}>
-            タスク
+            練習
           </Text>
         </TouchableOpacity>
       </View>

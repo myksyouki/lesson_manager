@@ -353,13 +353,13 @@ const EmptyState = ({ activeTab, themeColor }: { activeTab: 'incomplete' | 'comp
       </View>
       
       <Text style={styles.emptyTitle}>
-        {activeTab === 'incomplete' ? 'タスクがありません' : '完了済みタスクがありません'}
+        {activeTab === 'incomplete' ? '練習がありません' : '完了済み練習がありません'}
       </Text>
       
       <Text style={styles.emptyDescription}>
         {activeTab === 'incomplete' 
-          ? 'タスクを追加して練習計画を立てましょう' 
-          : '練習タスクを完了すると、ここに表示されます'}
+          ? '練習を追加して練習計画を立てましょう' 
+          : '練習を完了すると、ここに表示されます'}
       </Text>
       
       {activeTab === 'incomplete' && (
@@ -368,7 +368,7 @@ const EmptyState = ({ activeTab, themeColor }: { activeTab: 'incomplete' | 'comp
           onPress={() => router.push('/task-form' as any)}
         >
           <AntDesign name="plus" size={16} color="#FFFFFF" />
-          <Text style={styles.emptyButtonText}>新しいタスクを追加</Text>
+          <Text style={styles.emptyButtonText}>新しい練習を追加</Text>
         </TouchableOpacity>
       )}
     </Animated.View>

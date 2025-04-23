@@ -71,7 +71,7 @@ export const DetailedReport = () => {
   // 練習の詳細統計
   const practiceStats = React.useMemo(() => {
     const totalTasks = tasks.length;
-    const completedTasks = tasks.filter(task => task.isCompleted).length;
+    const completedTasks = tasks.filter(task => task.completed).length;
     const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
     const totalLessons = lessons.length;
     const averageTasksPerLesson = totalLessons > 0 ? totalTasks / totalLessons : 0;
@@ -101,11 +101,11 @@ export const DetailedReport = () => {
         <View style={styles.statsGrid}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{practiceStats.totalTasks}</Text>
-            <Text style={styles.statLabel}>総タスク数</Text>
+            <Text style={styles.statLabel}>総練習数</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{practiceStats.completedTasks}</Text>
-            <Text style={styles.statLabel}>完了タスク</Text>
+            <Text style={styles.statLabel}>完了練習</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{practiceStats.completionRate}%</Text>
@@ -113,7 +113,7 @@ export const DetailedReport = () => {
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{practiceStats.averageTasksPerLesson}</Text>
-            <Text style={styles.statLabel}>レッスン毎の平均タスク</Text>
+            <Text style={styles.statLabel}>レッスン毎の平均練習</Text>
           </View>
         </View>
       </View>

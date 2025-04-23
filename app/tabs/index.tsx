@@ -527,7 +527,7 @@ export default function HomeScreen() {
       },
       {
         icon: "assignment",
-        label: "タスク",
+        label: "練習",
         onPress: () => router.push('/task-form'),
         color: theme.colors.secondary,
       },
@@ -574,7 +574,7 @@ export default function HomeScreen() {
         disabled: !latestLesson,
       },
       {
-        title: 'タスク',
+        title: '練習',
         subtitle: latestTask ? latestTask.title : 'なし',
         icon: <MaterialIcons name="assignment" size={28} color={theme.colors.secondary} />,
         onPress: () => latestTask && navigateToTaskDetail(latestTask.id),

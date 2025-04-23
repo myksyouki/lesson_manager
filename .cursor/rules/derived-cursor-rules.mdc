@@ -184,6 +184,7 @@ app/
     5. `git push -u origin <ブランチ名>` (例: `git push -u origin auth/apple`)
 - 現在のブランチをプッシュする手順: `git push -u origin <ブランチ名>`
 - Functionsデプロイ手順: `cd functions && npm run build && firebase deploy --only functions`
+- Git ブランチ操作手順: `2025-04-12_07-07-git.md`
 
 
 ## REFERENCE EXAMPLES
@@ -191,9 +192,9 @@ app/
 (No existing content. Add reference examples here.)
 - AIおすすめ練習メニューの開発: `2025-04-22_05-33-aiおすすめ練習メニューの開発.md`
 - Git ブランチ作成手順: `2025-04-11_22-07-git.md`
-- Git ブランチ操作手順: `2025-04-12_07-07-git.md`
 - 練習メニューのサンプルタスク削除: `2025-04-22_07-05-練習メニューのサンプルタスク削除.md`
 - AIモデルによるタスク生成: `2025-04-23_11-05-aiモデルによるタスク生成.md`
+- フローティングボタンのラベル変更: `2025-04-23_12-27-フローティングボタンのラベル変更.md`
 
 
 ## PROJECT DOCUMENTATION & CONTEXT SYSTEM
@@ -402,6 +403,4 @@ app/
 + GoogleログインボタンにGoogleアイコンを追加
 + ログイン画面のアプリ名とテストユーザーボタンを更新
 + 設定画面の「サブスクリプション管理」セクションを非表示にする
-+ Firebase認証の永続化を設定し、AsyncStorageを使用する。
-+ 設定画面にエラー報告機能を追加する。エラー報告内容はFirestoreに保存する。
-+ レッスン登録画面で利用規
++ Firebase認証の永続化
