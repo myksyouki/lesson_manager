@@ -86,11 +86,16 @@ const TaskCompletionPopup: React.FC<TaskCompletionPopupProps> = ({
       translateY.value = withTiming(0, { duration: 300 });
       
       // 5秒後に自動で閉じる
-      const timeoutId = setTimeout(() => {
-        hidePopup();
-      }, 5000);
+      opacity.value = withSequence(
+        withTiming(1, { duration: 300 }), 
+        withDelay(5000, withTiming(0, { duration: 200 }, () => {
+          runOnJS(onClose)();
+        }))
+      );
       
-      return () => clearTimeout(timeoutId);
+      return () => {
+        // クリーンアップ（必要に応じて）
+      };
     } else {
       hidePopup();
     }

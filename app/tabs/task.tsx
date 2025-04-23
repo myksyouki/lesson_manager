@@ -55,29 +55,14 @@ export default function TaskScreen() {
     const loadInitialTasks = async () => {
       setRefreshing(true);
       try {
-        // 認証状態を詳細にログ
-        const currentUser = auth.currentUser;
-        console.log('初期タスク取得 - 認証情報:', 
-          currentUser ? 
-          {
-            uid: currentUser.uid,
-            email: currentUser.email,
-            emailVerified: currentUser.emailVerified,
-            isAnonymous: currentUser.isAnonymous,
-            providerId: currentUser.providerId
-          } : 'ログインしていません');
-        
-        console.log('初期タスク取得開始...');
-        // 新しい認証待機メソッドを使用
+        // 認証待機後にタスク取得
         await fetchTasksWhenAuthenticated();
-        console.log('初期タスク取得: 完了 - タスク数 =', tasks.length);
       } catch (error) {
         console.error('初期タスク取得エラー:', error);
       } finally {
         setRefreshing(false);
       }
     };
-    
     loadInitialTasks();
   }, []);
 
@@ -86,36 +71,13 @@ export default function TaskScreen() {
     useCallback(() => {
       const refreshTasksOnFocus = async () => {
         try {
-          // デバッグ情報を追加
-          console.log('タスクタブフォーカス: パラメータ =', JSON.stringify(params));
-          console.log('タスクタブフォーカス: 現在のタスク数 =', tasks.length);
-          
-          const isNewlyCreated = params.isNewlyCreated === 'true';
-          console.log('タスクタブフォーカス: isNewlyCreated =', isNewlyCreated);
-          
-          // 認証状態のチェックを追加
-          const currentUser = auth.currentUser;
-          console.log('タスクタブフォーカス: 認証状態 =', !!currentUser);
-          console.log('タスクタブフォーカス: ユーザー情報 =', 
-            currentUser ? 
-            {
-              uid: currentUser.uid,
-              email: currentUser.email,
-              emailVerified: currentUser.emailVerified,
-              isAnonymous: currentUser.isAnonymous
-            } : 'ログインしていません');
-          
-          // 新しい認証待機メソッドを使用
-          console.log('タスクタブフォーカス: タスク再取得開始...');
           await fetchTasksWhenAuthenticated();
-          console.log('タスクタブフォーカス: タスク再取得完了 - タスク数 =', tasks.length);
         } catch (error) {
           console.error('タスク更新エラー:', error);
         }
       };
-      
       refreshTasksOnFocus();
-      
+
       return () => {
         // クリーンアップ関数
       };
@@ -204,10 +166,8 @@ export default function TaskScreen() {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      console.log('手動更新開始...');
       // 新しい認証待機メソッドを使用
       await fetchTasksWhenAuthenticated();
-      console.log('手動更新: 完了 - タスク数 =', tasks.length);
     } catch (error) {
       console.error('タスク更新エラー:', error);
     } finally {
@@ -246,25 +206,6 @@ export default function TaskScreen() {
   const closeCompletionPopup = () => {
     setCompletionPopup(prev => ({ ...prev, visible: false }));
   };
-
-  // デバッグ用のログを追加
-  console.log('タスク画面レンダリング');
-  console.log('タスクストアのタスク数:', tasks.length);
-  console.log('フィルタータイプ:', filter);
-  console.log('フィルター後のタスク数:', filteredTasks.length);
-  if (tasks.length > 0) {
-    console.log('最初のタスクサンプル:', {
-      id: tasks[0].id,
-      title: tasks[0].title,
-      completed: tasks[0].completed,
-      tags: tasks[0].tags
-    });
-  } else {
-    console.log('タスクが存在しません');
-  }
-  
-  // タスクリストをレンダリングする直前にログを出力
-  console.log('TaskListコンポーネントに渡すタスク数:', filteredTasks.length);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

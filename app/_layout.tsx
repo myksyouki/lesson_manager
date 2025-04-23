@@ -14,8 +14,31 @@ import ErrorBoundary from 'react-native-error-boundary';
 import { checkOnboardingStatus } from '../services/userProfileService';
 import { requestTracking } from '../utils/trackingTransparency';
 
-// Expo Router内部のHooks呼び出し警告を無視
-LogBox.ignoreLogs(['Do not call Hooks inside useEffect']);
+// 全ての不要な警告を抑制
+LogBox.ignoreLogs([
+  'Do not call Hooks inside useEffect',
+  '[Reanimated]', // Reanimated 関連警告を全て無視
+  'Tried to modify key', // Reanimated ワークレット警告のパターン
+  'Tried to synchronously call function', // React Native同期呼び出し警告
+  'NOBRIDGE', // NOBRIDGEログを無視
+]);
+
+// Reanimated特有の共有オブジェクト変更エラーを無視
+if (Platform.OS !== 'web') {
+  const originalConsoleWarn = console.warn;
+  console.warn = (...args) => {
+    // Reanimated警告を無視
+    if (
+      typeof args[0] === 'string' && 
+      (args[0].includes('Reanimated') || 
+       args[0].includes('Tried to modify key') || 
+       args[0].includes('worklet'))
+    ) {
+      return;
+    }
+    originalConsoleWarn(...args);
+  };
+}
 
 // スプラッシュ画面を非表示にするのを遅らせる
 SplashScreen.preventAutoHideAsync();

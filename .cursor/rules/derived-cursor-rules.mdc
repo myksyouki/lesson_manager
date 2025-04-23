@@ -31,7 +31,7 @@ functions/src/
   │   ├── index.ts             # 要約機能のエクスポート
   │   ├── triggers.ts          # ストレージ/Firestoreトリガー
   │   ├── processor.ts         # 主要な要約処理ロジック
-  │   ├── transcriber.ts       # 文字起こし機能
+  │   ├── transcriber.ts         # 文字起こし機能
   │   └── generator.ts         # 要約/タグ生成機能
   ├── practice-menu/           # 練習メニュー関連機能
   │   ├── index.ts             # 練習メニュー機能のエクスポート
@@ -229,6 +229,10 @@ app/
 - 現在のブランチをプッシュする手順: `git push -u origin <ブランチ名>`
 -  `practiceMenuService.ts` ファイルにFirestoreから練習メニューを取得する関数 `getPracticeMenus` を追加
 - データ構造の追加: `project-rules.md`にレッスンデータと練習メニューデータのスキーマを追加しました。
+- `app/navigation/types.ts`ファイルの更新: `useRouter`が依存関係に追加されました。
+- `app/tabs/index.tsx` の QuickAccessColumn において、最新レッスンの取得ロジックを `created_at` を基準としたソートに変更しました。
+- レッスンカードのスタイルを修正し、アーカイブセクションのデザインをブラッシュアップしました。
+- `app/lesson-detail/[id].tsx` に `useIsFocused` を追加し
 
 
 ## DEBUGGING
@@ -244,6 +248,7 @@ app/
 - Expo Routerの警告「Too many screens defined. Route "settings" is extraneous.」は無視して構いません。
 - Info.plistファイルの`UIBackgroundModes`キーから`audio`を削除する。これはバックグラウンドオーディオが不要な場合のApple審査対応です。
 - Firestoreセキュリティルールを更新しました。エラー報告コレクションへの書き込み権限を追加しました。
+- Reanimated v2系の警告「Tried to modify key of an object which has been converted to a shareable.」は、ワークレットに渡すオブジェクトを再レンダリング毎に生成するなどして対応する必要があります。
 
 
 ## FINAL DOs AND DON'Ts
@@ -410,14 +415,4 @@ app/
 + 文字起こしエラーを修正する。
 + 認証ヘッダーに不正な文字が含まれていた問題を修正する。
 + OpenAI APIのクォータ制限に達していた問題を修正する。
-+ サブスクリプション管理機能を実装する。
-+ 各ストア（App StoreとGoogle Play）のサブスクリプション管理へのリンクを追加する。
-+ Firebase認証の永続化を設定し、アプリを閉じてもログイン状態が維持されるようにする。
-
-+ **`app/navigation/types.ts`ファイルの更新**: `useRouter`が依存関係に追加されました。
-
-+ `app/tabs/index.tsx` の QuickAccessColumn において、最新レッスンの取得ロジックを `created_at` を基準としたソートに変更しました。
-
-+ レッスンカードのスタイルを修正し、アーカイブセクションのデザインをブラッシュアップしました。
-
-+  `app/lesson-detail/[id].tsx` に `useIsFocused` を追加し
++ サブスクリプション管理機能を実装する
