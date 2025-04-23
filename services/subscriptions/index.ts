@@ -119,7 +119,7 @@ export const setupPurchaseListeners = (
     try {
       await validateAndSavePurchase(purchase);
       await RNIap.finishTransaction({ purchase });
-      if (Platform.OS === 'ios' && RNIap.isIosStorekit2(purchase.transactionId)) {
+      if (Platform.OS === 'ios' && RNIap.isIosStorekit2()) {
         await RNIap.clearTransactionIOS();
       }
       onPurchaseComplete(purchase);
@@ -168,10 +168,17 @@ const validateAndSavePurchase = async (purchase: any): Promise<void> => {
       // 注意: 主な保存はCloud Functionで行われていますが、
       // アプリ側でもSubscription状態を更新して表示を即座に反映
       const userRef = doc(db, 'users', userId);
+      const plan = purchase.productId.includes('premium') ? 'premium' : 'standard';
       await updateDoc(userRef, {
         'subscription.active': true,
-        'subscription.plan': purchase.productId.includes('premium') ? 'premium' : 'standard',
+        'subscription.plan': plan,
         'subscription.updatedAt': serverTimestamp()
+      });
+      // ユーザープロファイルの isPremium フラグ更新
+      const userProfileRef = doc(db, 'users', userId, 'profile', 'main');
+      await updateDoc(userProfileRef, {
+        isPremium: plan === 'premium',
+        updatedAt: serverTimestamp()
       });
     } else {
       throw new Error('サーバーでのレシート検証に失敗しました');
