@@ -80,13 +80,13 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
     <>
       <View style={styles.container}>
         {/* 練習内容・目標セクション */}
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>練習内容・目標</Text>
           <Text style={styles.description}>{task.description || '詳細はありません'}</Text>
         </View>
         
         {/* 練習ステップセクション */}
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>練習ステップ</Text>
           <View style={styles.stepsContainer}>
             {practiceSteps.map((step: any, index: number) => (
@@ -111,7 +111,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
         
         {/* 楽譜セクション */}
         {sheetMusicUrl && (
-          <View style={styles.section}>
+          <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>楽譜</Text>
             <View style={styles.sheetMusicContainer}>
               <Image 
@@ -127,7 +127,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
         )}
         
         {/* 練習予定日セクション */}
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>練習予定日</Text>
             <TouchableOpacity 
@@ -145,11 +145,11 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
         
         {/* カテゴリセクション */}
         {task.tags && task.tags.length > 0 && (
-          <View style={styles.section}>
+          <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>カテゴリ</Text>
             <View style={styles.tagsContainer}>
               {task.tags.map((tag, index) => (
-                <View key={index} style={styles.tag}>
+                <View key={index} style={styles.tagBadge}>
                   <Text style={styles.tagText}>{tag}</Text>
                 </View>
               ))}
@@ -159,15 +159,17 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
         
         {/* 優先度セクション */}
         {task.priority && (
-          <View style={styles.section}>
+          <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>優先度</Text>
-            <Text style={styles.infoText}>{task.priority}</Text>
+            <View style={styles.priorityBadge}>
+              <Text style={styles.priorityText}>{task.priority}</Text>
+            </View>
           </View>
         )}
         
         {/* AIレッスンセクション */}
         {chatRoomTitle && (
-          <View style={styles.section}>
+          <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>AIレッスン</Text>
             <TouchableOpacity style={styles.chatRoomButton} onPress={onOpenChatRoom}>
               <Text style={styles.chatRoomTitle}>{chatRoomTitle}</Text>
@@ -203,15 +205,15 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100, // スワイプボタンのスペースを確保
   },
-  section: {
+  sectionCard: {
     marginBottom: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 2,
   },
   sectionHeader: {
@@ -239,9 +241,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  tag: {
+  tagBadge: {
     backgroundColor: '#E8F0FE',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
     marginRight: 8,
@@ -249,8 +251,8 @@ const styles = StyleSheet.create({
   },
   tagText: {
     color: '#4285F4',
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
   },
   chatRoomButton: {
     flexDirection: 'row',
@@ -299,26 +301,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   stepNumberContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#4285F4',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
     marginTop: 2,
   },
   stepNumber: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
   stepContent: {
     flex: 1,
   },
   stepTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#202124',
     marginBottom: 4,
   },
@@ -353,6 +355,19 @@ const styles = StyleSheet.create({
     color: '#5F6368',
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  priorityBadge: {
+    backgroundColor: '#FFF3CD',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  priorityText: {
+    color: '#856404',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 
