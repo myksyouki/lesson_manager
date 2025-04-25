@@ -13,7 +13,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import { db } from '../config/firebase';
-import SheetMusicViewer from '../components/SheetMusicViewer';
+import SheetMusicViewer from './components/SheetMusicViewer';
 
 export default function TaskDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -66,7 +66,31 @@ export default function TaskDetail() {
       const menuData = menuSnap.data();
       console.log('メニューデータ:', menuData);
       
-      // 2. 楽譜のパスを取得
+      // 2. 直接imageUrlがある場合はそれを使用
+      if (menuData.imageUrl) {
+        console.log('直接imageUrlから楽譜URL取得:', menuData.imageUrl);
+        setSheetMusicUrl(menuData.imageUrl);
+        return;
+      }
+      
+      // 3. sheetMusicサブコレクションのドキュメントを確認
+      try {
+        const sheetMusicRef = doc(db, 'menus', menuId, 'sheetMusic', 'default');
+        const sheetMusicSnap = await getDoc(sheetMusicRef);
+        
+        if (sheetMusicSnap.exists()) {
+          const sheetMusicData = sheetMusicSnap.data();
+          if (sheetMusicData.imageUrl) {
+            console.log('sheetMusicサブコレクションから楽譜URL取得:', sheetMusicData.imageUrl);
+            setSheetMusicUrl(sheetMusicData.imageUrl);
+            return;
+          }
+        }
+      } catch (subCollectionError) {
+        console.log('sheetMusicサブコレクション取得エラー:', subCollectionError);
+      }
+      
+      // 4. 従来の方法：sheetMusicPathからStorageのURLを取得
       const sheetMusicPath = menuData?.sheetMusicPath;
       
       if (!sheetMusicPath) {
@@ -76,7 +100,7 @@ export default function TaskDetail() {
       
       console.log('楽譜パス:', sheetMusicPath);
       
-      // 3. Storageから画像URLを取得
+      // 5. Storageから画像URLを取得
       const storage = getStorage();
       const sheetMusicRef = ref(storage, sheetMusicPath);
       
@@ -88,6 +112,13 @@ export default function TaskDetail() {
       setSheetMusicUrl(url);
     } catch (error) {
       console.error('楽譜の取得エラー:', error);
+      
+      // エラーの詳細をログ出力
+      if (error instanceof Error) {
+        console.error('エラーメッセージ:', error.message);
+        console.error('エラースタック:', error.stack);
+      }
+      
       setSheetMusicUrl(null);
     }
   };
@@ -155,6 +186,26 @@ export default function TaskDetail() {
     console.log('練習モードを閉じました');
   };
 
+  // タスク完了状態を切り替える関数（仮実装）
+  const toggleTaskCompletion = (taskId: string) => {
+    if (task) {
+      const updatedTask = { ...task, completed: !task.completed };
+      updateTask(updatedTask);
+    }
+  };
+
+  // タスク完了回数を取得する関数（仮実装）
+  const getTaskCompletionCount = (taskTitle: string) => {
+    // 実際はFirestoreから過去の履歴を取得するべき
+    return completionCount;
+  };
+
+  // タスクストリーク回数を取得する関数（仮実装）
+  const getTaskStreakCount = () => {
+    // 実際はFirestoreから過去の履歴を取得するべき
+    return streakCount;
+  };
+
   if (!task) {
     return (
       <View style={styles.loadingContainer}>
@@ -165,26 +216,6 @@ export default function TaskDetail() {
 
   // タスクからカテゴリを取得（タグの最初の要素をカテゴリとして使用）
   const category = task.tags && task.tags.length > 0 ? task.tags[0] : undefined;
-
-  const SheetMusicComponent = ({url}: {url: string | null}) => {
-    console.log('楽譜URL:', url);
-    return (
-      <View style={styles.sheetMusicContainer}>
-        {url ? (
-          <>
-            <Text style={styles.sectionTitle}>楽譜</Text>
-            <Image 
-              source={{uri: url}} 
-              style={styles.sheetMusic}
-              resizeMode="contain"
-              onLoad={() => console.log('楽譜画像が読み込まれました')}
-              onError={(error) => console.error('楽譜画像読み込みエラー:', error.nativeEvent.error)}
-            />
-          </>
-        ) : null}
-      </View>
-    );
-  };
 
   return (
     <View style={styles.container}>
