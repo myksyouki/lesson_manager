@@ -60,29 +60,63 @@ export const getPracticeMenus = async (): Promise<PracticeMenu[]> => {
   
   // 通常モードの場合
   try {
-    const practiceMenusQuery = query(
-      collection(db, 'practiceMenus'),
-      where('userId', '==', user.uid)
-    );
-    
-    const querySnapshot = await getDocs(practiceMenusQuery);
     const practiceMenus: PracticeMenu[] = [];
     
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      practiceMenus.push({
-        id: doc.id,
-        userId: data.userId,
-        title: data.title,
-        description: data.description,
-        instrumentId: data.instrumentId,
-        duration: data.duration,
-        sections: data.sections || [],
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-      });
-    });
+    // 対応する楽器のコレクションを取得
+    // Firestoreの構造: /practiceMenus/{楽器名}/categories/{カテゴリ名}/menus/{メニューID}
+    const instrumentTypes = ['saxophone', 'piano', 'violin', 'clarinet', 'flute']; // 対応する楽器一覧
     
+    // 各楽器タイプに対して処理を実行
+    for (const instrumentType of instrumentTypes) {
+      console.log(`${instrumentType}の練習メニューを検索中...`);
+      
+      // カテゴリコレクションを取得
+      const categoriesSnapshot = await getDocs(collection(db, `practiceMenus/${instrumentType}/categories`));
+      
+      // 各カテゴリに対して処理を実行
+      for (const categoryDoc of categoriesSnapshot.docs) {
+        const categoryId = categoryDoc.id;
+        
+        // メニューコレクションを取得
+        const menusSnapshot = await getDocs(
+          collection(db, `practiceMenus/${instrumentType}/categories/${categoryId}/menus`)
+        );
+        
+        // 各メニューを処理
+        menusSnapshot.forEach((menuDoc) => {
+          const data = menuDoc.data();
+          // データ形式を変換して配列に追加
+          practiceMenus.push({
+            id: menuDoc.id,
+            userId: data.userId || user.uid, // ユーザーIDが存在しない場合は現在のユーザーIDを設定
+            title: data.title || '',
+            description: data.description || '',
+            instrumentId: instrumentType, // 楽器タイプを設定
+            duration: data.duration || 0,
+            sections: data.steps?.map(step => ({
+              id: step.id || `step-${Date.now()}-${Math.random()}`,
+              title: step.title || '',
+              duration: step.duration || 0,
+              description: step.description || ''
+            })) || [], // stepsを正しいフォーマットでsectionsにマッピング
+            createdAt: data.createdAt || new Date().toISOString(),
+            updatedAt: data.updatedAt || new Date().toISOString(),
+            // 追加のデータをany型で保存して、表示時に利用できるようにする
+            ...(data.key && { key: data.key }),
+            ...(data.keyDe && { keyDe: data.keyDe }),
+            ...(data.keyEn && { keyEn: data.keyEn }),
+            ...(data.keyJp && { keyJp: data.keyJp }),
+            ...(data.scaleType && { scaleType: data.scaleType }),
+            ...(data.tags && { tags: data.tags }),
+            ...(data.instrument && { instrument: data.instrument }),
+          } as any);
+          
+          console.log(`メニュー読み込み: ${menuDoc.id}, タイトル: ${data.title}, ステップ数: ${data.steps?.length || 0}`);
+        });
+      }
+    }
+    
+    console.log(`合計${practiceMenus.length}件の練習メニューを取得しました`);
     return practiceMenus;
   } catch (error) {
     console.error('練習メニューの取得に失敗しました:', error);
@@ -132,25 +166,70 @@ export const getPracticeMenu = async (menuId: string): Promise<PracticeMenu> => 
   
   // 通常モードの場合
   try {
-    const menuDoc = await getDoc(doc(db, 'practiceMenus', menuId));
+    // メニューIDからパスを抽出する
+    // 例: menu_A_major_1744958787663_512
+    const parts = menuId.split('_');
+    if (parts.length < 3) {
+      throw new Error('無効なメニューIDフォーマットです');
+    }
     
-    if (!menuDoc.exists()) {
+    // 対応する楽器のコレクションを取得
+    // Firestoreの構造: /practiceMenus/{楽器名}/categories/{カテゴリ名}/menus/{メニューID}
+    const instrumentTypes = ['saxophone', 'piano', 'violin', 'clarinet', 'flute']; // 対応する楽器一覧
+    
+    let menuData = null;
+    
+    // 各楽器タイプでメニューを検索
+    for (const instrumentType of instrumentTypes) {
+      if (menuData) break; // 既に見つかった場合はスキップ
+      
+      // カテゴリコレクションを取得
+      const categoriesSnapshot = await getDocs(collection(db, `practiceMenus/${instrumentType}/categories`));
+      
+      // 各カテゴリに対して処理を実行
+      for (const categoryDoc of categoriesSnapshot.docs) {
+        if (menuData) break; // 既に見つかった場合はスキップ
+        
+        const categoryId = categoryDoc.id;
+        const menuRef = doc(db, `practiceMenus/${instrumentType}/categories/${categoryId}/menus`, menuId);
+        const menuSnapshot = await getDoc(menuRef);
+        
+        if (menuSnapshot.exists()) {
+          const data = menuSnapshot.data();
+          menuData = {
+            id: menuSnapshot.id,
+            userId: data.userId || user.uid,
+            title: data.title || '',
+            description: data.description || '',
+            instrumentId: instrumentType,
+            duration: data.duration || 0,
+            sections: data.steps?.map((step: any) => ({
+              id: step.id || `step-${Date.now()}-${Math.random()}`,
+              title: step.title || '',
+              duration: step.duration || 0,
+              description: step.description || ''
+            })) || [],
+            createdAt: data.createdAt || new Date().toISOString(),
+            updatedAt: data.updatedAt || new Date().toISOString(),
+            // 追加のデータをany型で保存して、表示時に利用できるようにする
+            ...(data.key && { key: data.key }),
+            ...(data.keyDe && { keyDe: data.keyDe }),
+            ...(data.keyEn && { keyEn: data.keyEn }),
+            ...(data.keyJp && { keyJp: data.keyJp }),
+            ...(data.scaleType && { scaleType: data.scaleType }),
+            ...(data.tags && { tags: data.tags }),
+            ...(data.instrument && { instrument: data.instrument }),
+          } as any;
+          break;
+        }
+      }
+    }
+    
+    if (!menuData) {
       throw new Error('練習メニューが見つかりませんでした');
     }
     
-    const data = menuDoc.data();
-    
-    return {
-      id: menuDoc.id,
-      userId: data.userId,
-      title: data.title,
-      description: data.description,
-      instrumentId: data.instrumentId,
-      duration: data.duration,
-      sections: data.sections || [],
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
-    };
+    return menuData as PracticeMenu;
   } catch (error) {
     console.error('練習メニューの取得に失敗しました:', error);
     throw new Error('練習メニューの取得に失敗しました');

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Dimensions, Image, Modal, StatusBar, ScrollView } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Task } from '../../../../types/_task';
 import { useTaskStore } from '../../../../store/tasks';
 import { CalendarModal } from '../../../features/lessons/components/form/CalendarModal';
 import { useCalendar, DAYS } from '../../../../hooks/useCalendar';
+import { useTheme } from '../../../../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CALENDAR_WIDTH = Math.min(SCREEN_WIDTH - 40, 600);
@@ -24,6 +25,8 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
   onOpenChatRoom,
 }) => {
   const { updateTask } = useTaskStore();
+  const theme = useTheme();
+  const [sheetMusicModalVisible, setSheetMusicModalVisible] = useState(false);
   
   // 初期日付の設定
   const initialDate = task.practiceDate 
@@ -46,32 +49,19 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
   } = useCalendar(initialDate, (date) => {
     // タスクを更新
     updateTask(task.id, {
-      practiceDate: date
+      practiceDate: date.toISOString()
     });
   });
 
-  // 日付をフォーマットする関数
-  const formatTaskDate = (date: Date | string | { seconds: number; nanoseconds: number } | null | undefined) => {
-    if (!date) return '設定なし';
-    
-    if (typeof date === 'string') {
-      return date;
-    }
-    
-    if ('seconds' in (date as any)) {
-      const timestamp = (date as any).seconds * 1000;
-      const dateObj = new Date(timestamp);
-      return `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日`;
-    }
-    
-    const dateObj = date as Date;
-    return `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日`;
-  };
-
-  // 楽譜データの取得
-  const sheetMusicUrl = task.attachments?.find(
-    (att: any) => att.type === 'image' && att.format === 'image/jpeg'
-  )?.url || null;
+  // 楽譜データがあるか確認
+  const sheetMusicAttachment = task.attachments?.find(
+    attachment => attachment.type === 'image' && attachment.format === 'image/jpeg'
+  );
+  const sheetMusicUrl = sheetMusicAttachment?.url;
+  
+  // 練習情報があるか確認
+  const hasPracticeInfo = !!task.practiceInfo;
+  const keyInfo = task.practiceInfo?.key || task.practiceInfo?.keyJp;
 
   // 練習ステップを解析
   const practiceSteps = task.steps || [];
@@ -84,6 +74,32 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
           <Text style={styles.sectionTitle}>練習内容・目標</Text>
           <Text style={styles.description}>{task.description || '詳細はありません'}</Text>
         </View>
+        
+        {/* 練習情報セクション */}
+        {hasPracticeInfo && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>練習情報</Text>
+            <View style={styles.practiceInfoContainer}>
+              {keyInfo && (
+                <View style={styles.practiceInfoItem}>
+                  <MaterialIcons name="music-note" size={16} color={theme.colors.primary} />
+                  <Text style={styles.practiceInfoText}>
+                    キー: {task.practiceInfo?.keyJp || task.practiceInfo?.key}
+                  </Text>
+                </View>
+              )}
+              
+              {task.practiceInfo?.scaleType && (
+                <View style={styles.practiceInfoItem}>
+                  <MaterialIcons name="piano" size={16} color={theme.colors.primary} />
+                  <Text style={styles.practiceInfoText}>
+                    スケール: {task.practiceInfo.scaleType === 'major' ? 'メジャー' : 'マイナー'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
         
         {/* 練習ステップセクション */}
         {practiceSteps.length > 0 && (
@@ -111,19 +127,25 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
           </View>
         )}
         
-        {/* 楽譜セクション */}
+        {/* 楽譜画像の表示 */}
         {sheetMusicUrl && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>楽譜</Text>
             <View style={styles.sheetMusicContainer}>
-              <Image 
-                source={{ uri: sheetMusicUrl }}
-                style={styles.sheetMusicPreview}
-                resizeMode="contain"
-              />
-              <Text style={styles.sheetMusicNote}>
-                練習ツールセクションで楽譜を拡大表示できます
-              </Text>
+              <TouchableOpacity 
+                activeOpacity={0.9}
+                onPress={() => setSheetMusicModalVisible(true)}
+              >
+                <Image
+                  source={{ uri: sheetMusicUrl }}
+                  style={styles.sheetMusicImage}
+                  resizeMode="contain"
+                />
+                <View style={styles.imageOverlay}>
+                  <MaterialIcons name="zoom-in" size={24} color="#FFFFFF" />
+                  <Text style={styles.imageOverlayText}>タップして拡大</Text>
+                </View>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -141,7 +163,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
             </TouchableOpacity>
           </View>
           <Text style={styles.infoText}>
-            {task.practiceDate ? formatTaskDate(task.practiceDate) : '設定なし'}
+            {task.practiceDate ? formatDate(task.practiceDate) : '設定なし'}
           </Text>
         </View>
         
@@ -186,6 +208,39 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
           </View>
         )}
       </View>
+      
+      {/* 楽譜モーダル */}
+      <Modal
+        visible={sheetMusicModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSheetMusicModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <StatusBar hidden />
+          <View style={styles.modalHeader}>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setSheetMusicModalVisible(false)}
+            >
+              <Ionicons name="close" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView 
+            style={styles.modalContent}
+            contentContainerStyle={styles.modalScrollContent}
+            maximumZoomScale={5.0}
+            minimumZoomScale={1.0}
+            bouncesZoom
+          >
+            <Image
+              source={{ uri: sheetMusicUrl }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          </ScrollView>
+        </View>
+      </Modal>
       
       {/* カレンダーモーダル */}
       <CalendarModal
@@ -341,20 +396,78 @@ const styles = StyleSheet.create({
   },
   // 楽譜関連スタイル
   sheetMusicContainer: {
+    width: '100%',
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F5F5F5',
+    marginTop: 8,
+  },
+  sheetMusicImage: {
+    width: '100%',
+    height: 300,
+    backgroundColor: '#F5F5F5',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    padding: 8,
+    borderRadius: 20,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  sheetMusicPreview: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+  imageOverlayText: {
+    color: '#FFFFFF',
+    marginLeft: 4,
+    fontSize: 12,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  modalHeader: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 40 : 20,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  fullScreenImage: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * 1.3,
+  },
+  // 練習情報のスタイル
+  practiceInfoContainer: {
+    marginTop: 8,
+  },
+  practiceInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  sheetMusicNote: {
-    fontSize: 14,
-    color: '#5F6368',
-    fontStyle: 'italic',
-    textAlign: 'center',
+  practiceInfoText: {
+    fontSize: 15,
+    color: '#333',
+    marginLeft: 8,
   },
 });
 
