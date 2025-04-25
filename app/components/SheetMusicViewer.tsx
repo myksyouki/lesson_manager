@@ -6,18 +6,38 @@ interface SheetMusicViewerProps {
   url: string | null;
 }
 
+// デバッグ用にダミーの楽譜画像URL
+const DUMMY_SHEET_MUSIC_URL = 'https://firebasestorage.googleapis.com/v0/b/lesson-manager-99ab9.firebasestorage.app/o/sheetMusic%2Fmenu_A_major_174495878763_512-media%26token%3Da501a800-0ab0-4ec5-8db4-e6cd6052938b';
+
 const SheetMusicViewer = ({ url }: SheetMusicViewerProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [useDummy, setUseDummy] = useState(false);
 
-  if (!url) return null;
+  // URLが無い場合はnullを返す（描画しない）
+  if (!url && !useDummy) {
+    console.log('楽譜URLがないため、表示しません');
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>楽譜</Text>
+        <TouchableOpacity 
+          style={styles.dummyButton}
+          onPress={() => setUseDummy(true)}
+        >
+          <Text style={styles.dummyButtonText}>デバッグ用: ダミー楽譜を表示</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
   
-  console.log('楽譜URL:', url);
+  // 実際のURLまたはダミーURLを使用
+  const displayUrl = url || DUMMY_SHEET_MUSIC_URL;
+  console.log('表示する楽譜URL:', displayUrl);
   
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>楽譜</Text>
+      <Text style={styles.title}>楽譜 {useDummy ? '(デバッグ表示)' : ''}</Text>
       
       <TouchableOpacity
         activeOpacity={0.9}
@@ -25,7 +45,7 @@ const SheetMusicViewer = ({ url }: SheetMusicViewerProps) => {
         style={styles.imageContainer}
       >
         <Image 
-          source={{ uri: url }} 
+          source={{ uri: displayUrl }} 
           style={styles.image}
           resizeMode="contain"
           onLoad={() => {
@@ -50,6 +70,7 @@ const SheetMusicViewer = ({ url }: SheetMusicViewerProps) => {
           <View style={styles.errorContainer}>
             <MaterialIcons name="error-outline" size={36} color="#E53935" />
             <Text style={styles.errorText}>画像の読み込みに失敗しました</Text>
+            <Text style={styles.errorDetail}>{error}</Text>
           </View>
         )}
         
@@ -58,6 +79,15 @@ const SheetMusicViewer = ({ url }: SheetMusicViewerProps) => {
           <Text style={styles.imageOverlayText}>タップして拡大</Text>
         </View>
       </TouchableOpacity>
+
+      {useDummy && (
+        <TouchableOpacity 
+          style={styles.resetButton}
+          onPress={() => setUseDummy(false)}
+        >
+          <Text style={styles.resetButtonText}>ダミー表示を解除</Text>
+        </TouchableOpacity>
+      )}
       
       {/* 楽譜モーダル */}
       <Modal
@@ -84,7 +114,7 @@ const SheetMusicViewer = ({ url }: SheetMusicViewerProps) => {
             bouncesZoom
           >
             <Image
-              source={{ uri: url }}
+              source={{ uri: displayUrl }}
               style={styles.fullScreenImage}
               resizeMode="contain"
             />
@@ -143,6 +173,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
+  errorDetail: {
+    marginTop: 5,
+    color: '#E53935',
+    fontSize: 12,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
   imageOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -158,6 +195,28 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginLeft: 5,
     fontSize: 14,
+  },
+  dummyButton: {
+    backgroundColor: '#E1F5FE',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  dummyButtonText: {
+    color: '#0288D1',
+    fontWeight: '600',
+  },
+  resetButton: {
+    backgroundColor: '#FFEBEE',
+    padding: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  resetButtonText: {
+    color: '#D32F2F',
+    fontWeight: '600',
   },
   modalContainer: {
     flex: 1,

@@ -40,6 +40,13 @@ export default function TaskDetail() {
         fetchSheetMusicFromMenuId(task.practiceInfo.menuId);
       } else {
         console.log('このタスクにはメニューIDがありません');
+        // タスクの詳細情報をログに出力して調査
+        console.log('タスク詳細:', JSON.stringify(task, null, 2));
+        
+        // デバッグ: ダミーメニューIDでテスト
+        const dummyMenuId = 'menu_A_major_174495878763_512';
+        console.log('デバッグ: ダミーメニューIDでテスト', dummyMenuId);
+        fetchSheetMusicFromMenuId(dummyMenuId);
       }
 
       // ストリークカウントの計算
@@ -54,28 +61,76 @@ export default function TaskDetail() {
     try {
       console.log('メニューIDから楽譜を取得中:', menuId);
       
-      // 1. メニューデータを取得
-      const menuRef = doc(db, 'menus', menuId);
-      const menuSnap = await getDoc(menuRef);
+      // 1. メニューデータを取得 - 直接メニューIDでアクセス
+      let menuRef = doc(db, 'menus', menuId);
+      let menuSnap = await getDoc(menuRef);
+      
+      // メニューが見つからない場合、他のコレクションパスを試みる
+      if (!menuSnap.exists()) {
+        console.log('menus コレクションに見つかりません、他のパスを試します');
+        
+        // 2. practiceMenus/saxophone/categories/音階/menus/ パスを試す
+        try {
+          menuRef = doc(db, 'practiceMenus', 'saxophone', 'categories', '音階', 'menus', menuId);
+          menuSnap = await getDoc(menuRef);
+          console.log('practiceMenus パスでの取得を試みます:', menuRef.path);
+        } catch (err) {
+          console.log('practiceMenus パスでの取得エラー:', err);
+        }
+        
+        // 3. もし見つからない場合は、他の楽器カテゴリを試す
+        if (!menuSnap.exists()) {
+          console.log('音階カテゴリに見つかりません、他のカテゴリを試します');
+          
+          // 他のカテゴリ名リスト
+          const categories = ['音階', '練習曲', 'エチュード', 'スタッカート', 'スラー'];
+          
+          for (const category of categories) {
+            try {
+              menuRef = doc(db, 'practiceMenus', 'saxophone', 'categories', category, 'menus', menuId);
+              menuSnap = await getDoc(menuRef);
+              console.log(`${category}カテゴリでの取得を試みます:`, menuRef.path);
+              
+              if (menuSnap.exists()) {
+                console.log(`${category}カテゴリで見つかりました`);
+                break;
+              }
+            } catch (err) {
+              console.log(`${category}カテゴリでの取得エラー:`, err);
+            }
+          }
+        }
+      }
       
       if (!menuSnap.exists()) {
-        console.log('メニューが存在しません:', menuId);
+        console.log('すべてのパスで試しましたが、メニューが存在しません:', menuId);
+        
+        // メニューIDを修正して再試行（IDの形式が間違っている可能性がある）
+        if (menuId.includes('_')) {
+          const simplifiedMenuId = menuId.split('_').pop() || menuId;
+          console.log('簡略化したIDで再試行:', simplifiedMenuId);
+          fetchSheetMusicFromMenuId(simplifiedMenuId);
+        }
+        
         return;
       }
       
       const menuData = menuSnap.data();
       console.log('メニューデータ:', menuData);
       
-      // 2. 直接imageUrlがある場合はそれを使用
+      // 4. 直接imageUrlがある場合はそれを使用
       if (menuData.imageUrl) {
         console.log('直接imageUrlから楽譜URL取得:', menuData.imageUrl);
         setSheetMusicUrl(menuData.imageUrl);
         return;
       }
       
-      // 3. sheetMusicサブコレクションのドキュメントを確認
+      // 5. sheetMusicサブコレクションのドキュメントを確認
       try {
-        const sheetMusicRef = doc(db, 'menus', menuId, 'sheetMusic', 'default');
+        // sheetMusicコレクションが存在する場合
+        const sheetMusicRef = doc(db, menuRef.path, 'sheetMusic', 'default');
+        console.log('sheetMusicサブコレクションのパス:', sheetMusicRef.path);
+        
         const sheetMusicSnap = await getDoc(sheetMusicRef);
         
         if (sheetMusicSnap.exists()) {
@@ -85,22 +140,47 @@ export default function TaskDetail() {
             setSheetMusicUrl(sheetMusicData.imageUrl);
             return;
           }
+        } else {
+          console.log('sheetMusicサブコレクションのドキュメントが存在しません');
         }
       } catch (subCollectionError) {
         console.log('sheetMusicサブコレクション取得エラー:', subCollectionError);
       }
       
-      // 4. 従来の方法：sheetMusicPathからStorageのURLを取得
+      // 6. 従来の方法：sheetMusicPathからStorageのURLを取得
       const sheetMusicPath = menuData?.sheetMusicPath;
       
       if (!sheetMusicPath) {
         console.log('楽譜パスがありません');
+        
+        // FirestoreコンソールのURLに表示されていたパスを直接試す
+        try {
+          const directPath = `practiceMenus/saxophone/categories/音階/menus/${menuId}/sheetMusic/default`;
+          console.log('直接パスでの取得を試みます:', directPath);
+          
+          const directRef = doc(db, directPath);
+          const directSnap = await getDoc(directRef);
+          
+          if (directSnap.exists()) {
+            const directData = directSnap.data();
+            console.log('直接パスからデータを取得:', directData);
+            
+            if (directData.imageUrl) {
+              console.log('直接パスから楽譜URL取得:', directData.imageUrl);
+              setSheetMusicUrl(directData.imageUrl);
+              return;
+            }
+          }
+        } catch (directError) {
+          console.log('直接パスでの取得エラー:', directError);
+        }
+        
         return;
       }
       
       console.log('楽譜パス:', sheetMusicPath);
       
-      // 5. Storageから画像URLを取得
+      // 7. Storageから画像URLを取得
       const storage = getStorage();
       const sheetMusicRef = ref(storage, sheetMusicPath);
       
@@ -229,7 +309,7 @@ export default function TaskDetail() {
       
       <ScrollView style={styles.contentContainer}>
         <TaskDetailContent
-          task={task}
+          task={{...task, attachments: []}} // 添付ファイルを空にして楽譜表示を無効化
           loading={loading}
           chatRoomTitle={chatRoom?.title || null}
           onOpenChatRoom={handleOpenChatRoom}
