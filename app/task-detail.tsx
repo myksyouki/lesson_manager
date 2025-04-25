@@ -10,6 +10,8 @@ import TaskCompletionSwipeButton from './features/tasks/components/TaskCompletio
 import TaskCompletionAnimation from './features/tasks/components/TaskCompletionAnimation';
 import PracticeTools from './features/practice/components/PracticeTools';
 import { MaterialIcons } from '@expo/vector-icons';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 export default function TaskDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,6 +26,42 @@ export default function TaskDetail() {
   const [sheetMusicUrl, setSheetMusicUrl] = useState<string | null>(null);
   const [isPracticeMode, setIsPracticeMode] = useState(false);
 
+  // 楽譜データをメニューIDから取得する関数
+  const fetchSheetMusicFromMenuId = async (menuId: string, instrumentId?: string) => {
+    try {
+      console.log(`メニューIDから楽譜を取得します: ${menuId}`);
+      // Firestoreのパスを構築
+      const sheetMusicRef = doc(db, 
+        `practiceMenus/${instrumentId || 'saxophone'}/categories/管楽器/menus/${menuId}/sheetMusic/default`
+      );
+      const sheetMusicSnap = await getDoc(sheetMusicRef);
+      
+      if (sheetMusicSnap.exists()) {
+        const sheetMusicData = sheetMusicSnap.data();
+        const url = sheetMusicData.imageUrl;
+        setSheetMusicUrl(url);
+        console.log('楽譜データを取得しました:', url);
+      } else {
+        console.log('メニューIDからの楽譜データが見つかりません');
+        
+        // 代替パスも試す
+        const alternativeRef = doc(db, `practiceMenus/saxophone/categories/基礎練習/menus/${menuId}/sheetMusic/default`);
+        const alternativeSnap = await getDoc(alternativeRef);
+        
+        if (alternativeSnap.exists()) {
+          const alternativeData = alternativeSnap.data();
+          const alternativeUrl = alternativeData.imageUrl;
+          setSheetMusicUrl(alternativeUrl);
+          console.log('代替パスから楽譜データを取得しました:', alternativeUrl);
+        } else {
+          console.log('すべてのパスで楽譜データが見つかりませんでした');
+        }
+      }
+    } catch (error) {
+      console.error('楽譜データ取得エラー:', error);
+    }
+  };
+
   useEffect(() => {
     if (id) {
       const foundTask = tasks.find(t => t.id === id);
@@ -34,9 +72,13 @@ export default function TaskDetail() {
         const sheetMusic = foundTask.attachments?.find(
           (att: any) => att.type === 'image' && att.format === 'image/jpeg'
         );
+        
         if (sheetMusic) {
           setSheetMusicUrl(sheetMusic.url);
           console.log('シートミュージックURL設定:', sheetMusic.url);
+        } else if (foundTask.practiceInfo?.menuId) {
+          // メニューIDから楽譜データを取得
+          fetchSheetMusicFromMenuId(foundTask.practiceInfo.menuId, foundTask.practiceInfo.instrumentId);
         } else {
           console.log('シートミュージックデータが見つかりません:', foundTask.attachments);
         }
