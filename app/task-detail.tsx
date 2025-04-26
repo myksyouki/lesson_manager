@@ -61,7 +61,26 @@ export default function TaskDetail() {
     try {
       console.log('メニューIDから楽譜を取得中:', menuId);
       
-      // 1. メニューデータを取得 - 直接メニューIDでアクセス
+      // 1. 直接FirebaseストレージからURLを取得してみる
+      try {
+        const storage = getStorage();
+        // 注意: 画面からわかるように、practiceMenus/saxophone/categories/音階/menus パスで楽譜が保存されている
+        const directStoragePath = `sheetMusic/${menuId}`;
+        console.log('直接ストレージパスを試行:', directStoragePath);
+        
+        const directRef = ref(storage, directStoragePath);
+        const directUrl = await getDownloadURL(directRef);
+        console.log('直接ストレージから取得したURL:', directUrl);
+        
+        if (directUrl) {
+          setSheetMusicUrl(directUrl);
+          return;
+        }
+      } catch (storageError) {
+        console.log('直接ストレージからの取得に失敗:', storageError);
+      }
+      
+      // 2. メニューデータを取得 - 直接メニューIDでアクセス
       let menuRef = doc(db, 'menus', menuId);
       let menuSnap = await getDoc(menuRef);
       
@@ -69,7 +88,7 @@ export default function TaskDetail() {
       if (!menuSnap.exists()) {
         console.log('menus コレクションに見つかりません、他のパスを試します');
         
-        // 2. practiceMenus/saxophone/categories/音階/menus/ パスを試す
+        // 3. practiceMenus/saxophone/categories/音階/menus/ パスを試す
         try {
           menuRef = doc(db, 'practiceMenus', 'saxophone', 'categories', '音階', 'menus', menuId);
           menuSnap = await getDoc(menuRef);
@@ -78,7 +97,7 @@ export default function TaskDetail() {
           console.log('practiceMenus パスでの取得エラー:', err);
         }
         
-        // 3. もし見つからない場合は、他の楽器カテゴリを試す
+        // 4. もし見つからない場合は、他の楽器カテゴリを試す
         if (!menuSnap.exists()) {
           console.log('音階カテゴリに見つかりません、他のカテゴリを試します');
           
@@ -112,20 +131,41 @@ export default function TaskDetail() {
           fetchSheetMusicFromMenuId(simplifiedMenuId);
         }
         
+        // 5. シートミュージックの直接パスを試す
+        try {
+          console.log('シートミュージックの直接パスを試みます');
+          // 画像からわかる正確なパス
+          const directRef = doc(db, 'practiceMenus/saxophone/categories/音階/menus/menu_A_major_174495878763_512/sheetMusic/default');
+          const directSnap = await getDoc(directRef);
+          
+          if (directSnap.exists()) {
+            const directData = directSnap.data();
+            console.log('シートミュージック直接パスから取得:', directData);
+            
+            if (directData.imageUrl) {
+              console.log('シートミュージック直接パスから楽譜URL取得:', directData.imageUrl);
+              setSheetMusicUrl(directData.imageUrl);
+              return;
+            }
+          }
+        } catch (directError) {
+          console.log('シートミュージック直接パスでの取得エラー:', directError);
+        }
+        
         return;
       }
       
       const menuData = menuSnap.data();
       console.log('メニューデータ:', menuData);
       
-      // 4. 直接imageUrlがある場合はそれを使用
+      // 6. 直接imageUrlがある場合はそれを使用
       if (menuData.imageUrl) {
         console.log('直接imageUrlから楽譜URL取得:', menuData.imageUrl);
         setSheetMusicUrl(menuData.imageUrl);
         return;
       }
       
-      // 5. sheetMusicサブコレクションのドキュメントを確認
+      // 7. sheetMusicサブコレクションのドキュメントを確認
       try {
         // sheetMusicコレクションが存在する場合
         const sheetMusicRef = doc(db, menuRef.path, 'sheetMusic', 'default');
@@ -147,13 +187,13 @@ export default function TaskDetail() {
         console.log('sheetMusicサブコレクション取得エラー:', subCollectionError);
       }
       
-      // 6. 従来の方法：sheetMusicPathからStorageのURLを取得
+      // 8. 従来の方法：sheetMusicPathからStorageのURLを取得
       const sheetMusicPath = menuData?.sheetMusicPath;
       
       if (!sheetMusicPath) {
         console.log('楽譜パスがありません');
         
-        // FirestoreコンソールのURLに表示されていたパスを直接試す
+        // 9. FirestoreコンソールのURLに表示されていたパスを直接試す
         try {
           const directPath = `practiceMenus/saxophone/categories/音階/menus/${menuId}/sheetMusic/default`;
           console.log('直接パスでの取得を試みます:', directPath);
@@ -180,7 +220,7 @@ export default function TaskDetail() {
       
       console.log('楽譜パス:', sheetMusicPath);
       
-      // 7. Storageから画像URLを取得
+      // 10. Storageから画像URLを取得
       const storage = getStorage();
       const sheetMusicRef = ref(storage, sheetMusicPath);
       

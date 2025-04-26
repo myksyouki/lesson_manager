@@ -7,37 +7,112 @@ interface SheetMusicViewerProps {
 }
 
 // デバッグ用にダミーの楽譜画像URL
-const DUMMY_SHEET_MUSIC_URL = 'https://firebasestorage.googleapis.com/v0/b/lesson-manager-99ab9.firebasestorage.app/o/sheetMusic%2Fmenu_A_major_174495878763_512-media%26token%3Da501a800-0ab0-4ec5-8db4-e6cd6052938b';
+const DUMMY_SHEET_MUSIC_URL = 'https://firebasestorage.googleapis.com/v0/b/lesson-manager-99ab9.firebasestorage.app/o/sheetMusic%2Fmenu_A_major_174495878763_512-media&token=a501a800-0ab0-4ec5-8db4-e6cd6052938b';
+
+// 直接アクセス可能な公開URLのテスト
+const PUBLIC_TEST_URL = 'https://i.ibb.co/SQyNtdj/sheet-music-sample.jpg';
+
+/**
+ * FirebaseのURL形式をチェックし、必要に応じて修正する
+ */
+const cleanFirebaseUrl = (url: string) => {
+  console.log('URLクリーニング前:', url);
+  
+  try {
+    // token前の&が%26になっていることがあるので修正
+    if (url.includes('%26token=')) {
+      url = url.replace('%26token=', '&token=');
+    }
+    
+    // URL内に%2Fが含まれている場合、デコードする
+    if (url.includes('%2F')) {
+      // URLエンコーディングを部分的にデコード
+      url = url.replace(/%2F/g, '/');
+    }
+    
+    console.log('URLクリーニング後:', url);
+    return url;
+  } catch (e) {
+    console.error('URL整形エラー:', e);
+    return url;
+  }
+};
 
 const SheetMusicViewer = ({ url }: SheetMusicViewerProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [useDummy, setUseDummy] = useState(false);
+  const [usePublicTest, setUsePublicTest] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState<string | null>(url);
+  
+  // URLの状態を更新
+  React.useEffect(() => {
+    if (url && url !== currentUrl) {
+      setCurrentUrl(url);
+      setLoading(true);
+      setError(null);
+    }
+  }, [url]);
 
-  // URLが無い場合はnullを返す（描画しない）
-  if (!url && !useDummy) {
+  // URLが無い場合はデバッグオプションを表示
+  if (!currentUrl && !useDummy && !usePublicTest) {
     console.log('楽譜URLがないため、表示しません');
     return (
       <View style={styles.container}>
         <Text style={styles.title}>楽譜</Text>
-        <TouchableOpacity 
-          style={styles.dummyButton}
-          onPress={() => setUseDummy(true)}
-        >
-          <Text style={styles.dummyButtonText}>デバッグ用: ダミー楽譜を表示</Text>
-        </TouchableOpacity>
+        <Text style={styles.noDataText}>楽譜データが読み込めません</Text>
+        <View style={styles.debugButtonsContainer}>
+          <TouchableOpacity 
+            style={styles.dummyButton}
+            onPress={() => {
+              setUseDummy(true);
+              setUsePublicTest(false);
+              setLoading(true);
+              setError(null);
+            }}
+          >
+            <Text style={styles.dummyButtonText}>Firebase URL をテスト</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.dummyButton, {backgroundColor: '#E8F5E9'}]}
+            onPress={() => {
+              setUsePublicTest(true);
+              setUseDummy(false);
+              setLoading(true);
+              setError(null);
+            }}
+          >
+            <Text style={[styles.dummyButtonText, {color: '#2E7D32'}]}>公開URLをテスト</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
   
-  // 実際のURLまたはダミーURLを使用
-  const displayUrl = url || DUMMY_SHEET_MUSIC_URL;
+  // 表示するURLを決定
+  let displayUrl = currentUrl;
+  if (useDummy) {
+    displayUrl = DUMMY_SHEET_MUSIC_URL;
+  } else if (usePublicTest) {
+    displayUrl = PUBLIC_TEST_URL;
+  }
+  
+  // URLがあれば必要に応じてクリーニング
+  if (displayUrl) {
+    displayUrl = cleanFirebaseUrl(displayUrl);
+  }
+  
   console.log('表示する楽譜URL:', displayUrl);
   
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>楽譜 {useDummy ? '(デバッグ表示)' : ''}</Text>
+      <Text style={styles.title}>
+        楽譜 
+        {useDummy ? '(Firebase URL テスト)' : ''}
+        {usePublicTest ? '(公開URL テスト)' : ''}
+      </Text>
       
       <TouchableOpacity
         activeOpacity={0.9}
@@ -45,7 +120,7 @@ const SheetMusicViewer = ({ url }: SheetMusicViewerProps) => {
         style={styles.imageContainer}
       >
         <Image 
-          source={{ uri: displayUrl }} 
+          source={{ uri: displayUrl || '' }} 
           style={styles.image}
           resizeMode="contain"
           onLoad={() => {
@@ -63,6 +138,7 @@ const SheetMusicViewer = ({ url }: SheetMusicViewerProps) => {
         {loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4285F4" />
+            <Text style={styles.loadingText}>楽譜を読み込み中...</Text>
           </View>
         )}
         
@@ -71,6 +147,19 @@ const SheetMusicViewer = ({ url }: SheetMusicViewerProps) => {
             <MaterialIcons name="error-outline" size={36} color="#E53935" />
             <Text style={styles.errorText}>画像の読み込みに失敗しました</Text>
             <Text style={styles.errorDetail}>{error}</Text>
+            <View style={styles.debugButtonsContainer}>
+              <TouchableOpacity 
+                style={[styles.resetButton, {backgroundColor: '#E8F5E9'}]}
+                onPress={() => {
+                  setUsePublicTest(true);
+                  setUseDummy(false);
+                  setLoading(true);
+                  setError(null);
+                }}
+              >
+                <Text style={[styles.resetButtonText, {color: '#2E7D32'}]}>公開URLに切替</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
         
@@ -80,12 +169,17 @@ const SheetMusicViewer = ({ url }: SheetMusicViewerProps) => {
         </View>
       </TouchableOpacity>
 
-      {useDummy && (
+      {(useDummy || usePublicTest) && (
         <TouchableOpacity 
           style={styles.resetButton}
-          onPress={() => setUseDummy(false)}
+          onPress={() => {
+            setUseDummy(false);
+            setUsePublicTest(false);
+            setCurrentUrl(url);
+            setLoading(true);
+          }}
         >
-          <Text style={styles.resetButtonText}>ダミー表示を解除</Text>
+          <Text style={styles.resetButtonText}>テストモードを解除</Text>
         </TouchableOpacity>
       )}
       
@@ -114,7 +208,7 @@ const SheetMusicViewer = ({ url }: SheetMusicViewerProps) => {
             bouncesZoom
           >
             <Image
-              source={{ uri: displayUrl }}
+              source={{ uri: displayUrl || '' }}
               style={styles.fullScreenImage}
               resizeMode="contain"
             />
@@ -134,6 +228,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
+  },
+  noDataText: {
+    fontSize: 16,
+    color: '#757575',
+    marginBottom: 10,
+    textAlign: 'center',
   },
   imageContainer: {
     position: 'relative',
@@ -157,6 +257,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(240, 240, 240, 0.7)',
   },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#4285F4',
+  },
   errorContainer: {
     position: 'absolute',
     top: 0,
@@ -166,6 +271,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(240, 240, 240, 0.9)',
+  },
+  debugButtonsContainer: {
+    flexDirection: 'row',
+    marginTop: 15,
+    justifyContent: 'center',
   },
   errorText: {
     marginTop: 10,
@@ -202,6 +312,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginVertical: 10,
+    marginHorizontal: 5,
   },
   dummyButtonText: {
     color: '#0288D1',
