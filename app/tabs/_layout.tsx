@@ -13,8 +13,8 @@ import { router } from 'expo-router';
 // LINE風のタブバーの高さ設定
 const useTabBarHeight = () => {
   const insets = useSafeAreaInsets();
-  // LINE風の固定高さ（48-50dp）+ 下部の安全領域
-  const TAB_BAR_HEIGHT = 50;
+  // X（旧Twitter）風の固定高さ（45dp）+ 下部の安全領域
+  const TAB_BAR_HEIGHT = 45;
   const BOTTOM_INSET = Platform.OS === 'ios' ? insets.bottom : 0;
   
   return { tabHeight: TAB_BAR_HEIGHT, bottomInset: BOTTOM_INSET };
@@ -38,14 +38,14 @@ const AnimatedTabBarIcon = ({
   useEffect(() => {
     Animated.parallel([
       Animated.spring(scale, {
-        toValue: focused ? 1.1 : 1,
-        friction: 5,
-        tension: 40,
+        toValue: focused ? 1.15 : 1,
+        friction: 8,
+        tension: 50,
         useNativeDriver: true,
       }),
       Animated.timing(opacity, {
         toValue: focused ? 1 : 0.7,
-        duration: 200,
+        duration: 150,
         useNativeDriver: true,
       })
     ]).start();
@@ -73,14 +73,14 @@ const TabBarBackground = ({
   if (Platform.OS === 'ios') {
     return (
       <BlurView
-        intensity={80}
+        intensity={90}
         tint={theme === 'dark' ? 'dark' : 'light'}
         style={[
           StyleSheet.absoluteFillObject,
           {
             overflow: 'hidden',
             borderTopWidth: 0.5,
-            borderTopColor: theme.colors.borderLight,
+            borderTopColor: 'rgba(0,0,0,0.1)',
           },
         ]}
       />
@@ -95,11 +95,11 @@ const TabBarBackground = ({
           backgroundColor: theme.colors.background,
           shadowColor: theme.colors.shadow,
           shadowOffset: { width: 0, height: -1 },
-          shadowOpacity: 0.1,
+          shadowOpacity: 0.08,
           shadowRadius: 2,
-          elevation: 4,
+          elevation: 3,
           borderTopWidth: 0.5,
-          borderTopColor: theme.colors.borderLight,
+          borderTopColor: 'rgba(0,0,0,0.1)',
         },
       ]}
     />
@@ -123,7 +123,7 @@ const TabIndicator = ({
 
 export default function TabLayout() {
   const { tabHeight, bottomInset } = useTabBarHeight();
-  const ICON_SIZE = 24; // LINE風のアイコンサイズ
+  const ICON_SIZE = 22; // X（旧Twitter）風のアイコンサイズ
   const { signOut, isDemo } = useAuthStore();
   const theme = useTheme();
   const { theme: themeName } = useSettingsStore();
@@ -146,19 +146,19 @@ export default function TabLayout() {
           <TabBarBackground theme={theme} />
         ),
         tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: '#8E8E93', // LINE風のグレー
+        tabBarInactiveTintColor: '#8E8E93', // X風のグレー
         tabBarLabelStyle: {
           fontFamily: theme.typography.fontFamily.medium,
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: '500',
-          marginTop: 2,
+          marginTop: 0,
         },
         tabBarIconStyle: {
           marginBottom: 0,
         },
         tabBarItemStyle: {
-          gap: 2,
-          paddingVertical: 6,
+          gap: 1,
+          paddingVertical: 4,
           height: tabHeight,
         },
         tabBarIcon: ({ color, size, focused }) => {
@@ -174,6 +174,8 @@ export default function TabLayout() {
             iconName = 'smart-toy';
           } else if (route.name === 'analysis') {
             iconName = 'analytics';
+          } else if (route.name === 'schedule') {
+            iconName = 'calendar-today';
           } else if (route.name === 'settings') {
             iconName = 'settings';
           }
@@ -184,23 +186,23 @@ export default function TabLayout() {
         tabBarLabel: ({ focused, color, children }) => {
           let label = children;
           if (route.name === 'analysis') label = '分析';
+          if (route.name === 'schedule') label = 'スケジュール';
           
-          // デモモード時のスタイル差異を削除
           return (
             <View style={{ position: 'relative', alignItems: 'center' }}>
               <Animated.Text
                 style={{
                   color: color,
-                  fontSize: 10,
+                  fontSize: 9,
                   fontFamily: theme.typography.fontFamily.medium,
-                  fontWeight: focused ? '600' : '400',
+                  fontWeight: focused ? '700' : '400',
                   opacity: focused ? 1 : 0.7,
-                  letterSpacing: 0,
+                  letterSpacing: -0.2,
+                  marginTop: 1,
                 }}
               >
                 {label}
               </Animated.Text>
-              <TabIndicator focused={focused} color={color} routeName={route.name} />
             </View>
           );
         },
@@ -233,6 +235,12 @@ export default function TabLayout() {
         name="analysis"
         options={{
           title: '分析',
+        }}
+      />
+      <Tabs.Screen
+        name="schedule"
+        options={{
+          title: 'スケジュール',
         }}
       />
       <Tabs.Screen

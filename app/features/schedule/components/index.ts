@@ -1,3 +1,4 @@
+export { default as ScheduleScreen } from './ScheduleScreen';
 export { default as CalendarHeader } from './CalendarHeader';
 export { default as CalendarGrid } from './CalendarGrid';
 export { default as DailySchedule } from './DailySchedule';
