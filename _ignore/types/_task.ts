@@ -1,30 +1,32 @@
 export interface Task {
-  id: string;
-  title: string;
-  description: string;
-  dueDate: string | Date | { seconds: number; nanoseconds: number };
-  isCompleted: boolean;
-  completed?: boolean; // isCompletedと互換性を持たせるため
-  createdAt: string | Date | { seconds: number; nanoseconds: number };
-  updatedAt: string | Date | { seconds: number; nanoseconds: number };
-  priority?: string; // 優先度（高、中、低）
-  tags?: string[]; // タグのリスト
-  attachments?: {
-    type: 'text' | 'pdf' | 'image';
-    url: string;
-    format?: string; // 'image/jpeg'などのMIMEタイプ
-  }[];
-  userId?: string; // ユーザーID
-  lessonId?: string; // 関連するレッスンID（存在する場合）
-  chatRoomId?: string; // 関連するチャットルームID（存在する場合）
-  practiceDate?: string | Date | { seconds: number; nanoseconds: number }; // 練習予定日
-  isPinned?: boolean; // ホーム画面にピン留めされているかどうか
-  displayOrder?: number; // タスクの表示順序
-  steps?: {
-    id: string;
+  id: string;                  // ドキュメントID
+  title: string;               // タスクのタイトル
+  description: string;         // タスクの説明
+  dueDate: string;             // 期限日
+  completed: boolean;          // 完了状態 (Firestoreでは completed または isCompleted)
+  isPinned: boolean;           // ピン留め状態
+  attachments: any[];          // 添付ファイル
+  userId: string;              // 所有者ID
+  lessonId?: string;           // 関連するレッスンID
+  chatRoomId?: string;         // 関連するチャットルームID
+  tags: string[];              // タグリスト
+  priority: string;            // 優先度
+  displayOrder?: number;       // 表示順序 (Firestoreでは orderIndex または order の場合もある)
+  createdAt: string;           // 作成日時
+  updatedAt: string;           // 更新日時
+  practiceInfo?: {             // 練習情報
+    key?: string;              // 調号
+    keyJp?: string;            // 調号（日本語表記）
+    scaleType?: string;        // スケールタイプ
+    instrumentId?: string;     // 楽器ID
+    menuId?: string;           // メニューID
+  };
+  practiceDate?: string | Date; // 練習日
+  steps?: Array<{              // 練習ステップ
+    id?: string;
     title: string;
-    description: string;
-    duration?: string | number; // 所要時間（分）
-    orderIndex: number;
-  }[]; // 練習ステップ
+    description?: string;
+    duration?: number;
+    orderIndex?: number;
+  }>;
 }

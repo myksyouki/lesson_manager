@@ -28,8 +28,10 @@ import { router } from 'expo-router';
 import { getUserChatRooms, ChatRoom as ChatRoomType } from '../../services/chatRoomService';
 import { auth } from '../../config/firebase';
 import { getPracticeMenus, PracticeMenu } from '../../services/practiceMenuService';
-import { getCurrentUserProfile } from '../../services/userProfileService';
+import { getCurrentUserProfile, getUserInstrumentInfo } from '../../services/userProfileService';
 import { LinearGradient } from 'expo-linear-gradient';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 // PracticeMenu型のサンプルデータ
 const sampleRecommendedMenus = [
@@ -486,16 +488,34 @@ export default function HomeScreen() {
     if (!user) return;
     setIsLoadingPracticeMenus(true);
     try {
-      // ユーザープロフィールから楽器 ID を取得
-      const profile = await getCurrentUserProfile();
-      const instrument = profile?.selectedInstrument;
-      if (!instrument) {
+      // ユーザープロフィールから楽器情報を取得
+      const instrumentInfo = await getUserInstrumentInfo();
+      if (!instrumentInfo) {
         setPracticeMenus([]);
         return;
       }
+      
+      // 楽器名を取得
+      const instrumentName = instrumentInfo.instrumentName;
+      console.log('楽器名:', instrumentName);
+      
       // Firestore から全メニューを取得し、楽器ごとにフィルタ
       const menus = await getPracticeMenus();
-      const filtered = menus.filter(menu => menu.instrument === instrument);
+      
+      // メニューの型に応じてフィルタリング
+      const filtered = menus.filter(menu => {
+        // TypeScriptの型エラーを回避するためにany型でキャスト
+        const menuAny = menu as any;
+        
+        // 英字の楽器ID（saxophone）や日本語の楽器名（サクソフォン）に対応
+        return menuAny.instrumentId === instrumentInfo.instrumentId || 
+               menuAny.instrument === instrumentInfo.instrumentId ||
+               menuAny.instrument === 'saxophone' || // サックスの場合は英字のIDを使用
+               menuAny.instrumentName === instrumentName;
+      });
+      
+      console.log(`練習メニューをフィルタリング: 全${menus.length}件中${filtered.length}件が一致`);
+      
       // ランダム表示するためにシャッフル
       const shuffled = [...filtered].sort(() => Math.random() - 0.5);
       setPracticeMenus(shuffled.slice(0, 3)); // 先頭3件を表示
@@ -633,6 +653,49 @@ export default function HomeScreen() {
       return;
     }
     try {
+      // Firestoreから楽譜データを取得
+      let sheetMusicUrl = null;
+      
+      // メニューの直接プロパティからURLを取得
+      sheetMusicUrl = menu.imageUrl || (menu.default?.imageUrl);
+      
+      // シートミュージックのサブコレクションを確認
+      if (!sheetMusicUrl && menu.menuId) {
+        try {
+          console.log(`楽譜データを取得します: ${menu.menuId}`);
+          // Firestoreのパスを構築
+          const sheetMusicRef = doc(db, 
+            `practiceMenus/${menu.instrumentId || 'saxophone'}/categories/${menu.categoryId || '管楽器'}/menus/${menu.menuId}/sheetMusic/default`
+          );
+          const sheetMusicSnap = await getDoc(sheetMusicRef);
+          
+          if (sheetMusicSnap.exists()) {
+            const sheetMusicData = sheetMusicSnap.data();
+            sheetMusicUrl = sheetMusicData.imageUrl;
+            console.log('楽譜データを取得しました:', sheetMusicUrl);
+          } else {
+            console.log('楽譜データが見つかりません');
+          }
+        } catch (error) {
+          console.error('楽譜データ取得エラー:', error);
+        }
+      }
+      
+      const attachments = [];
+      
+      // 楽譜URLが存在する場合、添付ファイルに追加
+      if (sheetMusicUrl) {
+        attachments.push({
+          type: 'image',
+          format: 'image/jpeg',
+          url: sheetMusicUrl,
+          title: '楽譜データ'
+        });
+        console.log('楽譜データを添付します:', sheetMusicUrl);
+      } else {
+        console.log('楽譜データが見つかりませんでした');
+      }
+
       await addTask({
         title: menu.title,
         description: menu.description,
@@ -640,10 +703,18 @@ export default function HomeScreen() {
         completed: false,
         tags: menu.tags || [],
         isPinned: false,
-        attachments: [],
+        attachments: attachments, // 楽譜データを含む添付ファイル配列
         priority: 'medium',
         userId: user.uid,
         displayOrder: 0,
+        // 追加の練習情報
+        practiceInfo: {
+          key: menu.key,
+          keyJp: menu.keyJp,
+          scaleType: menu.scaleType,
+          instrumentId: menu.instrumentId || 'saxophone',
+          menuId: menu.menuId || menu.id
+        }
       });
       Alert.alert('追加', '練習タスクに追加しました');
     } catch (error) {
@@ -723,12 +794,12 @@ export default function HomeScreen() {
                         <Text style={styles.practiceMenuDescription}>{menu.description}</Text>
                         {/* ステップリスト */}
                         <View style={styles.practiceMenuStepList}>
-                          {menu.steps.map((step, i) => (
-                            <View key={step.id ?? `step-${i}`} style={styles.practiceMenuStepItem}>
+                          {((menu as any).sections || []).map((section: any, i: number) => (
+                            <View key={section.id ?? `step-${i}`} style={styles.practiceMenuStepItem}>
                               <Text style={styles.practiceMenuStepNum}>{i + 1}.</Text>
                               <View style={{ flex: 1 }}>
-                                <Text style={styles.practiceMenuStepTitle}>{step.title}</Text>
-                                <Text style={styles.practiceMenuStepDesc}>{step.description} <Text style={styles.practiceMenuStepTime}>({step.duration}分)</Text></Text>
+                                <Text style={styles.practiceMenuStepTitle}>{section.title}</Text>
+                                <Text style={styles.practiceMenuStepDesc}>{section.description} <Text style={styles.practiceMenuStepTime}>({section.duration}分)</Text></Text>
                               </View>
                             </View>
                           ))}

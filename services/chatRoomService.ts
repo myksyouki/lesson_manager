@@ -1,6 +1,7 @@
 import { collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where, serverTimestamp, Timestamp, orderBy, deleteDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
 import { getFirestore } from 'firebase/firestore';
+import { isDemoMode, getDemoChatRooms, createDemoChatRoom, addDemoChatMessage, startDemoAIConversation } from './demoModeService';
 
 // メッセージの型定義
 export interface ChatMessage {
@@ -53,6 +54,14 @@ export interface CreateChatRoomData {
 // ユーザーのアクティブなチャットルーム数を取得する関数
 export const getUserActiveChatRoomsCount = async (userId: string): Promise<number> => {
   try {
+    // デモモードの場合
+    if (isDemoMode()) {
+      const demoChatRooms = await getDemoChatRooms();
+      const activeRooms = demoChatRooms.filter((room: any) => !room.isDeleted);
+      return activeRooms.length;
+    }
+
+    // 通常モードの場合
     const currentUser = auth.currentUser;
     if (!currentUser) {
       throw new Error('ユーザーが認証されていません');
@@ -82,6 +91,69 @@ export const createChatRoom = async (
   modelType: string = 'standard'
 ): Promise<ChatRoom> => {
   try {
+    // デモモードの場合
+    if (isDemoMode()) {
+      console.log('デモモードでチャットルームを作成します:', {
+        title,
+        topic,
+        initialMessageLength: initialMessage.length,
+        modelType
+      });
+
+      // デモユーザーの情報を取得
+      const demoUser = {
+        uid: 'demo-user',
+        email: 'demo@example.com',
+        displayName: 'デモユーザー',
+      };
+
+      // 初期メッセージを作成
+      const userMessage: ChatMessage = {
+        id: `msg_${Date.now()}`,
+        content: initialMessage,
+        sender: 'user',
+        timestamp: Timestamp.now(),
+      };
+
+      // チャットルームデータを作成
+      const newChatRoom: Omit<ChatRoom, 'id'> = {
+        title,
+        topic,
+        userId: demoUser.uid,
+        initialMessage,
+        modelType,
+        messages: [userMessage],
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        isDeleted: false, // 初期値を明示的に設定
+      };
+
+      // デモモード用のチャットルーム作成関数を呼び出し
+      const roomId = await createDemoChatRoom(newChatRoom);
+      
+      // AIの応答を生成
+      const aiResponse = await startDemoAIConversation(initialMessage);
+      
+      // AIメッセージを作成
+      const aiMessage: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        content: aiResponse.content,
+        sender: 'ai',
+        timestamp: Timestamp.now(),
+      };
+      
+      // AIメッセージをチャットルームに追加
+      await addDemoChatMessage(roomId, aiMessage);
+      
+      // 作成したチャットルームデータを返す
+      return {
+        id: roomId,
+        ...newChatRoom,
+        messages: [userMessage, aiMessage]
+      };
+    }
+
+    // 通常モードの場合
     const currentUser = auth.currentUser;
     if (!currentUser) {
       throw new Error('ユーザーが認証されていません');
@@ -148,6 +220,14 @@ export const createChatRoom = async (
 // チャットルームの取得
 export const getChatRoom = async (roomId: string): Promise<ChatRoom | null> => {
   try {
+    // デモモードの場合
+    if (isDemoMode()) {
+      const chatRooms = await getDemoChatRooms();
+      const room = chatRooms.find((room: any) => room.id === roomId);
+      return room || null;
+    }
+
+    // 通常モードの場合
     const currentUser = auth.currentUser;
     if (!currentUser) {
       throw new Error('ユーザーが認証されていません');
@@ -173,6 +253,15 @@ export const getChatRoom = async (roomId: string): Promise<ChatRoom | null> => {
 
 // ユーザーのチャットルーム一覧を取得
 export const getUserChatRooms = async (userId: string): Promise<ChatRoom[]> => {
+  // デモモードの場合
+  if (isDemoMode()) {
+    console.log('デモモードでチャットルーム一覧を取得します');
+    const chatRooms = await getDemoChatRooms();
+    const activeRooms = chatRooms.filter((room: any) => !room.isDeleted);
+    return activeRooms;
+  }
+
+  // 通常モードの場合は既存の処理
   let retryCount = 0;
   const maxRetries = 3;
   const retryDelay = 2000; // 2秒
@@ -245,40 +334,15 @@ export const getUserChatRooms = async (userId: string): Promise<ChatRoom[]> => {
           }, null, 2));
         } else {
           console.log('⚠️ ChatRoomService: チャットルームが見つかりませんでした');
-          
-          // デバッグ: コレクション内のすべてのドキュメントを表示
-          if (querySnapshot.size > 0) {
-            console.log('🔎 ChatRoomService: コレクション内のすべてのドキュメント:');
-            querySnapshot.forEach((doc) => {
-              const rawData = doc.data();
-              console.log(`  - ID: ${doc.id}, isDeleted: ${rawData.isDeleted}, title: ${rawData.title}`);
-            });
-          }
         }
         
         return chatRooms;
       } catch (queryError) {
-        console.error('❌ ChatRoomService: クエリ実行エラー:', queryError);
-        
-        if (retryCount < maxRetries) {
-          console.log(`クエリ実行失敗。リトライ: ${retryCount + 1}/${maxRetries}`);
-          retryCount++;
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
-          return tryGetChatRooms();
-        }
-        
+        console.error('❌ ChatRoomService: クエリエラー', queryError);
         throw queryError;
       }
     } catch (error) {
-      console.error('❌ ChatRoomService: チャットルーム一覧取得エラー:', error);
-      
-      if (retryCount < maxRetries) {
-        console.log(`チャットルーム一覧取得失敗。リトライ: ${retryCount + 1}/${maxRetries}`);
-        retryCount++;
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-        return tryGetChatRooms();
-      }
-      
+      console.error('❌ ChatRoomService: getUserChatRoomsエラー', error);
       throw error;
     }
   };

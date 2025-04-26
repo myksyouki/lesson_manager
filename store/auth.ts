@@ -21,6 +21,10 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { checkOnboardingStatus } from "../services/userProfileService";
 import { getLocalStorageItem, setLocalStorageItem, removeLocalStorageItem } from '../utils/_storage';
 import { Alert } from "react-native";
+import { getDefaultDemoData } from './demoData';
+import { v4 as uuidv4 } from 'uuid';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { demoModeService } from '../services/demoModeService';
 
 console.log("✅ Expo Config Extra:", Constants.expoConfig?.extra);
 console.log("🔗 Redirect URI:", Constants.expoConfig?.extra?.expoPublicGoogleRedirectUri);
@@ -84,6 +88,7 @@ export interface AuthState {
   isOnboardingCompleted: boolean;
   premiumStatus: PremiumStatus | null;
   deletionStatus: DeletionStatus | null;
+  isDemo: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (promptAsync: () => Promise<any>) => Promise<void>;
@@ -101,6 +106,8 @@ export interface AuthState {
   setUser: (user: AppUser | null) => void;
   setLoading: (loading: boolean) => void;
   setPremiumStatus: (status: PremiumStatus | null) => void;
+  enterDemoMode: () => Promise<void>;
+  exitDemoMode: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => {
@@ -114,6 +121,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     isOnboardingCompleted: false,
     premiumStatus: null,
     deletionStatus: null,
+    isDemo: false,
   };
   
   // 起動時にonAuthStateChangedより先に実行されるチェック
@@ -292,6 +300,39 @@ export const useAuthStore = create<AuthState>((set, get) => {
       unsubscribe();
     };
   }, []);
+
+  // ユーザー情報をローカルストレージに保存する関数
+  const saveUserToStorage = async (user: AppUser | null, isDemo: boolean = false) => {
+    try {
+      if (Platform.OS === 'web') {
+        if (user) {
+          localStorage.setItem('userAuth', 'true');
+          localStorage.setItem('userId', user.uid);
+          localStorage.setItem('userEmail', user.email || '');
+          localStorage.setItem('userDisplayName', user.displayName || '');
+          localStorage.setItem('userPhotoURL', user.photoURL || '');
+          localStorage.setItem('isDemo', isDemo ? 'true' : 'false');
+        } else {
+          localStorage.removeItem('userAuth');
+          localStorage.removeItem('userId');
+          localStorage.removeItem('userEmail');
+          localStorage.removeItem('userDisplayName');
+          localStorage.removeItem('userPhotoURL');
+          localStorage.removeItem('isDemo');
+        }
+      } else {
+        if (user) {
+          await setLocalStorageItem('auth_user', user);
+          await setLocalStorageItem('isDemo', isDemo);
+        } else {
+          await removeLocalStorageItem('auth_user');
+          await removeLocalStorageItem('isDemo');
+        }
+      }
+    } catch (error) {
+      console.error('ユーザー情報の保存/削除に失敗:', error);
+    }
+  };
 
   return {
     ...initialState,
@@ -762,6 +803,64 @@ export const useAuthStore = create<AuthState>((set, get) => {
         console.error("❌ Appleサインイン失敗:", error.message);
         set({ error: error.message, isLoading: false });
         throw error;
+      }
+    },
+
+    // デモモードに入る
+    enterDemoMode: async () => {
+      try {
+        console.log('デモモード開始');
+        
+        // デモユーザーを作成
+        const demoUser: AppUser = {
+          uid: 'demo-user',
+          email: 'demo@example.com',
+          displayName: 'デモユーザー',
+          photoURL: null
+        };
+        
+        // デモデータをリセット（デフォルトデータを確実に読み込む）
+        await demoModeService.resetToDefaultData();
+        
+        // デモユーザー情報を保存
+        set({ 
+          user: demoUser, 
+          isAuthenticated: true,
+          isDemo: true 
+        });
+        
+        // ローカルストレージにデモユーザー情報を保存
+        await saveUserToStorage(demoUser, true);
+        
+      } catch (error: any) {
+        console.error('デモモード開始エラー:', error);
+        set({ error: error.message });
+      }
+    },
+    
+    // デモモードから抜ける
+    exitDemoMode: async () => {
+      try {
+        console.log('デモモード終了');
+        
+        // 認証状態をリセット
+        set({ 
+          user: null, 
+          isAuthenticated: false,
+          isDemo: false 
+        });
+        
+        // ローカルストレージからデモユーザー情報を削除
+        await saveUserToStorage(null);
+        
+        // デモデータをクリア
+        await demoModeService.clearAllDemoData();
+        
+        // ログイン画面にリダイレクト
+        router.replace('/');
+      } catch (error: any) {
+        console.error('デモモード終了エラー:', error);
+        set({ error: error.message });
       }
     },
   };

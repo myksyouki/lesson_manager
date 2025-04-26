@@ -76,6 +76,9 @@ export default function LessonDetail() {
   const [generatedMenus, setGeneratedMenus] = useState<PracticeMenu[]>([]);
   const [selectedMenuItems, setSelectedMenuItems] = useState<{[key: number]: boolean}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // 練習データ関連の状態
+  const [isPracticeLoading, setIsPracticeLoading] = useState(false);
+  const [practices, setPractices] = useState<any[]>([]);
   // 練習タブをリフレッシュするためのトリガー
   const [practiceRefreshTrigger, setPracticeRefreshTrigger] = useState(0);
   
@@ -98,6 +101,14 @@ export default function LessonDetail() {
     archivedDate: '',
     aiInstructions: '',
   });
+
+  // ダミー関数 - 実際のAPIがある場合はそれを使用
+  const getPracticesByLessonId = async (lessonId: string) => {
+    // デモデータまたは実際のAPIから練習データを取得
+    console.log('レッスンIDの練習データを取得:', lessonId);
+    // ダミーデータを返す
+    return [];
+  };
 
   // Firestoreからのリアルタイム更新を監視
   useEffect(() => {
@@ -759,7 +770,7 @@ export default function LessonDetail() {
 
   // 練習データを取得
   useEffect(() => {
-    if (!currentLesson?.id || !isActive) return;
+    if (!currentLesson?.id) return;
     
     const fetchPractices = async () => {
       setIsPracticeLoading(true);
@@ -774,7 +785,7 @@ export default function LessonDetail() {
     };
     
     fetchPractices();
-  }, [currentLesson?.id, isActive, practiceRefreshTrigger]);
+  }, [currentLesson?.id, practiceRefreshTrigger]);
 
   return (
     <SafeAreaView style={styles.container}>

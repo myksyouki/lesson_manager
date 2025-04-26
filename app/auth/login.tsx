@@ -297,19 +297,19 @@ export default function LoginScreen() {
               >
                 <MaterialCommunityIcons 
                   name="music-note" 
-                  size={48} 
+                  size={54} 
                   color="#FFFFFF" 
                 />
               </LinearGradient>
             </View>
-            <Text style={styles.appName}>Resonote</Text>
-            <Text style={styles.appTagline}>音楽の旅をもっと楽しく</Text>
+            <Text style={styles.appTitle}>Resonote</Text>
+            <Text style={styles.appSubtitle}>練習をデザインする</Text>
           </View>
 
           <View style={styles.formContainer}>
             <BlurView intensity={10} tint="light" style={styles.blurBackground} />
             <View style={styles.formContent}>
-              <Text style={styles.title}>
+              <Text style={styles.formTitle}>
                 {isSignUp ? 'アカウント作成' : 'ログイン'}
               </Text>
 
@@ -514,41 +514,43 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoBox: {
-    width: 90,
-    height: 90,
-    borderRadius: 20,
-    marginBottom: 16,
+    width: 100,
+    height: 100,
+    borderRadius: 22,
+    marginBottom: 20,
     shadowColor: '#50A4D2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
   },
   logoGradient: {
     width: '100%',
     height: '100%',
-    borderRadius: 20,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  appName: {
-    fontSize: 28,
-    fontWeight: '700',
+  appTitle: {
+    fontSize: 34,
+    fontWeight: '800',
     color: '#2B5876',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
-  appTagline: {
-    fontSize: 16,
+  appSubtitle: {
+    fontSize: 18,
     color: '#4A6B8A',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    letterSpacing: 1,
   },
   formContainer: {
     borderRadius: 24,
     overflow: 'hidden',
     shadowColor: '#A8D1EB',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 24,
     elevation: 8,
   },
@@ -562,15 +564,15 @@ const styles = StyleSheet.create({
   formContent: {
     padding: 28,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
   },
-  title: {
-    fontSize: 24,
+  formTitle: {
+    fontSize: 28,
     fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 28,
     color: '#2B5876',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    marginBottom: 20,
+    textAlign: 'center',
   },
   errorContainer: {
     backgroundColor: 'rgba(255, 71, 87, 0.1)',
@@ -588,9 +590,9 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderRadius: 16,
-    height: 56,
+    height: 58,
     paddingHorizontal: 16,
     marginBottom: 16,
     shadowColor: '#A8D1EB',
@@ -624,14 +626,14 @@ const styles = StyleSheet.create({
   },
   authButton: {
     borderRadius: 16,
-    height: 56,
+    height: 58,
     overflow: 'hidden',
     marginBottom: 24,
     shadowColor: '#50A4D2',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 5,
   },
   buttonGradient: {
     flex: 1,
@@ -640,9 +642,10 @@ const styles = StyleSheet.create({
   },
   authButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    letterSpacing: 0.5,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -671,14 +674,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    height: 56,
+    height: 58,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#A8D1EB',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
     marginHorizontal: 6,
     marginBottom: 8,
   },
@@ -690,15 +693,15 @@ const styles = StyleSheet.create({
   },
   socialButtonText: {
     color: '#2B5876',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-    lineHeight: 20,
+    lineHeight: 22,
     paddingVertical: 2,
   },
   testUserButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
@@ -707,6 +710,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 8,
+    marginTop: 8,
   },
   switchText: {
     color: '#4A6B8A',
@@ -714,9 +718,9 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   switchButton: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    marginLeft: 4,
+    marginLeft: 6,
     fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   appleButtonWrapper: {
@@ -726,22 +730,22 @@ const styles = StyleSheet.create({
   },
   appleButton: {
     width: '100%',
-    height: 56,
+    height: 58,
     marginBottom: 8,
   },
   customAppleButton: {
     width: '100%',
-    height: 56,
+    height: 58,
     backgroundColor: '#000000',
     borderRadius: 16,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 3,
   },
   customAppleButtonText: {
     color: '#FFFFFF',

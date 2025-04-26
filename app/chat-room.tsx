@@ -27,6 +27,7 @@ import { Timestamp } from 'firebase/firestore';
 import { ChatInput } from './features/chat/components/ChatInput';
 import { useFocusEffect } from 'expo-router';
 import { getUserInstrumentInfo, InstrumentModel } from '../services/userProfileService';
+import { isDemoMode, demoModeService, startDemoAIConversation } from '../services/demoModeService';
 
 // 定数定義の追加
 const MAX_MESSAGE_LENGTH = 2000; // メッセージの最大文字数
@@ -35,7 +36,7 @@ const MAX_MESSAGE_LENGTH = 2000; // メッセージの最大文字数
 export default function ChatRoomScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { user, premiumStatus } = useAuthStore();
+  const { user, premiumStatus, isDemo } = useAuthStore();
   const [chatRoom, setChatRoom] = useState<ChatRoom | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -67,14 +68,16 @@ export default function ChatRoomScreen() {
 
   // 初回マウント時にデータを読み込み、ユーザーの楽器情報を取得
   useEffect(() => {
-    console.log('初期読み込み: useEffectトリガー', { id, userId: user?.uid, isNewlyCreated });
+    console.log('初期読み込み: useEffectトリガー', { id, userId: user?.uid, isNewlyCreated, isDemo });
     
     if (!initialLoadDone) {
       loadChatRoom();
-      loadUserInstrument();
+      if (!isDemo) {
+        loadUserInstrument();
+      }
       setInitialLoadDone(true);
     }
-  }, [id, user?.uid, retryCount]);
+  }, [id, user?.uid, retryCount, isDemo]);
 
   // ユーザーの楽器情報を取得
   const loadUserInstrument = async () => {
@@ -112,9 +115,10 @@ export default function ChatRoomScreen() {
     }
 
     const roomId = Array.isArray(id) ? id[0] : id;
-    console.log('チャットルーム読み込み開始 - ID:', roomId);
+    console.log('チャットルーム読み込み開始 - ID:', roomId, 'デモモード:', isDemo);
 
-    if (!user) {
+    // デモモードの場合、ユーザー認証をスキップ
+    if (!user && !isDemo) {
       console.log('認証情報が確認できません。5秒後に再試行します');
       setLoading(true);
       setTimeout(() => {
@@ -129,7 +133,33 @@ export default function ChatRoomScreen() {
       setError(null);
       console.log('チャットルームデータを読み込み中:', roomId, '試行回数:', retryCount + 1);
       
-      const roomData = await getChatRoomById(roomId);
+      let roomData: any;
+      
+      // デモモードの場合は別の取得方法を使用
+      if (isDemo) {
+        roomData = await demoModeService.getChatRoomById(roomId);
+        
+        // デモモードのChatRoomをチャットルーム画面用のChatRoomに変換
+        if (roomData) {
+          // デモモードのメッセージを取得
+          const messages = await demoModeService.getAllChatMessages();
+          const roomMessages = messages.filter(msg => msg.roomId === roomId).map(msg => ({
+            id: msg.id,
+            content: msg.content,
+            sender: msg.isUser ? 'user' : 'ai',
+            timestamp: msg.timestamp instanceof Timestamp ? msg.timestamp : Timestamp.fromDate(new Date(msg.timestamp))
+          }));
+
+          roomData = {
+            ...roomData,
+            messages: roomMessages,
+            topic: roomData.topic || '',
+            modelType: roomData.modelType || 'standard',
+          };
+        }
+      } else {
+        roomData = await getChatRoomById(roomId);
+      }
       
       if (!roomData) {
         console.error(`チャットルーム(ID: ${roomId})が見つかりません`);
@@ -168,7 +198,7 @@ export default function ChatRoomScreen() {
       setChatRoom(roomData);
       // 編集用の初期値をセット
       setNewTitle(roomData.title);
-      setNewTopic(roomData.topic);
+      setNewTopic(roomData.topic || '');
       setRetryCount(0);
       console.log('チャットルームデータの読み込みが完了しました', roomData.title);
     } catch (error) {
@@ -236,28 +266,46 @@ export default function ChatRoomScreen() {
 
   // チャットルーム情報を更新
   const handleUpdateRoom = async () => {
-    if (!chatRoom || !newTitle.trim() || !newTopic.trim()) {
+    if (!chatRoom || !newTitle.trim() || (!newTopic || !newTopic.trim())) {
       return;
     }
 
     try {
       setUpdating(true);
       
-      // updatedAtはserverTimestamp()によって自動的に設定される
-      await updateChatRoom(chatRoom.id, {
-        title: newTitle.trim(),
-        topic: newTopic.trim()
-      });
-      
-      // 成功したらローカルの状態も更新
-      // ローカルのタイムスタンプはクライアント側で作成
-      const currentTimestamp = Timestamp.now();
-      setChatRoom({
-        ...chatRoom,
-        title: newTitle.trim(),
-        topic: newTopic.trim(),
-        updatedAt: currentTimestamp
-      });
+      if (isDemo) {
+        // デモモードの場合は別の更新方法を使用
+        const updatedRoom = {
+          ...chatRoom,
+          title: newTitle.trim(),
+          topic: newTopic.trim(),
+          updatedAt: new Date()
+        };
+        
+        const rooms = await demoModeService.getChatRooms();
+        const updatedRooms = rooms.map(room => 
+          room.id === chatRoom.id ? { ...room, title: newTitle.trim() } : room
+        );
+        
+        await demoModeService.saveChatRooms(updatedRooms);
+        setChatRoom(updatedRoom);
+      } else {
+        // updatedAtはserverTimestamp()によって自動的に設定される
+        await updateChatRoom(chatRoom.id, {
+          title: newTitle.trim(),
+          topic: newTopic.trim()
+        });
+        
+        // 成功したらローカルの状態も更新
+        // ローカルのタイムスタンプはクライアント側で作成
+        const currentTimestamp = Timestamp.now();
+        setChatRoom({
+          ...chatRoom,
+          title: newTitle.trim(),
+          topic: newTopic.trim(),
+          updatedAt: currentTimestamp
+        });
+      }
       
       // モーダルを閉じる
       setIsEditModalVisible(false);
@@ -512,35 +560,43 @@ export default function ChatRoomScreen() {
         conversationId: chatRoom.conversationId || '(新規)',
         modelType: currentModelId,
         roomId: chatRoom.id,
-        isTestMode: false
+        isTestMode: false,
+        isDemo: isDemo
       });
       
-      // AIの応答を取得
-      const aiResponse = await sendMessageToLessonAI(
-        message.trim(), 
-        chatRoom.conversationId || '',
-        currentModelId,
-        chatRoom.id,
-        false // isTestMode
-      );
+      let aiResponse;
+      
+      if (isDemo) {
+        // デモモードの場合
+        aiResponse = await startDemoAIConversation(message.trim());
+      } else {
+        // 通常モードの場合
+        aiResponse = await sendMessageToLessonAI(
+          message.trim(), 
+          chatRoom.conversationId || '',
+          currentModelId,
+          chatRoom.id,
+          false // isTestMode
+        );
+      }
       
       console.log('AI応答結果:', aiResponse);
       
-      if (!aiResponse || !aiResponse.success) {
+      if (!aiResponse || (isDemo ? !aiResponse.content : !aiResponse.success)) {
         console.error('AI応答エラー:', aiResponse);
-        throw new Error(aiResponse?.message || 'AIからの応答の取得に失敗しました');
+        throw new Error(isDemo ? 'デモAIからの応答の取得に失敗しました' : (aiResponse?.message || 'AIからの応答の取得に失敗しました'));
       }
       
       // AIの応答メッセージを作成
       const aiMessage: ChatMessage = {
-        id: aiResponse.messageId || `ai-${Date.now()}`,
-        content: aiResponse.answer,
+        id: isDemo ? `ai-demo-${Date.now()}` : (aiResponse.messageId || `ai-${Date.now()}`),
+        content: isDemo ? aiResponse.content : aiResponse.answer,
         sender: 'ai',
         timestamp: Timestamp.now()
       };
       
       // 会話IDを保存
-      const conversationId = aiResponse.conversationId || '';
+      const conversationId = isDemo ? '' : (aiResponse.conversationId || '');
       
       // 更新されたメッセージリストとconversationIdを含むチャットルームの新しい状態
       const updatedChatRoom: ChatRoom = {
@@ -553,8 +609,22 @@ export default function ChatRoomScreen() {
       // ローカル状態を更新
       setChatRoom(updatedChatRoom);
       
-      // Firestoreデータを更新
-      await updateChatRoomMessages(updatedChatRoom.id, updatedChatRoom.messages, conversationId);
+      if (isDemo) {
+        // デモモードの場合はローカルストレージに保存
+        // デモモード用のChatMessageに変換
+        const demoChatMessage = {
+          id: aiMessage.id,
+          roomId: chatRoom.id,
+          content: aiMessage.content,
+          isUser: false,
+          timestamp: new Date()
+        };
+        
+        await demoModeService.addMessageToChatRoom(updatedChatRoom.id, demoChatMessage);
+      } else {
+        // Firestoreデータを更新
+        await updateChatRoomMessages(updatedChatRoom.id, updatedChatRoom.messages, conversationId);
+      }
       
       // 最新のメッセージにスクロール
       setTimeout(() => {

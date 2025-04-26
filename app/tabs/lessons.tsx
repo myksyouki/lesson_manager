@@ -25,6 +25,8 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useLessonStore } from '../../store/lessons';
 import Collapsible from 'react-native-collapsible';
+import { useAuthStore } from '../../store/auth';
+import { demoModeService } from '../../services/demoModeService';
 
 // レッスンタブのテーマカラー
 const LESSON_THEME_COLOR = '#4285F4';
@@ -206,18 +208,112 @@ export default function LessonsScreen() {
     });
   }, [lessons, searchText, selectedTags, isDetailedSearch]);
 
+  // デモモード状態を取得
+  const { isDemo, user } = useAuthStore();
+
   // Firestoreからのレッスンデータ取得
   useEffect(() => {
     const loadLessons = async () => {
-      if (!auth.currentUser) {
-        console.log('レッスン一覧: ユーザーが認証されていません');
-        setIsLoading(false);
-        return;
-      }
-
       try {
         console.log('レッスン一覧: データ取得を開始します');
         setIsLoading(true);
+        
+        // デモモードの場合
+        if (isDemo) {
+          console.log('デモモード：サンプルレッスンデータを読み込みます');
+          
+          const demoLessons = await demoModeService.getLessons();
+          
+          console.log('デモモード：取得したデータ', JSON.stringify(demoLessons, null, 2));
+          
+          if (demoLessons.length === 0) {
+            console.log('デモモード：レッスンデータが見つかりませんでした');
+          } else {
+            console.log(`デモモード：${demoLessons.length}件のサンプルレッスンを読み込みました`);
+            
+            // サンプルデータの構造をログ出力
+            console.log('最初のレッスンサンプル:', JSON.stringify(demoLessons[0], null, 2));
+            
+            // demoLessonsを正しいLesson型に変換
+            const convertedLessons = demoLessons.map(demoLesson => {
+              // 変換前のデータ構造を確認
+              console.log(`レッスン変換前 (ID: ${demoLesson.id})`, {
+                dateType: typeof demoLesson.date,
+                dateValue: demoLesson.date,
+                hasTitle: !!demoLesson.title,
+                piecesType: typeof demoLesson.pieces
+              });
+              
+              // 日付の処理を強化
+              let dateStr = '';
+              try {
+                if (demoLesson.date instanceof Date) {
+                  dateStr = demoLesson.date.toISOString();
+                } else if (typeof demoLesson.date === 'object' && demoLesson.date && typeof (demoLesson.date as any).toMillis === 'function') {
+                  // Firestoreのタイムスタンプオブジェクト
+                  dateStr = new Date((demoLesson.date as any).toMillis()).toISOString();
+                } else if (demoLesson.date) {
+                  // その他の日付形式
+                  dateStr = new Date(demoLesson.date as any).toISOString();
+                } else {
+                  dateStr = new Date().toISOString();
+                }
+              } catch (err) {
+                console.error('日付変換エラー:', err);
+                dateStr = new Date().toISOString();
+              }
+              
+              // pieces配列の処理を強化
+              let pieces = [];
+              if (typeof demoLesson.pieces === 'string' && demoLesson.pieces.trim() !== '') {
+                // カンマで区切られた文字列の場合は分割
+                pieces = demoLesson.pieces.split(',').map(p => p.trim());
+              } else if (Array.isArray(demoLesson.pieces)) {
+                pieces = demoLesson.pieces;
+              } else {
+                // タイトルがあればそれを使用
+                pieces = demoLesson.title ? [demoLesson.title] : [];
+              }
+              
+              return {
+                id: demoLesson.id,
+                date: dateStr,
+                teacher: (demoLesson as any).teacher || 'デモ講師',
+                pieces: pieces,
+                summary: demoLesson.summary || '',
+                notes: demoLesson.notes || '',
+                tags: Array.isArray(demoLesson.tags) ? demoLesson.tags : [],
+                user_id: 'demo-user',
+                isArchived: demoLesson.isArchived || false,
+                isFavorite: demoLesson.isFavorite || false,
+                audioUrl: demoLesson.audioUrl || '',
+                transcription: demoLesson.transcription || '',
+                priority: 'medium' as 'high' | 'medium' | 'low',
+                status: 'completed'
+              };
+            });
+            
+            console.log(`デモモード：${convertedLessons.length}件のレッスンを変換しました`);
+            console.log('最初の変換済みレッスン:', JSON.stringify(convertedLessons[0], null, 2));
+            
+            // レッスンストアに直接設定
+            useLessonStore.setState({ lessons: convertedLessons });
+            
+            // 設定されたか確認
+            const currentLessons = useLessonStore.getState().lessons;
+            console.log(`現在のレッスンストア状態: ${currentLessons.length}件`);
+          }
+          
+          setIsLoading(false);
+          return;
+        }
+        
+        // 通常モードの場合
+        if (!auth.currentUser) {
+          console.log('レッスン一覧: ユーザーが認証されていません');
+          setIsLoading(false);
+          return;
+        }
         
         // useLessonStoreのfetchLessons関数を使用してデータを取得
         await fetchLessons(auth.currentUser.uid);
@@ -247,15 +343,21 @@ export default function LessonsScreen() {
     };
 
     loadLessons();
-  }, [auth.currentUser?.uid, fetchLessons]);
+  }, [auth.currentUser?.uid, fetchLessons, isDemo]);
 
   // タブがフォーカスされたときにレッスンデータを再取得
   useFocusEffect(
     useCallback(() => {
       const refreshLessonsOnFocus = async () => {
-        if (!auth.currentUser) return;
-        
         try {
+          // デモモードの場合はスキップ
+          if (isDemo) {
+            console.log('デモモード：フォーカス時の再読み込みをスキップします');
+            return;
+          }
+          
+          if (!auth.currentUser) return;
+          
           // トップレベルで取得したパラメータを使用
           const isNewlyCreated = params.isNewlyCreated === 'true';
           
@@ -279,7 +381,7 @@ export default function LessonsScreen() {
       return () => {
         // クリーンアップ関数
       };
-    }, [auth.currentUser?.uid, fetchLessons, params.isNewlyCreated])
+    }, [auth.currentUser?.uid, fetchLessons, params.isNewlyCreated, isDemo])
   );
 
   // 検索テキスト変更ハンドラ
@@ -388,10 +490,87 @@ export default function LessonsScreen() {
 
   // 手動リフレッシュ処理
   const onRefresh = React.useCallback(() => {
-    if (!auth.currentUser) return;
-    
     setRefreshing(true);
-    console.log('手動リフレッシュ: レッスンデータ再取得を開始します');
+    
+    // デモモードの場合
+    if (isDemo) {
+      console.log('デモモード：データをリセットして再読み込みします');
+      
+      // デモデータをデフォルト値にリセット
+      demoModeService.resetToDefaultData()
+        .then(() => {
+          console.log('デモモード：データをリセットしました');
+          return demoModeService.getLessons();
+        })
+        .then(demoLessons => {
+          console.log(`デモモード：${demoLessons.length}件のサンプルレッスンを再読み込みしました`);
+          
+          // demoLessonsを正しいLesson型に変換
+          const convertedLessons = demoLessons.map(demoLesson => {
+            // 日付の処理を強化
+            let dateStr = '';
+            try {
+              if (demoLesson.date instanceof Date) {
+                dateStr = demoLesson.date.toISOString();
+              } else if (typeof demoLesson.date === 'object' && demoLesson.date && typeof (demoLesson.date as any).toMillis === 'function') {
+                // Firestoreのタイムスタンプオブジェクト
+                dateStr = new Date((demoLesson.date as any).toMillis()).toISOString();
+              } else if (demoLesson.date) {
+                // その他の日付形式
+                dateStr = new Date(demoLesson.date as any).toISOString();
+              } else {
+                dateStr = new Date().toISOString();
+              }
+            } catch (err) {
+              console.error('日付変換エラー:', err);
+              dateStr = new Date().toISOString();
+            }
+            
+            // pieces配列の処理を強化
+            let pieces = [];
+            if (typeof demoLesson.pieces === 'string' && demoLesson.pieces.trim() !== '') {
+              // カンマで区切られた文字列の場合は分割
+              pieces = demoLesson.pieces.split(',').map(p => p.trim());
+            } else if (Array.isArray(demoLesson.pieces)) {
+              pieces = demoLesson.pieces;
+            } else {
+              // タイトルがあればそれを使用
+              pieces = demoLesson.title ? [demoLesson.title] : [];
+            }
+            
+            return {
+              id: demoLesson.id,
+              date: dateStr,
+              teacher: (demoLesson as any).teacher || 'デモ講師',
+              pieces: pieces,
+              summary: demoLesson.summary || '',
+              notes: demoLesson.notes || '',
+              tags: Array.isArray(demoLesson.tags) ? demoLesson.tags : [],
+              user_id: 'demo-user',
+              isArchived: demoLesson.isArchived || false,
+              isFavorite: demoLesson.isFavorite || false,
+              audioUrl: demoLesson.audioUrl || '',
+              transcription: demoLesson.transcription || '',
+              priority: 'medium' as 'high' | 'medium' | 'low',
+              status: 'completed'
+            };
+          });
+          
+          useLessonStore.setState({ lessons: convertedLessons });
+          setRefreshing(false);
+        })
+        .catch(error => {
+          console.error('デモモード：レッスンデータの再取得に失敗しました:', error);
+          setRefreshing(false);
+        });
+      return;
+    }
+    
+    // 通常モードの場合
+    if (!auth.currentUser) {
+      setRefreshing(false);
+      return;
+    }
     
     fetchLessons(auth.currentUser.uid)
       .then(() => {
@@ -402,7 +581,7 @@ export default function LessonsScreen() {
         console.error('手動リフレッシュ: データ取得エラー', error);
         setRefreshing(false);
       });
-  }, [fetchLessons]);
+  }, [fetchLessons, isDemo]);
 
   // アーカイブセクションの展開状態を管理
   const [expandedSections, setExpandedSections] = useState<string[]>([]);

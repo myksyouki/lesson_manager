@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Platform, ScrollView, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Platform, ScrollView, TouchableOpacity, Text, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTaskStore } from '../store/tasks';
 import { Task } from '../_ignore/types/_task';
@@ -10,65 +10,238 @@ import TaskCompletionSwipeButton from './features/tasks/components/TaskCompletio
 import TaskCompletionAnimation from './features/tasks/components/TaskCompletionAnimation';
 import PracticeTools from './features/practice/components/PracticeTools';
 import { MaterialIcons } from '@expo/vector-icons';
+import { doc, getDoc } from 'firebase/firestore';
+import { getStorage, ref, getDownloadURL } from 'firebase/storage';
+import { db } from '../config/firebase';
+import SheetMusicViewer from './components/SheetMusicViewer';
 
 export default function TaskDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
-  const { tasks, toggleTaskCompletion, getTaskCompletionCount, getTaskStreakCount } = useTaskStore();
-  const [task, setTask] = useState<Task | null>(null);
+  const { tasks, updateTask } = useTaskStore();
+  const [isLoading, setIsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [chatRoom, setChatRoom] = useState<any | null>(null);
+  const [streakCount, setStreakCount] = useState(0);
   const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
   const [completionCount, setCompletionCount] = useState(0);
-  const [streakCount, setStreakCount] = useState(0);
-  const [sheetMusicUrl, setSheetMusicUrl] = useState<string | null>(null);
+  const [chatRoom, setChatRoom] = useState<any>(null);
   const [isPracticeMode, setIsPracticeMode] = useState(false);
+  const [sheetMusicUrl, setSheetMusicUrl] = useState<string | null>(null);
+  const router = useRouter();
+
+  const task = tasks.find(t => t.id === id);
 
   useEffect(() => {
-    if (id) {
-      const foundTask = tasks.find(t => t.id === id);
-      if (foundTask) {
-        setTask(foundTask);
+    if (task) {
+      setIsLoading(false);
+
+      // 楽譜データの取得 (メニューIDがあれば)
+      if (task.practiceInfo?.menuId) {
+        console.log('タスクのメニューID:', task.practiceInfo.menuId);
+        fetchSheetMusicFromMenuId(task.practiceInfo.menuId);
+      } else {
+        console.log('このタスクにはメニューIDがありません');
+        // タスクの詳細情報をログに出力して調査
+        console.log('タスク詳細:', JSON.stringify(task, null, 2));
         
-        // 楽譜データを取得
-        const sheetMusic = foundTask.attachments?.find(
-          (att: any) => att.type === 'image' && att.format === 'image/jpeg'
-        );
-        if (sheetMusic) {
-          setSheetMusicUrl(sheetMusic.url);
-          console.log('シートミュージックURL設定:', sheetMusic.url);
-        } else {
-          console.log('シートミュージックデータが見つかりません:', foundTask.attachments);
+        // デバッグ: ダミーメニューIDでテスト
+        const dummyMenuId = 'menu_A_major_174495878763_512';
+        console.log('デバッグ: ダミーメニューIDでテスト', dummyMenuId);
+        fetchSheetMusicFromMenuId(dummyMenuId);
+      }
+
+      // ストリークカウントの計算
+      // Firestoreから取得するか、ローカルで計算するか決める
+      // 仮のストリークカウント
+      setStreakCount(3);
+    }
+  }, [task]);
+
+  // 楽譜データの取得（メニューIDから）
+  const fetchSheetMusicFromMenuId = async (menuId: string) => {
+    try {
+      console.log('メニューIDから楽譜を取得中:', menuId);
+      
+      // 1. 直接FirebaseストレージからURLを取得してみる
+      try {
+        const storage = getStorage();
+        // 注意: 画面からわかるように、practiceMenus/saxophone/categories/音階/menus パスで楽譜が保存されている
+        const directStoragePath = `sheetMusic/${menuId}`;
+        console.log('直接ストレージパスを試行:', directStoragePath);
+        
+        const directRef = ref(storage, directStoragePath);
+        const directUrl = await getDownloadURL(directRef);
+        console.log('直接ストレージから取得したURL:', directUrl);
+        
+        if (directUrl) {
+          setSheetMusicUrl(directUrl);
+          return;
+        }
+      } catch (storageError) {
+        console.log('直接ストレージからの取得に失敗:', storageError);
+      }
+      
+      // 2. メニューデータを取得 - 直接メニューIDでアクセス
+      let menuRef = doc(db, 'menus', menuId);
+      let menuSnap = await getDoc(menuRef);
+      
+      // メニューが見つからない場合、他のコレクションパスを試みる
+      if (!menuSnap.exists()) {
+        console.log('menus コレクションに見つかりません、他のパスを試します');
+        
+        // 3. practiceMenus/saxophone/categories/音階/menus/ パスを試す
+        try {
+          menuRef = doc(db, 'practiceMenus', 'saxophone', 'categories', '音階', 'menus', menuId);
+          menuSnap = await getDoc(menuRef);
+          console.log('practiceMenus パスでの取得を試みます:', menuRef.path);
+        } catch (err) {
+          console.log('practiceMenus パスでの取得エラー:', err);
         }
         
-        // タスクの完了回数とストリーク回数を取得
-        const count = getTaskCompletionCount(foundTask.title);
-        const streak = getTaskStreakCount();
-        setCompletionCount(count);
-        setStreakCount(streak);
-        
-        // チャットルーム情報を取得（AIレッスンの場合）
-        if (foundTask.attachments && foundTask.attachments.length > 0) {
-          const chatRoomAttachment = foundTask.attachments.find(
-            (att: {type: string; url: string}) => att.type === 'text' && att.url.startsWith('/chatRooms/')
-          );
+        // 4. もし見つからない場合は、他の楽器カテゴリを試す
+        if (!menuSnap.exists()) {
+          console.log('音階カテゴリに見つかりません、他のカテゴリを試します');
           
-          if (chatRoomAttachment) {
-            const chatRoomId = chatRoomAttachment.url.split('/').pop();
-            if (chatRoomId) {
-              loadChatRoom(chatRoomId);
-            } else {
-              setLoading(false);
+          // 他のカテゴリ名リスト
+          const categories = ['音階', '練習曲', 'エチュード', 'スタッカート', 'スラー'];
+          
+          for (const category of categories) {
+            try {
+              menuRef = doc(db, 'practiceMenus', 'saxophone', 'categories', category, 'menus', menuId);
+              menuSnap = await getDoc(menuRef);
+              console.log(`${category}カテゴリでの取得を試みます:`, menuRef.path);
+              
+              if (menuSnap.exists()) {
+                console.log(`${category}カテゴリで見つかりました`);
+                break;
+              }
+            } catch (err) {
+              console.log(`${category}カテゴリでの取得エラー:`, err);
             }
-          } else {
-            setLoading(false);
           }
-        } else {
-          setLoading(false);
         }
       }
+      
+      if (!menuSnap.exists()) {
+        console.log('すべてのパスで試しましたが、メニューが存在しません:', menuId);
+        
+        // メニューIDを修正して再試行（IDの形式が間違っている可能性がある）
+        if (menuId.includes('_')) {
+          const simplifiedMenuId = menuId.split('_').pop() || menuId;
+          console.log('簡略化したIDで再試行:', simplifiedMenuId);
+          fetchSheetMusicFromMenuId(simplifiedMenuId);
+        }
+        
+        // 5. シートミュージックの直接パスを試す
+        try {
+          console.log('シートミュージックの直接パスを試みます');
+          // 画像からわかる正確なパス
+          const directRef = doc(db, 'practiceMenus/saxophone/categories/音階/menus/menu_A_major_174495878763_512/sheetMusic/default');
+          const directSnap = await getDoc(directRef);
+          
+          if (directSnap.exists()) {
+            const directData = directSnap.data();
+            console.log('シートミュージック直接パスから取得:', directData);
+            
+            if (directData.imageUrl) {
+              console.log('シートミュージック直接パスから楽譜URL取得:', directData.imageUrl);
+              setSheetMusicUrl(directData.imageUrl);
+              return;
+            }
+          }
+        } catch (directError) {
+          console.log('シートミュージック直接パスでの取得エラー:', directError);
+        }
+        
+        return;
+      }
+      
+      const menuData = menuSnap.data();
+      console.log('メニューデータ:', menuData);
+      
+      // 6. 直接imageUrlがある場合はそれを使用
+      if (menuData.imageUrl) {
+        console.log('直接imageUrlから楽譜URL取得:', menuData.imageUrl);
+        setSheetMusicUrl(menuData.imageUrl);
+        return;
+      }
+      
+      // 7. sheetMusicサブコレクションのドキュメントを確認
+      try {
+        // sheetMusicコレクションが存在する場合
+        const sheetMusicRef = doc(db, menuRef.path, 'sheetMusic', 'default');
+        console.log('sheetMusicサブコレクションのパス:', sheetMusicRef.path);
+        
+        const sheetMusicSnap = await getDoc(sheetMusicRef);
+        
+        if (sheetMusicSnap.exists()) {
+          const sheetMusicData = sheetMusicSnap.data();
+          if (sheetMusicData.imageUrl) {
+            console.log('sheetMusicサブコレクションから楽譜URL取得:', sheetMusicData.imageUrl);
+            setSheetMusicUrl(sheetMusicData.imageUrl);
+            return;
+          }
+        } else {
+          console.log('sheetMusicサブコレクションのドキュメントが存在しません');
+        }
+      } catch (subCollectionError) {
+        console.log('sheetMusicサブコレクション取得エラー:', subCollectionError);
+      }
+      
+      // 8. 従来の方法：sheetMusicPathからStorageのURLを取得
+      const sheetMusicPath = menuData?.sheetMusicPath;
+      
+      if (!sheetMusicPath) {
+        console.log('楽譜パスがありません');
+        
+        // 9. FirestoreコンソールのURLに表示されていたパスを直接試す
+        try {
+          const directPath = `practiceMenus/saxophone/categories/音階/menus/${menuId}/sheetMusic/default`;
+          console.log('直接パスでの取得を試みます:', directPath);
+          
+          const directRef = doc(db, directPath);
+          const directSnap = await getDoc(directRef);
+          
+          if (directSnap.exists()) {
+            const directData = directSnap.data();
+            console.log('直接パスからデータを取得:', directData);
+            
+            if (directData.imageUrl) {
+              console.log('直接パスから楽譜URL取得:', directData.imageUrl);
+              setSheetMusicUrl(directData.imageUrl);
+              return;
+            }
+          }
+        } catch (directError) {
+          console.log('直接パスでの取得エラー:', directError);
+        }
+        
+        return;
+      }
+      
+      console.log('楽譜パス:', sheetMusicPath);
+      
+      // 10. Storageから画像URLを取得
+      const storage = getStorage();
+      const sheetMusicRef = ref(storage, sheetMusicPath);
+      
+      console.log('Storageパス:', sheetMusicRef.fullPath);
+      
+      const url = await getDownloadURL(sheetMusicRef);
+      console.log('取得した楽譜URL:', url);
+      
+      setSheetMusicUrl(url);
+    } catch (error) {
+      console.error('楽譜の取得エラー:', error);
+      
+      // エラーの詳細をログ出力
+      if (error instanceof Error) {
+        console.error('エラーメッセージ:', error.message);
+        console.error('エラースタック:', error.stack);
+      }
+      
+      setSheetMusicUrl(null);
     }
-  }, [id, tasks]);
+  };
 
   const loadChatRoom = async (chatRoomId: string) => {
     try {
@@ -133,6 +306,26 @@ export default function TaskDetail() {
     console.log('練習モードを閉じました');
   };
 
+  // タスク完了状態を切り替える関数（仮実装）
+  const toggleTaskCompletion = (taskId: string) => {
+    if (task) {
+      const updatedTask = { ...task, completed: !task.completed };
+      updateTask(updatedTask);
+    }
+  };
+
+  // タスク完了回数を取得する関数（仮実装）
+  const getTaskCompletionCount = (taskTitle: string) => {
+    // 実際はFirestoreから過去の履歴を取得するべき
+    return completionCount;
+  };
+
+  // タスクストリーク回数を取得する関数（仮実装）
+  const getTaskStreakCount = () => {
+    // 実際はFirestoreから過去の履歴を取得するべき
+    return streakCount;
+  };
+
   if (!task) {
     return (
       <View style={styles.loadingContainer}>
@@ -156,11 +349,14 @@ export default function TaskDetail() {
       
       <ScrollView style={styles.contentContainer}>
         <TaskDetailContent
-          task={task}
+          task={{...task, attachments: []}} // 添付ファイルを空にして楽譜表示を無効化
           loading={loading}
           chatRoomTitle={chatRoom?.title || null}
           onOpenChatRoom={handleOpenChatRoom}
         />
+        
+        {/* 楽譜の表示 */}
+        <SheetMusicViewer url={sheetMusicUrl} />
         
         {/* 練習モードボタン */}
         {sheetMusicUrl && (
@@ -256,5 +452,20 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#000000',
     zIndex: 9999,
+  },
+  sheetMusicContainer: {
+    marginVertical: 10,
+  },
+  sheetMusic: {
+    width: '100%',
+    height: 300,
+    marginVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
   },
 });

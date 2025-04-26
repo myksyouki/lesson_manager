@@ -31,7 +31,7 @@ interface ScheduleItem {
   data?: any;
 }
 
-export const ScheduleScreen = observer(() => {
+const ScheduleScreen = () => {
   const navigation = useNavigation<any>();
   const lessonStore = useLessonStore();
   const taskStore = useTaskStore();
@@ -433,7 +433,7 @@ export const ScheduleScreen = observer(() => {
       />
     </View>
   );
-});
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -578,4 +578,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ScheduleScreen; 
+export default observer(ScheduleScreen); 

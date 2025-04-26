@@ -10,17 +10,17 @@ export interface PracticeMenu {
   title: string;
   description: string;
   instrumentId: string;
-  duration: number; // 分単位
-  sections: PracticeSection[];
+  duration: number;
+  exercises: {
+    id: string;
+    title: string;
+    description?: string;
+    duration: number;
+  }[];
+  isCompleted: boolean;
+  isFavorite: boolean;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface PracticeSection {
-  id: string;
-  title: string;
-  duration: number; // 分単位
-  description?: string;
 }
 
 /**
@@ -60,63 +60,31 @@ export const getPracticeMenus = async (): Promise<PracticeMenu[]> => {
   
   // 通常モードの場合
   try {
+    const practiceMenusQuery = query(
+      collection(db, 'practiceMenus'),
+      where('userId', '==', user.uid)
+    );
+    
+    const querySnapshot = await getDocs(practiceMenusQuery);
     const practiceMenus: PracticeMenu[] = [];
     
-    // 対応する楽器のコレクションを取得
-    // Firestoreの構造: /practiceMenus/{楽器名}/categories/{カテゴリ名}/menus/{メニューID}
-    const instrumentTypes = ['saxophone', 'piano', 'violin', 'clarinet', 'flute']; // 対応する楽器一覧
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      practiceMenus.push({
+        id: doc.id,
+        userId: data.userId,
+        title: data.title,
+        description: data.description,
+        instrumentId: data.instrumentId,
+        duration: data.duration,
+        exercises: data.exercises || [],
+        isCompleted: data.isCompleted,
+        isFavorite: data.isFavorite || false,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+      });
+    });
     
-    // 各楽器タイプに対して処理を実行
-    for (const instrumentType of instrumentTypes) {
-      console.log(`${instrumentType}の練習メニューを検索中...`);
-      
-      // カテゴリコレクションを取得
-      const categoriesSnapshot = await getDocs(collection(db, `practiceMenus/${instrumentType}/categories`));
-      
-      // 各カテゴリに対して処理を実行
-      for (const categoryDoc of categoriesSnapshot.docs) {
-        const categoryId = categoryDoc.id;
-        
-        // メニューコレクションを取得
-        const menusSnapshot = await getDocs(
-          collection(db, `practiceMenus/${instrumentType}/categories/${categoryId}/menus`)
-        );
-        
-        // 各メニューを処理
-        menusSnapshot.forEach((menuDoc) => {
-          const data = menuDoc.data();
-          // データ形式を変換して配列に追加
-          practiceMenus.push({
-            id: menuDoc.id,
-            userId: data.userId || user.uid, // ユーザーIDが存在しない場合は現在のユーザーIDを設定
-            title: data.title || '',
-            description: data.description || '',
-            instrumentId: instrumentType, // 楽器タイプを設定
-            duration: data.duration || 0,
-            sections: data.steps?.map(step => ({
-              id: step.id || `step-${Date.now()}-${Math.random()}`,
-              title: step.title || '',
-              duration: step.duration || 0,
-              description: step.description || ''
-            })) || [], // stepsを正しいフォーマットでsectionsにマッピング
-            createdAt: data.createdAt || new Date().toISOString(),
-            updatedAt: data.updatedAt || new Date().toISOString(),
-            // 追加のデータをany型で保存して、表示時に利用できるようにする
-            ...(data.key && { key: data.key }),
-            ...(data.keyDe && { keyDe: data.keyDe }),
-            ...(data.keyEn && { keyEn: data.keyEn }),
-            ...(data.keyJp && { keyJp: data.keyJp }),
-            ...(data.scaleType && { scaleType: data.scaleType }),
-            ...(data.tags && { tags: data.tags }),
-            ...(data.instrument && { instrument: data.instrument }),
-          } as any);
-          
-          console.log(`メニュー読み込み: ${menuDoc.id}, タイトル: ${data.title}, ステップ数: ${data.steps?.length || 0}`);
-        });
-      }
-    }
-    
-    console.log(`合計${practiceMenus.length}件の練習メニューを取得しました`);
     return practiceMenus;
   } catch (error) {
     console.error('練習メニューの取得に失敗しました:', error);
@@ -127,7 +95,7 @@ export const getPracticeMenus = async (): Promise<PracticeMenu[]> => {
 /**
  * 特定の練習メニューを取得する
  */
-export const getPracticeMenu = async (menuId: string): Promise<PracticeMenu> => {
+export const getPracticeMenu = async (practiceMenuId: string): Promise<PracticeMenu> => {
   const { user, isDemo } = useAuthStore.getState();
   
   if (!user) {
@@ -151,7 +119,7 @@ export const getPracticeMenu = async (menuId: string): Promise<PracticeMenu> => 
         }
       }
       
-      const practiceMenu = practiceMenus.find(menu => menu.id === menuId);
+      const practiceMenu = practiceMenus.find(menu => menu.id === practiceMenuId);
       
       if (!practiceMenu) {
         throw new Error('練習メニューが見つかりませんでした');
@@ -166,70 +134,27 @@ export const getPracticeMenu = async (menuId: string): Promise<PracticeMenu> => 
   
   // 通常モードの場合
   try {
-    // メニューIDからパスを抽出する
-    // 例: menu_A_major_1744958787663_512
-    const parts = menuId.split('_');
-    if (parts.length < 3) {
-      throw new Error('無効なメニューIDフォーマットです');
-    }
+    const practiceMenuDoc = await getDoc(doc(db, 'practiceMenus', practiceMenuId));
     
-    // 対応する楽器のコレクションを取得
-    // Firestoreの構造: /practiceMenus/{楽器名}/categories/{カテゴリ名}/menus/{メニューID}
-    const instrumentTypes = ['saxophone', 'piano', 'violin', 'clarinet', 'flute']; // 対応する楽器一覧
-    
-    let menuData = null;
-    
-    // 各楽器タイプでメニューを検索
-    for (const instrumentType of instrumentTypes) {
-      if (menuData) break; // 既に見つかった場合はスキップ
-      
-      // カテゴリコレクションを取得
-      const categoriesSnapshot = await getDocs(collection(db, `practiceMenus/${instrumentType}/categories`));
-      
-      // 各カテゴリに対して処理を実行
-      for (const categoryDoc of categoriesSnapshot.docs) {
-        if (menuData) break; // 既に見つかった場合はスキップ
-        
-        const categoryId = categoryDoc.id;
-        const menuRef = doc(db, `practiceMenus/${instrumentType}/categories/${categoryId}/menus`, menuId);
-        const menuSnapshot = await getDoc(menuRef);
-        
-        if (menuSnapshot.exists()) {
-          const data = menuSnapshot.data();
-          menuData = {
-            id: menuSnapshot.id,
-            userId: data.userId || user.uid,
-            title: data.title || '',
-            description: data.description || '',
-            instrumentId: instrumentType,
-            duration: data.duration || 0,
-            sections: data.steps?.map((step: any) => ({
-              id: step.id || `step-${Date.now()}-${Math.random()}`,
-              title: step.title || '',
-              duration: step.duration || 0,
-              description: step.description || ''
-            })) || [],
-            createdAt: data.createdAt || new Date().toISOString(),
-            updatedAt: data.updatedAt || new Date().toISOString(),
-            // 追加のデータをany型で保存して、表示時に利用できるようにする
-            ...(data.key && { key: data.key }),
-            ...(data.keyDe && { keyDe: data.keyDe }),
-            ...(data.keyEn && { keyEn: data.keyEn }),
-            ...(data.keyJp && { keyJp: data.keyJp }),
-            ...(data.scaleType && { scaleType: data.scaleType }),
-            ...(data.tags && { tags: data.tags }),
-            ...(data.instrument && { instrument: data.instrument }),
-          } as any;
-          break;
-        }
-      }
-    }
-    
-    if (!menuData) {
+    if (!practiceMenuDoc.exists()) {
       throw new Error('練習メニューが見つかりませんでした');
     }
     
-    return menuData as PracticeMenu;
+    const data = practiceMenuDoc.data();
+    
+    return {
+      id: practiceMenuDoc.id,
+      userId: data.userId,
+      title: data.title,
+      description: data.description,
+      instrumentId: data.instrumentId,
+      duration: data.duration,
+      exercises: data.exercises || [],
+      isCompleted: data.isCompleted,
+      isFavorite: data.isFavorite || false,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    };
   } catch (error) {
     console.error('練習メニューの取得に失敗しました:', error);
     throw new Error('練習メニューの取得に失敗しました');
@@ -240,7 +165,7 @@ export const getPracticeMenu = async (menuId: string): Promise<PracticeMenu> => 
  * 練習メニューを作成する
  */
 export const createPracticeMenu = async (
-  menuData: Omit<PracticeMenu, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
+  practiceMenuData: Omit<PracticeMenu, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
 ): Promise<PracticeMenu> => {
   const { user, isDemo } = useAuthStore.getState();
   
@@ -249,8 +174,8 @@ export const createPracticeMenu = async (
   }
   
   const now = new Date().toISOString();
-  const newMenu: Omit<PracticeMenu, 'id'> = {
-    ...menuData,
+  const newPracticeMenu: Omit<PracticeMenu, 'id'> = {
+    ...practiceMenuData,
     userId: user.uid,
     createdAt: now,
     updatedAt: now,
@@ -273,12 +198,12 @@ export const createPracticeMenu = async (
         }
       }
       
-      const createdMenu: PracticeMenu = {
-        ...newMenu as any,
-        id: `demo-practice-${Date.now()}`,
+      const createdPracticeMenu: PracticeMenu = {
+        ...newPracticeMenu as any,
+        id: `demo-practice-menu-${Date.now()}`,
       };
       
-      practiceMenus.push(createdMenu);
+      practiceMenus.push(createdPracticeMenu);
       
       if (Platform.OS === 'web') {
         localStorage.setItem('demoPracticeMenus', JSON.stringify(practiceMenus));
@@ -286,7 +211,7 @@ export const createPracticeMenu = async (
         await AsyncStorage.setItem('demoPracticeMenus', JSON.stringify(practiceMenus));
       }
       
-      return createdMenu;
+      return createdPracticeMenu;
     } catch (error) {
       console.error('デモ練習メニューの作成に失敗しました:', error);
       throw new Error('デモ練習メニューの作成に失敗しました');
@@ -295,10 +220,10 @@ export const createPracticeMenu = async (
   
   // 通常モードの場合
   try {
-    const docRef = await addDoc(collection(db, 'practiceMenus'), newMenu);
+    const docRef = await addDoc(collection(db, 'practiceMenus'), newPracticeMenu);
     
     return {
-      ...newMenu,
+      ...newPracticeMenu,
       id: docRef.id,
     };
   } catch (error) {
@@ -311,8 +236,8 @@ export const createPracticeMenu = async (
  * 練習メニューを更新する
  */
 export const updatePracticeMenu = async (
-  menuId: string,
-  menuData: Partial<PracticeMenu>
+  practiceMenuId: string,
+  practiceMenuData: Partial<PracticeMenu>
 ): Promise<PracticeMenu> => {
   const { user, isDemo } = useAuthStore.getState();
   
@@ -321,7 +246,7 @@ export const updatePracticeMenu = async (
   }
   
   const updateData = {
-    ...menuData,
+    ...practiceMenuData,
     updatedAt: new Date().toISOString(),
   };
   
@@ -342,18 +267,18 @@ export const updatePracticeMenu = async (
         }
       }
       
-      const menuIndex = practiceMenus.findIndex(menu => menu.id === menuId);
+      const practiceMenuIndex = practiceMenus.findIndex(menu => menu.id === practiceMenuId);
       
-      if (menuIndex === -1) {
+      if (practiceMenuIndex === -1) {
         throw new Error('練習メニューが見つかりませんでした');
       }
       
-      const updatedMenu = {
-        ...practiceMenus[menuIndex],
+      const updatedPracticeMenu = {
+        ...practiceMenus[practiceMenuIndex],
         ...updateData,
       };
       
-      practiceMenus[menuIndex] = updatedMenu;
+      practiceMenus[practiceMenuIndex] = updatedPracticeMenu;
       
       if (Platform.OS === 'web') {
         localStorage.setItem('demoPracticeMenus', JSON.stringify(practiceMenus));
@@ -361,7 +286,7 @@ export const updatePracticeMenu = async (
         await AsyncStorage.setItem('demoPracticeMenus', JSON.stringify(practiceMenus));
       }
       
-      return updatedMenu;
+      return updatedPracticeMenu;
     } catch (error) {
       console.error('デモ練習メニューの更新に失敗しました:', error);
       throw new Error('デモ練習メニューの更新に失敗しました');
@@ -370,21 +295,23 @@ export const updatePracticeMenu = async (
   
   // 通常モードの場合
   try {
-    const menuRef = doc(db, 'practiceMenus', menuId);
-    await updateDoc(menuRef, updateData);
+    const practiceMenuRef = doc(db, 'practiceMenus', practiceMenuId);
+    await updateDoc(practiceMenuRef, updateData);
     
     // 更新後のデータを取得
-    const updatedDoc = await getDoc(menuRef);
+    const updatedDoc = await getDoc(practiceMenuRef);
     const data = updatedDoc.data();
     
     return {
-      id: menuId,
+      id: practiceMenuId,
       userId: data?.userId,
       title: data?.title,
       description: data?.description,
       instrumentId: data?.instrumentId,
       duration: data?.duration,
-      sections: data?.sections || [],
+      exercises: data?.exercises || [],
+      isCompleted: data?.isCompleted,
+      isFavorite: data?.isFavorite || false,
       createdAt: data?.createdAt,
       updatedAt: data?.updatedAt,
     } as PracticeMenu;
@@ -397,7 +324,7 @@ export const updatePracticeMenu = async (
 /**
  * 練習メニューを削除する
  */
-export const deletePracticeMenu = async (menuId: string): Promise<void> => {
+export const deletePracticeMenu = async (practiceMenuId: string): Promise<void> => {
   const { user, isDemo } = useAuthStore.getState();
   
   if (!user) {
@@ -421,12 +348,12 @@ export const deletePracticeMenu = async (menuId: string): Promise<void> => {
         }
       }
       
-      const filteredMenus = practiceMenus.filter(menu => menu.id !== menuId);
+      const filteredPracticeMenus = practiceMenus.filter(menu => menu.id !== practiceMenuId);
       
       if (Platform.OS === 'web') {
-        localStorage.setItem('demoPracticeMenus', JSON.stringify(filteredMenus));
+        localStorage.setItem('demoPracticeMenus', JSON.stringify(filteredPracticeMenus));
       } else {
-        await AsyncStorage.setItem('demoPracticeMenus', JSON.stringify(filteredMenus));
+        await AsyncStorage.setItem('demoPracticeMenus', JSON.stringify(filteredPracticeMenus));
       }
       
       return;
@@ -438,9 +365,9 @@ export const deletePracticeMenu = async (menuId: string): Promise<void> => {
   
   // 通常モードの場合
   try {
-    await deleteDoc(doc(db, 'practiceMenus', menuId));
+    await deleteDoc(doc(db, 'practiceMenus', practiceMenuId));
   } catch (error) {
     console.error('練習メニューの削除に失敗しました:', error);
     throw new Error('練習メニューの削除に失敗しました');
   }
-};
+}; 

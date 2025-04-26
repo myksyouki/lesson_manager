@@ -18,4 +18,19 @@ export interface Task {
   steps?: Array<{ id?: string; title: string; description: string; duration?: number; orderIndex?: number }>;
   createdAt: string;           // 作成日時
   updatedAt: string;           // 更新日時
+  practiceInfo?: {             // 練習情報
+    key?: string;              // 調号
+    keyJp?: string;            // 調号（日本語表記）
+    scaleType?: string;        // スケールタイプ
+    instrumentId?: string;     // 楽器ID
+    menuId?: string;           // メニューID
+  };
+  practiceDate?: string | Date; // 練習日
+  steps?: Array<{              // 練習ステップ
+    id?: string;
+    title: string;
+    description?: string;
+    duration?: number;
+    orderIndex?: number;
+  }>;
 } 
