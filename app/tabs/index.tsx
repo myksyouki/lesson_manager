@@ -83,7 +83,7 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const { getFavorites, fetchLessons } = useLessonStore();
   const { tasks, fetchTasks, generateTasksFromLessons, getMonthlyPracticeCount, getPinnedTasks, toggleTaskCompletion, addTask } = useTaskStore();
-  const { user } = useAuthStore();
+  const { user, isDemo } = useAuthStore();
   const favoriteLesson = getFavorites();
   const theme = useTheme();
   
@@ -540,44 +540,59 @@ export default function HomeScreen() {
   const renderFloatingButtons = () => {
     const buttons = [
       {
-        icon: "music-note",
-        label: "レッスン",
+        icon: 'music-note',
+        label: 'レッスン',
         onPress: () => router.push('/lesson-form'),
         color: theme.colors.primary,
+        isChat: false,
       },
       {
-        icon: "assignment",
-        label: "練習",
+        icon: 'assignment',
+        label: '練習',
         onPress: () => router.push('/task-form'),
         color: theme.colors.secondary,
+        isChat: false,
       },
       {
-        icon: "chat",
-        label: "チャット",
+        icon: 'chat',
+        label: 'チャット',
         onPress: () => router.push('/chat-room-form'),
         color: theme.colors.tertiary,
+        isChat: true,
       },
     ];
 
     return (
       <View style={styles.floatingButtonsContainer}>
         <View style={styles.floatingButtonsRow}>
-          {buttons.map((button, index) => (
-            <TouchableOpacity
-              key={button.icon}
-              style={[
-                styles.floatingButton,
-                {
-                  backgroundColor: button.color,
-                  marginLeft: index > 0 ? 8 : 0,
-                },
-              ]}
-              onPress={button.onPress}
-            >
-              <MaterialIcons name={button.icon as any} size={24} color="white" />
-              <Text style={styles.floatingButtonLabel}>{button.label}</Text>
-            </TouchableOpacity>
-          ))}
+          {buttons.map((button, index) => {
+            // デモモード時はチャット以外をグレーアウト
+            const isDisabled = isDemo && !button.isChat;
+            return (
+              <TouchableOpacity
+                key={button.icon}
+                style={[
+                  styles.floatingButton,
+                  {
+                    backgroundColor: isDisabled ? '#B0B0B0' : button.color,
+                    marginLeft: index > 0 ? 8 : 0,
+                    opacity: isDisabled ? 0.7 : 1,
+                  },
+                ]}
+                onPress={() => {
+                  if (isDisabled) {
+                    Alert.alert('ご利用には本登録が必要です', 'この機能は本登録ユーザーのみご利用いただけます。会員登録・ログイン後にご利用ください。');
+                  } else {
+                    button.onPress();
+                  }
+                }}
+                disabled={false}
+              >
+                <MaterialIcons name={button.icon as any} size={24} color="white" />
+                <Text style={styles.floatingButtonLabel}>{button.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
     );
