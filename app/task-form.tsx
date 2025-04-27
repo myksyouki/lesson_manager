@@ -466,7 +466,6 @@ export default function PracticeMenuGenerator() {
         content: formData.specific_goals || '',
         tags: formData.practice_content ? [formData.practice_content] : [],
         practiceDate: new Date().toISOString(),
-        priority: 'medium',
         steps: [],
         attachments: [{
           type: 'image' as const,

@@ -48,6 +48,9 @@ interface PracticeMenu {
   instrument?: string;
   difficulty?: string;
   duration?: number;
+  // 楽譜データ用フィールド
+  sheetMusicUrl?: string;
+  menuId?: string;
 }
 
 export default function LessonDetail() {
@@ -568,7 +571,7 @@ export default function LessonDetail() {
   // 全てのメニューアイテムを選択/解除する関数
   const toggleAllMenuItems = (selectAll: boolean) => {
     const newSelections: {[key: number]: boolean} = {};
-    generatedMenus.forEach((_: PracticeMenu, index: number) => {
+    generatedMenus.forEach((menu: PracticeMenu, index: number) => {
       newSelections[index] = selectAll;
     });
     setSelectedMenuItems(newSelections);
@@ -588,28 +591,62 @@ export default function LessonDetail() {
         return;
       }
 
+      // 現在のユーザーIDを取得
+      const currentUserId = auth.currentUser?.uid;
+      if (!currentUserId) {
+        Alert.alert('エラー', 'ユーザーが認証されていません');
+        setIsSubmitting(false);
+        return;
+      }
+
       // 選択されたメニューごとにタスクを作成
       let createdCount = 0;
       for (const menu of selectedMenusList) {
         const fullDescription = `${menu.title}\n\n${menu.description}`;
         try {
+          // createTask関数の引数型に合わせる
+          const attachments: Array<{
+            type: 'text' | 'pdf' | 'image';
+            url: string;
+            format?: string;
+            title?: string;
+          }> = [
+            { // レッスンへのリンク
+              type: 'text',
+              url: `/lessons/${currentLesson.id}`
+            }
+          ];
+          
+          // 楽譜URLがある場合は添付ファイルに追加
+          if (menu.sheetMusicUrl) {
+            attachments.push({
+              type: 'image',
+              url: menu.sheetMusicUrl,
+              format: 'image/jpeg',
+              title: '楽譜データ'
+            });
+            console.log('楽譜データを添付します:', menu.sheetMusicUrl);
+          }
+
           // taskServiceのcreateTaskを使用してタスクを作成
           const task = await createTask(
-            userId,
+            currentUserId,
             menu.title,
             fullDescription,
             undefined, // dueDate
-            [{ // attachments
-              type: 'text',
-              url: `/lessons/${currentLesson.id}`
-            }]
+            attachments
           );
 
           // タスクにタグを追加
           await updateTask(task.id, {
             tags: ['練習メニュー', '自動生成', menu.category || '基本練習'],
-            lessonId: currentLesson.id
-          } as any, userId);
+            lessonId: currentLesson.id,
+            // 練習情報があれば追加
+            practiceInfo: menu.menuId ? {
+              menuId: menu.menuId || menu.id,
+              instrumentId: menu.instrument || 'piano'
+            } : undefined
+          } as any, currentUserId);
 
           createdCount++;
         } catch (err) {

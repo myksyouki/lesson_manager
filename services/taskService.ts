@@ -14,13 +14,22 @@ export interface Task {
   updatedAt: string | Date | { seconds: number; nanoseconds: number };
   tags?: string[];
   attachments?: {
-    type: 'text' | 'pdf';
+    type: 'text' | 'pdf' | 'image';
     url: string;
+    format?: string;
+    title?: string;
   }[];
   userId?: string;
   lessonId?: string;
   chatRoomId?: string;
   source?: string;
+  practiceInfo?: {
+    menuId?: string;
+    instrumentId?: string;
+    key?: string;
+    keyJp?: string;
+    scaleType?: string;
+  };
 }
 
 // ユーザーベース構造を常に使用する
@@ -38,7 +47,12 @@ export const createTask = async (
   title: string,
   description: string,
   dueDate?: string,
-  attachments?: Array<{ type: 'text' | 'pdf'; url: string }>
+  attachments?: Array<{ 
+    type: 'text' | 'pdf' | 'image'; 
+    url: string;
+    format?: string;
+    title?: string;
+  }>
 ): Promise<Task> => {
   try {
     const taskData = {

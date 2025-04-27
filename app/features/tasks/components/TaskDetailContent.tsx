@@ -16,6 +16,7 @@ interface TaskDetailContentProps {
   loading: boolean;
   chatRoomTitle: string | null;
   onOpenChatRoom: () => void;
+  sheetMusicUrl?: string | null;
 }
 
 const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
@@ -23,6 +24,7 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
   loading,
   chatRoomTitle,
   onOpenChatRoom,
+  sheetMusicUrl: externalSheetMusicUrl,
 }) => {
   const { updateTask } = useTaskStore();
   const theme = useTheme();
@@ -53,11 +55,10 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
     });
   });
 
-  // 楽譜データがあるか確認
-  const sheetMusicAttachment = task.attachments?.find(
+  // 楽譜URLの取得（外部から提供されたURLを優先）
+  const sheetMusicUrl = externalSheetMusicUrl || task.attachments?.find(
     attachment => attachment.type === 'image' && attachment.format === 'image/jpeg'
-  );
-  const sheetMusicUrl = sheetMusicAttachment?.url;
+  )?.url || null;
   
   // 練習情報があるか確認
   const hasPracticeInfo = !!task.practiceInfo;
@@ -68,17 +69,23 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
 
   return (
     <>
-      <View style={styles.container}>
+      <View style={styles.screenBackground}>
         {/* 練習内容・目標セクション */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>練習内容・目標</Text>
+          <View style={styles.sectionTitleRow}>
+            <MaterialIcons name="flag" size={20} color="#4285F4" style={styles.sectionTitleIcon} />
+            <Text style={styles.sectionTitleText}>練習内容・目標</Text>
+          </View>
           <Text style={styles.description}>{task.description || '詳細はありません'}</Text>
         </View>
         
         {/* 練習情報セクション */}
         {hasPracticeInfo && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>練習情報</Text>
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionTitleRow}>
+              <MaterialIcons name="info" size={20} color="#4285F4" style={styles.sectionTitleIcon} />
+              <Text style={styles.sectionTitleText}>練習情報</Text>
+            </View>
             <View style={styles.practiceInfoContainer}>
               {keyInfo && (
                 <View style={styles.practiceInfoItem}>
@@ -88,7 +95,6 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
                   </Text>
                 </View>
               )}
-              
               {task.practiceInfo?.scaleType && (
                 <View style={styles.practiceInfoItem}>
                   <MaterialIcons name="piano" size={16} color={theme.colors.primary} />
@@ -103,55 +109,72 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
         
         {/* 練習ステップセクション */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>練習ステップ</Text>
+          <View style={styles.sectionTitleRow}>
+            <MaterialIcons name="list" size={20} color="#4285F4" style={styles.sectionTitleIcon} />
+            <Text style={styles.sectionTitleText}>練習ステップ</Text>
+          </View>
           <View style={styles.stepsContainer}>
-            {practiceSteps.map((step: any, index: number) => (
-              <View key={index} style={styles.stepItem}>
-                <View style={styles.stepNumberContainer}>
-                  <Text style={styles.stepNumber}>{index + 1}</Text>
+            {practiceSteps.length === 0 ? (
+              <Text style={styles.noStepText}>ステップが登録されていません</Text>
+            ) : (
+              practiceSteps.map((step: any, index: number) => (
+                <View key={index} style={styles.stepItem}>
+                  <View style={styles.stepNumberContainer}>
+                    <Text style={styles.stepNumber}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>{step.title}</Text>
+                    <Text style={styles.stepDescription}>{step.description}</Text>
+                    {step.duration && (
+                      <View style={styles.stepDuration}>
+                        <MaterialIcons name="timer" size={14} color="#4285F4" />
+                        <Text style={styles.stepDurationText}>{step.duration}分</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-                <View style={styles.stepContent}>
-                  <Text style={styles.stepTitle}>{step.title}</Text>
-                  <Text style={styles.stepDescription}>{step.description}</Text>
-                  {step.duration && (
-                    <View style={styles.stepDuration}>
-                      <MaterialIcons name="timer" size={14} color="#4285F4" />
-                      <Text style={styles.stepDurationText}>{step.duration}分</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            ))}
+              ))
+            )}
           </View>
         </View>
         
         {/* 楽譜画像の表示 */}
-        {sheetMusicUrl && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>楽譜</Text>
-            <View style={styles.sheetMusicContainer}>
-              <TouchableOpacity 
-                activeOpacity={0.9}
-                onPress={() => setSheetMusicModalVisible(true)}
-              >
-                <Image
-                  source={{ uri: sheetMusicUrl }}
-                  style={styles.sheetMusicImage}
-                  resizeMode="contain"
-                />
-                <View style={styles.imageOverlay}>
-                  <MaterialIcons name="zoom-in" size={24} color="#FFFFFF" />
-                  <Text style={styles.imageOverlayText}>タップして拡大</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionTitleRow}>
+            <MaterialIcons name="music-note" size={20} color="#4285F4" style={styles.sectionTitleIcon} />
+            <Text style={styles.sectionTitleText}>楽譜</Text>
           </View>
-        )}
+          {sheetMusicUrl ? (
+            <TouchableOpacity 
+              activeOpacity={0.9}
+              onPress={() => setSheetMusicModalVisible(true)}
+              style={styles.sheetMusicContainer}
+            >
+              <Image
+                source={{ uri: sheetMusicUrl }}
+                style={styles.sheetMusicImage}
+                resizeMode="contain"
+              />
+              <View style={styles.imageOverlay}>
+                <MaterialIcons name="zoom-in" size={24} color="#FFFFFF" />
+                <Text style={styles.imageOverlayText}>タップして拡大</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.noSheetMusicContainer}>
+              <MaterialIcons name="music-off" size={40} color="#B0B0B0" />
+              <Text style={styles.noSheetMusicText}>楽譜が登録されていません</Text>
+            </View>
+          )}
+        </View>
         
         {/* 練習予定日セクション */}
         <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>練習予定日</Text>
+          <View style={[styles.sectionHeader, {marginBottom: 0}]}>
+            <View style={styles.sectionTitleRow}>
+              <MaterialIcons name="event" size={20} color="#4285F4" style={styles.sectionTitleIcon} />
+              <Text style={styles.sectionTitleText}>練習予定日</Text>
+            </View>
             <TouchableOpacity 
               style={styles.editButton}
               onPress={() => setShowCalendar(true)}
@@ -161,14 +184,23 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
             </TouchableOpacity>
           </View>
           <Text style={styles.infoText}>
-            {task.practiceDate ? formatDate(task.practiceDate) : '設定なし'}
+            {task.practiceDate ? formatDate(
+              typeof task.practiceDate === 'string'
+                ? new Date(task.practiceDate)
+                : 'seconds' in (task.practiceDate as any)
+                  ? new Date((task.practiceDate as any).seconds * 1000)
+                  : task.practiceDate as Date
+            ) : '設定なし'}
           </Text>
         </View>
         
         {/* カテゴリセクション */}
         {task.tags && task.tags.length > 0 && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>カテゴリ</Text>
+            <View style={styles.sectionTitleRow}>
+              <MaterialIcons name="category" size={20} color="#4285F4" style={styles.sectionTitleIcon} />
+              <Text style={styles.sectionTitleText}>カテゴリ</Text>
+            </View>
             <View style={styles.tagsContainer}>
               {task.tags.map((tag, index) => (
                 <View key={index} style={styles.tagBadge}>
@@ -179,32 +211,17 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
           </View>
         )}
         
-        {/* 優先度セクション */}
-        {task.priority && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>優先度</Text>
-            <View style={styles.priorityBadge}>
-              <Text style={styles.priorityText}>{task.priority}</Text>
-            </View>
-          </View>
-        )}
-        
         {/* AIレッスンセクション */}
         {chatRoomTitle && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>AIレッスン</Text>
+            <View style={styles.sectionTitleRow}>
+              <MaterialIcons name="chat" size={20} color="#4285F4" style={styles.sectionTitleIcon} />
+              <Text style={styles.sectionTitleText}>AIレッスン</Text>
+            </View>
             <TouchableOpacity style={styles.chatRoomButton} onPress={onOpenChatRoom}>
               <Text style={styles.chatRoomTitle}>{chatRoomTitle}</Text>
               <Ionicons name="chevron-forward" size={20} color="#4285F4" />
             </TouchableOpacity>
-          </View>
-        )}
-        
-        {/* ローディング表示 */}
-        {loading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#4285F4" />
-            <Text style={styles.loadingText}>関連データを読み込み中...</Text>
           </View>
         )}
       </View>
@@ -255,16 +272,17 @@ const TaskDetailContent: React.FC<TaskDetailContentProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
+  screenBackground: {
     flex: 1,
-    padding: 16,
-    paddingBottom: 100, // スワイプボタンのスペースを確保
+    backgroundColor: '#F5F6FA',
+    paddingVertical: 8,
   },
   sectionCard: {
-    marginBottom: 24,
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
+    marginVertical: 10,
+    marginHorizontal: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -277,11 +295,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#202124',
-    marginBottom: 8,
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sectionTitleIcon: {
+    marginRight: 6,
+    marginTop: 1,
+  },
+  sectionTitleText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#222',
+    lineHeight: 22,
   },
   description: {
     fontSize: 16,
@@ -396,31 +423,33 @@ const styles = StyleSheet.create({
   },
   // 楽譜関連スタイル
   sheetMusicContainer: {
-    width: '100%',
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#F5F5F5',
-    marginTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
   },
   sheetMusicImage: {
     width: '100%',
-    height: 300,
-    backgroundColor: '#F5F5F5',
+    height: 220,
+    borderRadius: 10,
+    backgroundColor: '#f0f0f0',
   },
   imageOverlay: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    padding: 8,
-    borderRadius: 20,
+    bottom: 10,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    paddingVertical: 6,
   },
   imageOverlayText: {
-    color: '#FFFFFF',
-    marginLeft: 4,
-    fontSize: 12,
+    color: '#fff',
+    fontSize: 15,
+    marginLeft: 8,
   },
   modalContainer: {
     flex: 1,
@@ -469,18 +498,20 @@ const styles = StyleSheet.create({
     color: '#333',
     marginLeft: 8,
   },
-  priorityBadge: {
-    backgroundColor: '#FFF3CD',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: 'flex-start',
+  noSheetMusicContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+  },
+  noSheetMusicText: {
+    color: '#B0B0B0',
+    fontSize: 16,
     marginTop: 8,
   },
-  priorityText: {
-    color: '#856404',
+  noStepText: {
+    color: '#B0B0B0',
     fontSize: 15,
-    fontWeight: '600',
+    marginVertical: 8,
   },
 });
 

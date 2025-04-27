@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, View, Text, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTaskStore } from '../../store/tasks';
@@ -25,6 +25,18 @@ interface CategorySummary {
   color: string;
 }
 
+// PracticeStepとMenuStep型を定義
+interface PracticeStep {
+  id: string;
+  title: string;
+  description: string;
+  duration: number;
+  orderIndex: number;
+}
+
+// 開発環境フラグ
+const __DEV__ = process.env.NODE_ENV === 'development';
+
 export default function TaskScreen() {
   const { 
     tasks, 
@@ -43,6 +55,9 @@ export default function TaskScreen() {
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [totalCompleted, setTotalCompleted] = useState(0);
   const [totalTasks, setTotalTasks] = useState(0);
+  // デモモードのデータキャッシュ
+  const [demoPracticeMenusCache, setDemoPracticeMenusCache] = useState<any[]>([]);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   
   const params = useLocalSearchParams();
   
@@ -54,17 +69,39 @@ export default function TaskScreen() {
     streakCount: 0
   });
 
+  // デモモードの場合は練習メニューデータをキャッシュ
   useEffect(() => {
+    if (isDemo && demoPracticeMenusCache.length === 0) {
+      const loadDemoData = async () => {
+        try {
+          const menus = await demoModeService.getPracticeMenus();
+          setDemoPracticeMenusCache(menus);
+        } catch (error) {
+          if (__DEV__) console.error('デモデータのキャッシュに失敗:', error);
+        }
+      };
+      loadDemoData();
+    }
+  }, [isDemo, demoPracticeMenusCache.length]);
+
+  // 初回データ読み込み
+  useEffect(() => {
+    // 既に初期ロードが完了している場合はスキップ
+    if (initialLoadDone) return;
+
     const loadInitialTasks = async () => {
       setRefreshing(true);
       try {
         if (isDemo) {
-          console.log('デモモード：サンプルタスクデータを読み込みます');
+          if (__DEV__) console.log('デモモード：サンプルタスクデータを読み込みます');
           
-          const demoPracticeMenus = await demoModeService.getPracticeMenus();
+          // キャッシュされたデータを使用
+          const demoPracticeMenus = demoPracticeMenusCache.length > 0
+            ? demoPracticeMenusCache
+            : await demoModeService.getPracticeMenus();
           
           const demoTasks = demoPracticeMenus.flatMap(menu => 
-            menu.steps.map((step, index) => ({
+            menu.steps.map((step: PracticeStep, index: number) => ({
               id: `demo-task-${menu.id}-${index}`,
               title: step.title,
               description: step.description,
@@ -83,73 +120,61 @@ export default function TaskScreen() {
           );
           
           setTasks(demoTasks);
-          console.log(`デモモード：${demoTasks.length}件のサンプルタスクを読み込みました`);
+          if (__DEV__) console.log(`デモモード：${demoTasks.length}件のサンプルタスクを読み込みました`);
         } else {
-          const currentUser = auth.currentUser;
-          console.log('初期タスク取得 - 認証情報:', 
-            currentUser ? 
-            {
-              uid: currentUser.uid,
-              email: currentUser.email,
-              emailVerified: currentUser.emailVerified,
-              isAnonymous: currentUser.isAnonymous,
-              providerId: currentUser.providerId
-            } : 'ログインしていません');
-          
-          console.log('初期タスク取得開始...');
+          if (__DEV__) console.log('初期タスク取得開始...');
           // 認証待機後にタスク取得
           await fetchTasksWhenAuthenticated();
-          console.log('初期タスク取得: 完了 - タスク数 =', tasks.length);
+          if (__DEV__) console.log('初期タスク取得: 完了 - タスク数 =', tasks.length);
         }
+        setInitialLoadDone(true);
       } catch (error) {
-        console.error('初期タスク取得エラー:', error);
+        if (__DEV__) console.error('初期タスク取得エラー:', error);
       } finally {
         setRefreshing(false);
       }
     };
     loadInitialTasks();
-  }, [isDemo]);
+  }, [isDemo, fetchTasksWhenAuthenticated, tasks.length, demoPracticeMenusCache, initialLoadDone, setTasks, user?.uid]);
 
+  // タブフォーカス時のデータ更新（初期ロード後のみ必要な場合に実行）
   useFocusEffect(
     useCallback(() => {
+      // まだ初期ロードが完了していない場合はスキップ
+      if (!initialLoadDone) return;
+      
+      // 既にロード中の場合はスキップ
+      if (refreshing) return;
+      
       const refreshTasksOnFocus = async () => {
         try {
-          console.log('タスクタブフォーカス: パラメータ =', JSON.stringify(params));
-          console.log('タスクタブフォーカス: 現在のタスク数 =', tasks.length);
+          // 新規作成パラメータがある場合のみ再読み込み
+          const isNewlyCreated = params.isNewlyCreated === 'true';
+          if (__DEV__) console.log('タスクタブフォーカス: isNewlyCreated =', isNewlyCreated);
           
-          if (isDemo) {
-            console.log('デモモード：フォーカス時の再読み込みをスキップします');
+          if (!isNewlyCreated) {
+            if (__DEV__) console.log('タスクタブフォーカス: 新規作成でないためスキップ');
             return;
           }
           
-          const isNewlyCreated = params.isNewlyCreated === 'true';
-          console.log('タスクタブフォーカス: isNewlyCreated =', isNewlyCreated);
+          if (isDemo) {
+            if (__DEV__) console.log('デモモード：フォーカス時の再読み込みをスキップします');
+            return;
+          }
           
-          const currentUser = auth.currentUser;
-          console.log('タスクタブフォーカス: 認証状態 =', !!currentUser);
-          console.log('タスクタブフォーカス: ユーザー情報 =', 
-            currentUser ? 
-            {
-              uid: currentUser.uid,
-              email: currentUser.email,
-              emailVerified: currentUser.emailVerified,
-              isAnonymous: currentUser.isAnonymous
-            } : 'ログインしていません');
-          
-          console.log('タスクタブフォーカス: タスク再取得開始...');
+          setRefreshing(true);
           await fetchTasksWhenAuthenticated();
         } catch (error) {
-          console.error('タスク更新エラー:', error);
+          if (__DEV__) console.error('タスク更新エラー:', error);
+        } finally {
+          setRefreshing(false);
         }
       };
       refreshTasksOnFocus();
-
-      return () => {
-        // クリーンアップ関数
-      };
-    }, [fetchTasksWhenAuthenticated, isDemo])
+    }, [params, fetchTasksWhenAuthenticated, isDemo, refreshing, initialLoadDone])
   );
 
+  // タスク状態が変更された時のカテゴリ集計を最適化
   useEffect(() => {
     let completed = 0;
     tasks.forEach(task => {
@@ -184,7 +209,8 @@ export default function TaskScreen() {
     setCategories(categoryList);
   }, [tasks]);
 
-  const getCategoryIcon = (category: string) => {
+  // カテゴリアイコンの生成を最適化（useMemoを使用）
+  const getCategoryIcon = useCallback((category: string) => {
     switch (category.toLowerCase()) {
       case 'ロングトーン':
         return <MaterialCommunityIcons name="lungs" size={24} color="#3F51B5" />;
@@ -199,9 +225,9 @@ export default function TaskScreen() {
       default:
         return <Ionicons name="musical-notes" size={24} color="#4CAF50" />;
     }
-  };
+  }, []);
 
-  const getCategoryColor = (category: string) => {
+  const getCategoryColor = useCallback((category: string) => {
     switch (category.toLowerCase()) {
       case 'ロングトーン':
         return '#3F51B5';
@@ -216,23 +242,31 @@ export default function TaskScreen() {
       default:
         return '#4CAF50';
     }
-  };
+  }, []);
 
-  const filteredTasks = tasks.filter(task => {
-    if (filter === 'completed') return task.completed;
-    if (filter === 'pending') return !task.completed;
-    return true;
-  });
+  // フィルタリングされたタスクをメモ化して不要な再計算を防止
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      if (filter === 'completed') return task.completed;
+      if (filter === 'pending') return !task.completed;
+      return true;
+    });
+  }, [tasks, filter]);
 
   const onRefresh = async () => {
+    if (refreshing) return; // 既にリフレッシュ中ならスキップ
+    
     setRefreshing(true);
     try {
       if (isDemo) {
-        console.log('デモモード：サンプルタスクを再読み込みします');
-        const demoPracticeMenus = await demoModeService.getPracticeMenus();
+        if (__DEV__) console.log('デモモード：サンプルタスクを再読み込みします');
+        // キャッシュを活用
+        const demoPracticeMenus = demoPracticeMenusCache.length > 0
+          ? demoPracticeMenusCache
+          : await demoModeService.getPracticeMenus();
         
         const demoTasks = demoPracticeMenus.flatMap(menu => 
-          menu.steps.map((step, index) => ({
+          menu.steps.map((step: PracticeStep, index: number) => ({
             id: `demo-task-${menu.id}-${index}`,
             title: step.title,
             description: step.description,
@@ -251,13 +285,13 @@ export default function TaskScreen() {
         );
         
         setTasks(demoTasks);
-        console.log(`デモモード：${demoTasks.length}件のサンプルタスクを再読み込みしました`);
+        if (__DEV__) console.log(`デモモード：${demoTasks.length}件のサンプルタスクを再読み込みしました`);
       } else {
         // 新しい認証待機メソッドを使用
         await fetchTasksWhenAuthenticated();
       }
     } catch (error) {
-      console.error('タスク更新エラー:', error);
+      if (__DEV__) console.error('タスク更新エラー:', error);
     } finally {
       setRefreshing(false);
     }
@@ -305,7 +339,7 @@ export default function TaskScreen() {
         }
       }
     } catch (error) {
-      console.error('タスク完了エラー:', error);
+      if (__DEV__) console.error('タスク完了エラー:', error);
     }
   };
   
@@ -313,22 +347,13 @@ export default function TaskScreen() {
     setCompletionPopup(prev => ({ ...prev, visible: false }));
   };
 
-  console.log('タスク画面レンダリング');
-  console.log('タスクストアのタスク数:', tasks.length);
-  console.log('フィルタータイプ:', filter);
-  console.log('フィルター後のタスク数:', filteredTasks.length);
-  if (tasks.length > 0) {
-    console.log('最初のタスクサンプル:', {
-      id: tasks[0].id,
-      title: tasks[0].title,
-      completed: tasks[0].completed,
-      tags: tasks[0].tags
-    });
-  } else {
-    console.log('タスクが存在しません');
+  // 開発環境のみデバッグログを出力
+  if (__DEV__) {
+    console.log('タスク画面レンダリング');
+    console.log('タスクストアのタスク数:', tasks.length);
+    console.log('フィルタータイプ:', filter);
+    console.log('フィルター後のタスク数:', filteredTasks.length);
   }
-  
-  console.log('TaskListコンポーネントに渡すタスク数:', filteredTasks.length);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
