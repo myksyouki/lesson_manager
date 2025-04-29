@@ -18,7 +18,7 @@ import {
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/auth';
 import { useGoogleAuth } from '../../store/auth';
-import { MaterialIcons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialIcons, Feather, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import LoadingScreen from '../../components/LoadingScreen';
@@ -28,12 +28,11 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
-  const { login, register, signInWithGoogle, signInWithApple, signInAsTestUser, user, isLoading, error, clearError } = useAuthStore();
+  const { login, signInWithGoogle, signInWithApple, signInAsTestUser, user, isLoading, error, clearError } = useAuthStore();
   const { request, response, promptAsync } = useGoogleAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -41,6 +40,10 @@ export default function LoginScreen() {
 
   // アニメーションのための値
   const waveAnim = useRef(new Animated.Value(0)).current;
+  const logoScaleAnim = useRef(new Animated.Value(0.9)).current;
+  const logoOpacityAnim = useRef(new Animated.Value(0)).current;
+  const formSlideAnim = useRef(new Animated.Value(50)).current;
+  const formOpacityAnim = useRef(new Animated.Value(0)).current;
   const bubbleAnims = useRef(
     Array(6).fill(0).map(() => ({
       position: new Animated.ValueXY({ x: Math.random() * width, y: height + 50 + Math.random() * 100 }),
@@ -69,6 +72,38 @@ export default function LoginScreen() {
 
   // コンポーネントがマウントされたらアニメーションを開始
   useEffect(() => {
+    // ロゴアニメーション
+    Animated.parallel([
+      Animated.timing(logoScaleAnim, {
+        toValue: 1,
+        duration: 800,
+        easing: Easing.out(Easing.back(1.7)),
+        useNativeDriver: true
+      }),
+      Animated.timing(logoOpacityAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true
+      })
+    ]).start();
+    
+    // フォームアニメーション
+    Animated.parallel([
+      Animated.timing(formSlideAnim, {
+        toValue: 0,
+        duration: 800,
+        delay: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      }),
+      Animated.timing(formOpacityAnim, {
+        toValue: 1,
+        duration: 800,
+        delay: 300,
+        useNativeDriver: true
+      })
+    ]).start();
+    
     // 波アニメーション
     Animated.loop(
       Animated.timing(waveAnim, {
@@ -161,9 +196,25 @@ export default function LoginScreen() {
     checkAppleAuthAvailability();
   }, []);
 
-  const handleAuth = async () => {
-    if (!email || !password) return;
-    isSignUp ? await register(email, password) : await login(email, password);
+  const handleLogin = async () => {
+    clearError();
+    setErrorMessage('');
+    
+    if (!email) {
+      setErrorMessage('メールアドレスを入力してください');
+      return;
+    }
+    
+    if (!password) {
+      setErrorMessage('パスワードを入力してください');
+      return;
+    }
+    
+    try {
+      await login(email, password);
+    } catch (error: any) {
+      console.error('ログインエラー:', error);
+    }
   };
 
   const handleGoogleSignIn = async () => {
@@ -204,26 +255,10 @@ export default function LoginScreen() {
     }
   };
 
-  const toggleAuthMode = () => {
-    setIsSignUp(!isSignUp);
+  const navigateToRegister = () => {
+    // 新規登録画面に遷移
+    router.push('/auth/register');
     clearError();
-  };
-
-  const handleSignUp = async () => {
-    if (!email || !password) {
-      setErrorMessage('メールアドレスとパスワードを入力してください');
-      return;
-    }
-
-    try {
-      await register(email, password);
-      setEmail('');
-      setPassword('');
-      setErrorMessage('');
-    } catch (error: any) {
-      console.error('サインアップエラー:', error);
-      setErrorMessage(error.message || 'サインアップに失敗しました');
-    }
   };
 
   if (isLoading) {
@@ -255,10 +290,11 @@ export default function LoginScreen() {
           }
         ]}
       >
-        <Image
-          source={{ uri: 'https://firebasestorage.googleapis.com/v0/b/lesson-manager-394014.appspot.com/o/wave_pattern.png?alt=media' }}
-          style={styles.waveImage}
-          resizeMode="repeat"
+        <LinearGradient
+          colors={[freshColors[currentColorSet][0], freshColors[currentColorSet][1]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.waveGradient}
         />
       </Animated.View>
       
@@ -275,7 +311,7 @@ export default function LoginScreen() {
                 { scale: bubble.scale }
               ],
               backgroundColor: i % 2 === 0 ? freshColors[currentColorSet][0] : freshColors[currentColorSet][1],
-              opacity: 0.3 + (i % 5) * 0.1
+              opacity: 0.25 + (i % 5) * 0.05
             }
           ]}
         />
@@ -286,8 +322,20 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 50 : 0}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.logoContainer}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ロゴアニメーション */}
+          <Animated.View 
+            style={[
+              styles.logoContainer,
+              {
+                opacity: logoOpacityAnim,
+                transform: [{ scale: logoScaleAnim }]
+              }
+            ]}
+          >
             <View style={styles.logoBox}>
               <LinearGradient
                 colors={freshColors[currentColorSet]}
@@ -304,18 +352,26 @@ export default function LoginScreen() {
             </View>
             <Text style={styles.appTitle}>Resonote</Text>
             <Text style={styles.appSubtitle}>練習をデザインする</Text>
-          </View>
+          </Animated.View>
 
-          <View style={styles.formContainer}>
-            <BlurView intensity={10} tint="light" style={styles.blurBackground} />
+          {/* フォームアニメーション */}
+          <Animated.View 
+            style={[
+              styles.formContainer,
+              {
+                opacity: formOpacityAnim,
+                transform: [{ translateY: formSlideAnim }]
+              }
+            ]}
+          >
+            <BlurView intensity={15} tint="light" style={styles.blurBackground} />
             <View style={styles.formContent}>
-              <Text style={styles.formTitle}>
-                {isSignUp ? 'アカウント作成' : 'ログイン'}
-              </Text>
+              <Text style={styles.formTitle}>ログイン</Text>
 
-              {error && (
+              {(error || errorMessage) && (
                 <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
+                  <MaterialIcons name="error-outline" size={20} color="#FF4757" style={{ marginRight: 8 }} />
+                  <Text style={styles.errorText}>{error || errorMessage}</Text>
                 </View>
               )}
 
@@ -364,22 +420,23 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
 
-              {!isSignUp && (
-                <TouchableOpacity style={styles.forgotPassword}>
-                  <Text 
-                    style={[
-                      styles.forgotPasswordText,
-                      { color: freshColors[currentColorSet][0] }
-                    ]}
-                  >
-                    パスワードをお忘れですか？
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity 
+                style={styles.forgotPassword}
+                onPress={() => router.push('/auth/forgot-password')}
+              >
+                <Text 
+                  style={[
+                    styles.forgotPasswordText,
+                    { color: freshColors[currentColorSet][0] }
+                  ]}
+                >
+                  パスワードをお忘れですか？
+                </Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.authButton}
-                onPress={handleAuth}
+                onPress={handleLogin}
                 disabled={isLoading}
               >
                 <LinearGradient
@@ -391,9 +448,7 @@ export default function LoginScreen() {
                   {isLoading ? (
                     <ActivityIndicator size="small" color="white" />
                   ) : (
-                    <Text style={styles.authButtonText}>
-                      {isSignUp ? 'アカウント作成' : 'ログイン'}
-                    </Text>
+                    <Text style={styles.authButtonText}>ログイン</Text>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
@@ -406,67 +461,50 @@ export default function LoginScreen() {
 
               <View style={styles.socialButtonsContainer}>
                 <TouchableOpacity
-                  style={styles.socialButton}
+                  style={[styles.socialButton, styles.googleButton]}
                   onPress={handleGoogleSignIn}
                   disabled={isLoading}
                 >
-                  <GoogleIcon width={24} height={24} style={styles.googleIcon} />
-                  <Text style={styles.socialButtonText}>Googleでログイン</Text>
+                  <GoogleIcon width={22} height={22} style={styles.googleIcon} />
+                  <Text style={styles.socialButtonText}>Google</Text>
                 </TouchableOpacity>
 
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity
+                    style={[styles.socialButton, styles.appleButton]}
+                    onPress={handleAppleSignIn}
+                    disabled={isLoading}
+                  >
+                    <FontAwesome name="apple" size={22} color="#FFFFFF" />
+                    <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>Apple</Text>
+                  </TouchableOpacity>
+                )}
+
                 <TouchableOpacity
-                  style={[
-                    styles.socialButton, 
-                    styles.testUserButton
-                  ]}
+                  style={[styles.socialButton, styles.testUserButton]}
                   onPress={handleTestUserSignIn}
                   disabled={isLoading}
                 >
-                  <MaterialCommunityIcons
-                    name="account-check"
-                    size={22} 
-                    color="#FFFFFF" 
-                  />
-                  <Text style={styles.testUserButtonText}>テストユーザー</Text>
+                  <MaterialCommunityIcons name="account-check" size={22} color="#FFFFFF" />
+                  <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>テスト</Text>
                 </TouchableOpacity>
               </View>
-              
-              {Platform.OS === 'ios' && (
-                <View style={styles.appleButtonWrapper}>
-                  <TouchableOpacity
-                    style={styles.customAppleButton}
-                    onPress={handleAppleSignIn}
-                  >
-                    <MaterialCommunityIcons
-                      name="apple"
-                      size={24}
-                      color="#FFFFFF"
-                      style={{ marginRight: 8 }}
-                    />
-                    <Text style={styles.customAppleButtonText}>
-                      Appleでログイン
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
 
               <View style={styles.switchContainer}>
-                <Text style={styles.switchText}>
-                  {isSignUp ? 'すでにアカウントをお持ちですか？' : 'アカウントをお持ちでないですか？'}
-                </Text>
-                <TouchableOpacity onPress={toggleAuthMode}>
+                <Text style={styles.switchText}>アカウントをお持ちでないですか？</Text>
+                <TouchableOpacity onPress={navigateToRegister}>
                   <Text 
                     style={[
                       styles.switchButton,
                       { color: freshColors[currentColorSet][0] }
                     ]}
                   >
-                    {isSignUp ? 'ログイン' : '新規登録'}
+                    新規登録
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -476,30 +514,29 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: '#F5FBFF',
   },
   gradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
   },
   waveBg: {
     position: 'absolute',
     width: width * 2,
-    height: height,
-    opacity: 0.3,
+    height: height * 0.7,
+    bottom: -height * 0.5,
   },
-  waveImage: {
+  waveGradient: {
     width: '100%',
     height: '100%',
-    tintColor: 'rgba(100, 200, 255, 0.3)',
+    borderTopLeftRadius: width,
+    borderTopRightRadius: width,
   },
   bubble: {
     position: 'absolute',
     width: 60,
     height: 60,
     borderRadius: 30,
+    overflow: 'hidden',
   },
   container: {
     flex: 1,
@@ -511,7 +548,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 36,
   },
   logoBox: {
     width: 100,
@@ -523,11 +560,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 14,
     elevation: 8,
+    overflow: 'hidden',
   },
   logoGradient: {
     width: '100%',
     height: '100%',
-    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -535,14 +572,12 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '800',
     color: '#2B5876',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-    marginBottom: 12,
+    marginBottom: 8,
     letterSpacing: 0.5,
   },
   appSubtitle: {
     fontSize: 18,
     color: '#4A6B8A',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
     letterSpacing: 1,
   },
   formContainer: {
@@ -555,37 +590,31 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   blurBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
   formContent: {
     padding: 28,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
   },
   formTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: '#2B5876',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
     marginBottom: 20,
     textAlign: 'center',
   },
   errorContainer: {
     backgroundColor: 'rgba(255, 71, 87, 0.1)',
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF4757',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   errorText: {
     color: '#FF4757',
     fontSize: 14,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    flex: 1,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -609,7 +638,6 @@ const styles = StyleSheet.create({
     height: 56,
     fontSize: 16,
     color: '#2B5876',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   visibilityIcon: {
     padding: 8,
@@ -622,11 +650,10 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     fontSize: 14,
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   authButton: {
     borderRadius: 16,
-    height: 58,
+    height: 56,
     overflow: 'hidden',
     marginBottom: 24,
     shadowColor: '#50A4D2',
@@ -644,13 +671,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 17,
     fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
     letterSpacing: 0.5,
   },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   divider: {
     flex: 1,
@@ -661,20 +687,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     color: '#4A6B8A',
     fontSize: 14,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   socialButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    flexWrap: 'wrap',
+    flexDirection: 'column',
+    marginBottom: 24,
+    gap: 12,
   },
   socialButton: {
-    flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    height: 58,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#A8D1EB',
@@ -682,8 +704,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 3,
-    marginHorizontal: 6,
-    marginBottom: 8,
+  },
+  googleButton: {
+    backgroundColor: '#FFFFFF',
+  },
+  appleButton: {
+    backgroundColor: '#000000',
   },
   testUserButton: {
     backgroundColor: '#4A6B8A',
@@ -693,64 +719,23 @@ const styles = StyleSheet.create({
   },
   socialButtonText: {
     color: '#2B5876',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-    lineHeight: 22,
-    paddingVertical: 2,
-  },
-  testUserButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
+    marginLeft: 8,
   },
   switchContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 8,
     marginTop: 8,
   },
   switchText: {
     color: '#4A6B8A',
     fontSize: 14,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
   switchButton: {
     fontSize: 15,
     fontWeight: '600',
     marginLeft: 6,
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
-  },
-  appleButtonWrapper: {
-    marginBottom: 24,
-    alignItems: 'center',
-    width: '100%',
-  },
-  appleButton: {
-    width: '100%',
-    height: 58,
-    marginBottom: 8,
-  },
-  customAppleButton: {
-    width: '100%',
-    height: 58,
-    backgroundColor: '#000000',
-    borderRadius: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  customAppleButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Hiragino Sans' : 'Roboto',
   },
 }); 

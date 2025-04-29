@@ -169,7 +169,7 @@ export default function SettingsScreen() {
 
   // デモモードからアカウント作成画面への遷移
   const handleCreateAccount = () => {
-    router.push('/auth/login');
+    router.push('/auth/register');
   };
 
   // デモモードを終了して通常のログイン画面に戻る

@@ -9,6 +9,7 @@ import { updateProfile } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { getUserInstrumentInfo, InstrumentInfo, getUserProfile, createUserProfile, UserProfile } from '../services/userProfileService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { RadioButton, Menu, Button } from 'react-native-paper';
 
 // AccountDeletionStatus型の定義
 interface AccountDeletionStatus {
@@ -20,6 +21,21 @@ interface AccountDeletionStatus {
 // デフォルト表示名
 const DEFAULT_DISPLAY_NAME = '名称未設定';
 
+// レベルのリスト
+const SKILL_LEVELS = [
+  { label: '初心者', value: 'beginner' },
+  { label: '中級者', value: 'intermediate' },
+  { label: '上級者', value: 'advanced' },
+];
+
+// 目標のリスト
+const PRACTICE_GOALS = [
+  { label: '趣味として楽しむ', value: 'hobby' },
+  { label: '演奏技術の向上', value: 'improvement' },
+  { label: 'コンサート/発表会出演', value: 'performance' },
+  { label: 'プロを目指す', value: 'professional' },
+];
+
 export default function ProfileScreen() {
   const { getFavorites } = useLessonStore();
   const { 
@@ -28,7 +44,9 @@ export default function ProfileScreen() {
     scheduleAccountDeletion,
     cancelAccountDeletion,
     deletionStatus,
-    checkDeletionStatus
+    checkDeletionStatus,
+    isNewUser,
+    setIsNewUser
   } = useAuthStore();
   const favoriteLesson = getFavorites();
   const router = useRouter();
@@ -37,6 +55,8 @@ export default function ProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [instrumentInfo, setInstrumentInfo] = useState<InstrumentInfo | null>(null);
   const [isLoadingInstrument, setIsLoadingInstrument] = useState(true);
+  const [skillLevel, setSkillLevel] = useState('beginner');
+  const [practiceGoal, setPracticeGoal] = useState('hobby');
   
   // アカウント削除関連の状態
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -60,6 +80,19 @@ export default function ProfileScreen() {
     }
   };
 
+  // プロフィール情報を読み込む
+  const loadUserProfile = async () => {
+    try {
+      const profile = await getUserProfile();
+      if (profile) {
+        setSkillLevel(profile.skillLevel || 'beginner');
+        setPracticeGoal(profile.practiceGoal || 'hobby');
+      }
+    } catch (error) {
+      console.error('プロフィール情報取得エラー:', error);
+    }
+  };
+
   useEffect(() => {
     // ユーザー名の初期設定
     if (user?.displayName) {
@@ -72,7 +105,13 @@ export default function ProfileScreen() {
     
     // 初期ロード時に楽器情報を取得
     loadUserInstrument();
-  }, [user]);
+    loadUserProfile();
+    
+    // 新規ユーザーの場合は編集モードをデフォルトで有効に
+    if (isNewUser) {
+      setIsEditing(true);
+    }
+  }, [user, isNewUser]);
 
   // 画面がフォーカスされたときに楽器情報を再読み込み
   useFocusEffect(
@@ -104,7 +143,17 @@ export default function ProfileScreen() {
     }
   }, [checkDeletionStatus, user]);
 
-  const handleUpdateDisplayName = async () => {
+  // 画面を離れるときに新規ユーザーフラグをリセット
+  useEffect(() => {
+    return () => {
+      if (isNewUser) {
+        setIsNewUser(false);
+      }
+    };
+  }, [isNewUser, setIsNewUser]);
+
+  // プロフィール情報を更新
+  const handleUpdateProfile = async () => {
     if (!displayName.trim()) {
       Alert.alert('エラー', '表示名を入力してください');
       return;
@@ -120,6 +169,14 @@ export default function ProfileScreen() {
           displayName: displayName.trim()
         });
         
+        // プロフィール情報を更新
+        const updatedProfile: Partial<UserProfile> = {
+          displayName: displayName.trim(),
+          skillLevel,
+          practiceGoal,
+        };
+        await createUserProfile(updatedProfile);
+        
         // ローカルのユーザー状態も更新
         if (user) {
           setUser({
@@ -128,12 +185,12 @@ export default function ProfileScreen() {
           });
         }
         
-        Alert.alert('成功', '表示名を更新しました');
+        Alert.alert('成功', 'プロフィールを更新しました');
         setIsEditing(false);
       }
     } catch (error) {
-      console.error('表示名の更新に失敗しました:', error);
-      Alert.alert('エラー', '表示名の更新に失敗しました');
+      console.error('プロフィールの更新に失敗しました:', error);
+      Alert.alert('エラー', 'プロフィールの更新に失敗しました');
     } finally {
       setIsSaving(false);
     }
@@ -227,6 +284,20 @@ export default function ProfileScreen() {
         {/* プロフィール情報 */}
         <Text style={styles.mainHeader}>プロフィール</Text>
         
+        {/* 新規ユーザー向け歓迎メッセージ */}
+        {isNewUser && (
+          <View style={styles.welcomeContainer}>
+            <MaterialIcons name="emoji-people" size={24} color="#4285F4" />
+            <View style={styles.welcomeContent}>
+              <Text style={styles.welcomeTitle}>ようこそ！詳細設定を完了しましょう</Text>
+              <Text style={styles.welcomeText}>
+                プロフィール情報と楽器設定を入力して、パーソナライズされた体験を始めましょう。
+                これらの情報は後でいつでも変更できます。
+              </Text>
+            </View>
+          </View>
+        )}
+        
         {/* 削除予約中の警告表示 */}
         {deletionStatus?.isScheduledForDeletion && (
           <View style={styles.deletionWarning}>
@@ -294,7 +365,7 @@ export default function ProfileScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity 
                       style={[styles.editButton, styles.saveButton]} 
-                      onPress={handleUpdateDisplayName}
+                      onPress={handleUpdateProfile}
                       disabled={isSaving}
                     >
                       <Text style={styles.saveButtonText}>
@@ -357,17 +428,98 @@ export default function ProfileScreen() {
                 </View>
                 
                 <TouchableOpacity 
-                  style={styles.changeInstrumentButton}
+                  style={isNewUser ? styles.changeInstrumentButtonHighlighted : styles.changeInstrumentButton}
                   onPress={() => router.push('/instrument-settings')}
                 >
-                  <Text style={styles.changeInstrumentText}>楽器設定を変更</Text>
-                  <MaterialIcons name="arrow-forward" size={16} color="#007AFF" />
+                  <Text style={isNewUser ? styles.changeInstrumentTextHighlighted : styles.changeInstrumentText}>
+                    {isNewUser ? '楽器設定をしましょう' : '楽器設定を変更'}
+                  </Text>
+                  <MaterialIcons 
+                    name="arrow-forward" 
+                    size={16} 
+                    color={isNewUser ? "#FFFFFF" : "#007AFF"} 
+                  />
                 </TouchableOpacity>
+                
+                {isNewUser && (
+                  <Text style={styles.instrumentTip}>
+                    楽器設定をすることで、あなたに最適な練習メニューが提案されます
+                  </Text>
+                )}
               </View>
             ) : (
-              <Text style={styles.errorText}>楽器情報を取得できませんでした</Text>
+              <View>
+                <Text style={styles.errorText}>楽器情報を取得できませんでした</Text>
+                <TouchableOpacity 
+                  style={styles.changeInstrumentButtonHighlighted}
+                  onPress={() => router.push('/instrument-settings')}
+                >
+                  <Text style={styles.changeInstrumentTextHighlighted}>楽器設定をする</Text>
+                  <MaterialIcons name="arrow-forward" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
             )}
           </View>
+        </View>
+
+        {/* 演奏レベルと練習目標の設定 */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>演奏設定</Text>
+          
+          <View style={styles.settingGroup}>
+            <Text style={styles.settingLabel}>演奏レベル</Text>
+            <View style={styles.radioGroup}>
+              {SKILL_LEVELS.map((item) => (
+                <TouchableOpacity
+                  key={item.value}
+                  style={styles.radioOption}
+                  onPress={() => setSkillLevel(item.value)}
+                >
+                  <RadioButton
+                    value={item.value}
+                    status={skillLevel === item.value ? 'checked' : 'unchecked'}
+                    onPress={() => setSkillLevel(item.value)}
+                    color="#4285F4"
+                  />
+                  <Text style={styles.radioLabel}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.settingGroup}>
+            <Text style={styles.settingLabel}>練習の目標</Text>
+            <View style={styles.radioGroup}>
+              {PRACTICE_GOALS.map((item) => (
+                <TouchableOpacity
+                  key={item.value}
+                  style={styles.radioOption}
+                  onPress={() => setPracticeGoal(item.value)}
+                >
+                  <RadioButton
+                    value={item.value}
+                    status={practiceGoal === item.value ? 'checked' : 'unchecked'}
+                    onPress={() => setPracticeGoal(item.value)}
+                    color="#4285F4"
+                  />
+                  <Text style={styles.radioLabel}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.updateButton,
+              { opacity: isSaving ? 0.7 : 1 }
+            ]}
+            onPress={handleUpdateProfile}
+            disabled={isSaving}
+          >
+            <Text style={styles.updateButtonText}>
+              {isSaving ? '更新中...' : '設定を保存'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* お気に入りレッスン */}
@@ -741,6 +893,34 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginRight: 4,
   },
+  changeInstrumentButtonHighlighted: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007AFF',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  changeInstrumentTextHighlighted: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  instrumentTip: {
+    fontSize: 14,
+    color: '#4A6572',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 12,
+  },
   loadingText: {
     fontSize: 16,
     color: '#8E8E93',
@@ -952,5 +1132,87 @@ const styles = StyleSheet.create({
   bottomSection: {
     marginTop: 30,
     marginBottom: 24,
+  },
+  section: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#344955',
+    marginBottom: 16,
+  },
+  settingGroup: {
+    marginBottom: 20,
+  },
+  settingLabel: {
+    fontSize: 16,
+    color: '#4A6572',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  radioGroup: {
+    marginBottom: 16,
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  radioLabel: {
+    fontSize: 15,
+    color: '#4A6572',
+    marginLeft: 8,
+  },
+  updateButton: {
+    backgroundColor: '#4285F4',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  updateButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  welcomeContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#e3f2fd',
+    borderWidth: 1,
+    borderColor: '#bbdefb',
+    borderRadius: 8,
+    padding: 16,
+    marginVertical: 16,
+    alignItems: 'flex-start',
+  },
+  welcomeContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  welcomeTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    marginBottom: 8,
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: '#37474f',
+    lineHeight: 20,
   },
 });

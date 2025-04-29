@@ -187,7 +187,7 @@ export default function PracticeMenuGenerator() {
           `${savedTasks.length}個の練習メニューをタスクとして保存しました`,
           [{ text: 'OK', onPress: () => router.navigate({
             pathname: '/tabs/task',
-            params: { isNewlyCreated: 'true' }
+            params: { isNewlyCreated: 'true', reload: 'true' }
           })}]
         );
       }, 500);
@@ -489,7 +489,7 @@ export default function PracticeMenuGenerator() {
       // タスク一覧画面に戻る
       router.navigate({
         pathname: '/tabs/task',
-        params: { isNewlyCreated: 'true' }
+        params: { isNewlyCreated: 'true', reload: 'true' }
       });
       
       // 成功メッセージを表示

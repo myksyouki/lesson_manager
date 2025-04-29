@@ -16,7 +16,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/auth';
 import { getUserChatRooms, ChatRoom, deleteChatRoom, getUserActiveChatRoomsCount } from '../../services/chatRoomService';
 import { useTheme } from '../../theme';
@@ -24,6 +24,8 @@ import Animated, { FadeIn, SlideInRight, SlideInUp } from 'react-native-reanimat
 import { RippleButton } from '../../components/RippleButton';
 import { instrumentCategories } from '../../services/userProfileService';
 import { auth } from '../../config/firebase';
+import * as Haptics from 'expo-haptics';
+import { useFocusEffect } from 'expo-router';
 
 // テーマの色を直接定義
 const colors = {
@@ -157,6 +159,7 @@ export default function AILessonScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const theme = useTheme();
+  const params = useLocalSearchParams();
 
   console.log('AILessonScreen rendering, user:', user?.uid);
 
@@ -207,6 +210,30 @@ export default function AILessonScreen() {
     console.log('useEffect triggered for loadChatRooms');
     loadChatRooms();
   }, [loadChatRooms]);
+
+  // 画面がフォーカスされた時にチャットルーム一覧を再読み込み
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Screen focused, reloading chat rooms');
+      loadChatRooms();
+      // ハプティックフィードバックを追加
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      
+      return () => {
+        // クリーンアップが必要な場合はここに記述
+      };
+    }, [loadChatRooms])
+  );
+
+  // パラメータ経由での再ロード（チャットルーム作成後など）
+  useEffect(() => {
+    if (params.reload === 'true') {
+      console.log('Reload parameter detected, refreshing chat rooms');
+      loadChatRooms();
+    }
+  }, [params.reload, loadChatRooms]);
 
   const handleRefresh = useCallback(() => {
     console.log('handleRefresh called');

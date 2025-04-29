@@ -8,7 +8,7 @@ import { useTheme } from '../../theme';
 import { useRef, useEffect, useCallback } from 'react';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 // LINE風のタブバーの高さ設定
 const useTabBarHeight = () => {
@@ -127,6 +127,10 @@ export default function TabLayout() {
   const { signOut, isDemo } = useAuthStore();
   const theme = useTheme();
   const { theme: themeName } = useSettingsStore();
+  const params = useLocalSearchParams();
+  
+  // reloadパラメータをタブに渡す
+  const reloadParam = params.reload === 'true' ? { reload: 'true' } : undefined;
 
   return (
     <Tabs
@@ -206,49 +210,21 @@ export default function TabLayout() {
             </View>
           );
         },
-      })}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'ホーム',
-        }}
+      })}
+    >
+      <Tabs.Screen name="index" options={{ title: 'ホーム' }} />
+      <Tabs.Screen name="lessons" options={{ title: 'レッスン' }} />
+      <Tabs.Screen 
+        name="task" 
+        options={{ title: '練習' }} 
+        initialParams={reloadParam}
       />
-      <Tabs.Screen
-        name="lessons"
-        options={{
-          title: 'レッスン',
-        }}
+      <Tabs.Screen 
+        name="ai-lesson" 
+        options={{ title: 'AI' }} 
+        initialParams={reloadParam}
       />
-      <Tabs.Screen
-        name="task"
-        options={{
-          title: 'タスク',
-        }}
-      />
-      <Tabs.Screen
-        name="ai-lesson"
-        options={{
-          title: 'AIレッスン',
-        }}
-      />
-      <Tabs.Screen
-        name="analysis"
-        options={{
-          title: '分析',
-        }}
-      />
-      <Tabs.Screen
-        name="schedule"
-        options={{
-          title: 'スケジュール',
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: '設定',
-        }}
-      />
+      <Tabs.Screen name="settings" options={{ title: '設定' }} />
     </Tabs>
   );
 }
@@ -265,5 +241,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  signOutText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

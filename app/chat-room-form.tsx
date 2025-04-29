@@ -179,12 +179,10 @@ export default function ChatRoomFormScreen() {
           {
             text: 'OK',
             onPress: () => {
-              // replaceを使用してナビゲーションスタックから現在の画面を削除
-              router.replace({
-                pathname: '/chat-room',
-                params: { 
-                  id: chatRoom.id
-                }
+              // AIレッスンタブに戻る (reloadパラメータ付き)
+              router.push({
+                pathname: '/tabs',
+                params: { reload: 'true' }
               });
             }
           }

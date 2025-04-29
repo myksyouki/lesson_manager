@@ -10,6 +10,8 @@ import {
   GoogleAuthProvider,
   signInWithCredential,
   OAuthProvider,
+  updateProfile,
+  signInWithPopup,
 } from "firebase/auth";
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from "expo-web-browser";
@@ -25,6 +27,7 @@ import { getDefaultDemoData } from './demoData';
 import { v4 as uuidv4 } from 'uuid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { demoModeService } from '../services/demoModeService';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 console.log("✅ Expo Config Extra:", Constants.expoConfig?.extra);
 console.log("🔗 Redirect URI:", Constants.expoConfig?.extra?.expoPublicGoogleRedirectUri);
@@ -90,9 +93,9 @@ export interface AuthState {
   deletionStatus: DeletionStatus | null;
   isDemo: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: (promptAsync: () => Promise<any>) => Promise<void>;
-  signInWithApple: (credential: any) => Promise<void>;
+  register: (email: string, password: string, displayName: string) => Promise<{ user: AppUser; isNewUser: boolean }>;
+  signInWithGoogle: () => Promise<{ user: AppUser; isNewUser: boolean } | null>;
+  signInWithApple: () => Promise<{ user: AppUser; isNewUser: boolean } | null>;
   signInAsTestUser: () => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
@@ -348,7 +351,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
-    register: async (email, password) => {
+    register: async (email, password, displayName) => {
       try {
         set({ isLoading: true, error: null });
         console.log("📝 サインアップ試行:", email);
@@ -356,12 +359,27 @@ export const useAuthStore = create<AuthState>((set, get) => {
         // ユーザー作成
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         
+        // Firebase Authのプロファイル更新（表示名のみ）
+        if (displayName) {
+          try {
+            await updateProfile(auth.currentUser!, {
+              displayName: displayName
+            });
+          } catch (profileError) {
+            console.error("⚠️ プロフィール更新エラー:", profileError);
+            // プロフィール更新に失敗してもユーザー作成は継続
+          }
+        }
+        
         // 新規ユーザーのプロファイルをFirestoreに作成
         const userRef = doc(db, 'users', userCredential.user.uid);
         await setDoc(userRef, {
           email: userCredential.user.email,
+          displayName: displayName || '',
           createdAt: new Date(),
           selectedInstrument: '',
+          level: '',
+          goal: '',
           selectedModel: '',
           isPremium: false,
           isOnboardingCompleted: false
@@ -370,10 +388,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
         // ユーザーのプロファイルも作成（新しい構造対応）
         const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
         await setDoc(profileRef, {
-          name: '',
+          name: displayName || '',
           email: userCredential.user.email,
           selectedCategory: '',
           selectedInstrument: '',
+          level: '',
+          goal: '',
           selectedModel: '',
           isPremium: false,
           isOnboardingCompleted: false,
@@ -382,101 +402,120 @@ export const useAuthStore = create<AuthState>((set, get) => {
         });
         
         // 新規ユーザーフラグを設定
-        set({ isNewUser: true });
+        set({ isNewUser: true, isLoading: false });
         
         console.log("✅ サインアップ成功:", email);
+        
+        const appUser: AppUser = {
+          uid: userCredential.user.uid,
+          email: userCredential.user.email,
+          displayName: userCredential.user.displayName,
+          photoURL: userCredential.user.photoURL
+        };
+        
+        return { user: appUser, isNewUser: true };
       } catch (error: any) {
         console.error("❌ サインアップ失敗:", error.message);
         set({ error: error.message, isLoading: false });
+        throw error;
       }
     },
     
-    signInWithGoogle: async (promptAsync) => {
+    signInWithGoogle: async () => {
       try {
         set({ isLoading: true, error: null, isNewUser: false });
         console.log("🔑 Googleサインイン試行");
-        const result = await promptAsync();
-        if (result?.type === "success") {
-          const { id_token } = result.params;
-          const credential = GoogleAuthProvider.credential(id_token);
+        
+        // Google認証プロバイダーを作成
+        const provider = new GoogleAuthProvider();
+        
+        // ログインをポップアップで実行
+        const userCredential = await signInWithPopup(auth, provider);
+        
+        // ユーザーが既に存在するか確認
+        const userRef = doc(db, 'users', userCredential.user.uid);
+        const userDoc = await getDoc(userRef);
+        
+        let isNewUser = false;
+        
+        if (!userDoc.exists()) {
+          // 新規ユーザーの場合、プロファイルを作成
+          await setDoc(userRef, {
+            email: userCredential.user.email,
+            createdAt: new Date(),
+            selectedInstrument: '',
+            selectedModel: '',
+            isPremium: false,
+            isOnboardingCompleted: false
+          });
           
-          // ユーザーが既に存在するか確認するためにサインイン前にチェック
-          try {
-            const userCredential = await signInWithCredential(auth, credential);
-            
-            // Googleアカウントで初めてのログインかどうかを確認
-            const userRef = doc(db, 'users', userCredential.user.uid);
-            const userDoc = await getDoc(userRef);
-            
-            if (!userDoc.exists()) {
-              // 新規ユーザーの場合、プロファイルを作成
-              await setDoc(userRef, {
-                email: userCredential.user.email,
-                createdAt: new Date(),
-                selectedInstrument: '',
-                selectedModel: '',
-                isPremium: false,
-                isOnboardingCompleted: false
-              });
-              
-              // ユーザーのプロファイルも作成（新しい構造対応）
-              const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
-              await setDoc(profileRef, {
-                name: userCredential.user.displayName || '',
-                email: userCredential.user.email,
-                selectedCategory: '',
-                selectedInstrument: '',
-                selectedModel: '',
-                isPremium: false,
-                isOnboardingCompleted: false,
-                createdAt: new Date(),
-                updatedAt: new Date()
-              });
-              
-              // 新規ユーザーフラグを設定
-              set({ isNewUser: true });
-            } else {
-              // 既存ユーザーの場合、オンボーディング完了状態を確認
-              const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
-              const profileDoc = await getDoc(profileRef);
-              
-              if (profileDoc.exists()) {
-                const profileData = profileDoc.data();
-                // オンボーディングが未完了の場合も新規ユーザーと同様に扱う
-                if (profileData.isOnboardingCompleted === false) {
-                  set({ isNewUser: true });
-                }
-              } else {
-                // プロファイルが存在しない場合、新規作成
-                await setDoc(profileRef, {
-                  name: userCredential.user.displayName || '',
-                  email: userCredential.user.email,
-                  selectedCategory: '',
-                  selectedInstrument: '',
-                  selectedModel: '',
-                  isPremium: false,
-                  isOnboardingCompleted: false,
-                  createdAt: new Date(),
-                  updatedAt: new Date()
-                });
-                
-                // 新規ユーザーフラグを設定
-                set({ isNewUser: true });
-              }
-            }
-            
-            console.log("✅ Googleサインイン成功");
-          } catch (error) {
-            console.error("❌ Googleサインイン処理失敗:", error);
-            set({ error: "Googleログイン処理中にエラーが発生しました", isLoading: false });
-          }
+          // ユーザーのプロファイルも作成（新しい構造対応）
+          const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
+          await setDoc(profileRef, {
+            name: userCredential.user.displayName || '',
+            email: userCredential.user.email,
+            selectedCategory: '',
+            selectedInstrument: '',
+            selectedModel: '',
+            isPremium: false,
+            isOnboardingCompleted: false,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+          
+          isNewUser = true;
         } else {
-          console.log("❌ Googleサインインキャンセル:", result?.type);
-          set({ error: "Googleログインがキャンセルされました", isLoading: false });
+          // 既存ユーザーの場合、オンボーディング完了状態を確認
+          const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
+          const profileDoc = await getDoc(profileRef);
+          
+          if (profileDoc.exists()) {
+            const profileData = profileDoc.data();
+            // オンボーディングが未完了の場合も新規ユーザーと同様に扱う
+            if (profileData.isOnboardingCompleted === false) {
+              isNewUser = true;
+            }
+          } else {
+            // プロファイルが存在しない場合、新規作成
+            await setDoc(profileRef, {
+              name: userCredential.user.displayName || '',
+              email: userCredential.user.email,
+              selectedCategory: '',
+              selectedInstrument: '',
+              selectedModel: '',
+              isPremium: false,
+              isOnboardingCompleted: false,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+            
+            isNewUser = true;
+          }
         }
+        
+        // ストアの状態を更新
+        set({ isNewUser, isLoading: false });
+        
+        console.log("✅ Googleサインイン成功");
+        
+        const appUser: AppUser = {
+          uid: userCredential.user.uid,
+          email: userCredential.user.email,
+          displayName: userCredential.user.displayName,
+          photoURL: userCredential.user.photoURL
+        };
+        
+        return { user: appUser, isNewUser };
       } catch (error: any) {
         console.error("❌ Googleサインイン失敗:", error.message);
         set({ error: error.message, isLoading: false });
+        
+        if (error.code === 'auth/popup-closed-by-user') {
+          // ユーザーがポップアップを閉じた場合
+          set({ error: "Googleログインがキャンセルされました", isLoading: false });
+        }
+        
+        throw error;
       }
     },
 
@@ -707,48 +746,94 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     setPremiumStatus: (status) => set({ premiumStatus: status }),
 
-    signInWithApple: async (appleCredential) => {
+    signInWithApple: async () => {
       try {
         set({ isLoading: true, error: null, isNewUser: false });
-        console.log("🍎 Appleサインイン試行");
+        console.log("🔑 Appleサインイン試行");
         
-        const { identityToken, nonce } = appleCredential;
-        
-        if (!identityToken) {
-          throw new Error("Apple認証からIDトークンが返されませんでした");
-        }
-        
-        // OAuthプロバイダーを設定
-        const provider = new OAuthProvider('apple.com');
-        const credential = provider.credential({
-          idToken: identityToken,
-          rawNonce: nonce, // nonceがある場合はそれを渡す
+        // AppleのOAuth認証を実行
+        const credential = await AppleAuthentication.signInAsync({
+          requestedScopes: [
+            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+            AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          ],
         });
         
-        try {
-          // Firebase認証を実行
-          const userCredential = await signInWithCredential(auth, credential);
+        // Appleから取得した認証情報をFirebaseの認証情報に変換
+        const { identityToken } = credential;
+        
+        if (!identityToken) {
+          throw new Error('Apple認証からIDトークンを取得できませんでした');
+        }
+        
+        const provider = new OAuthProvider('apple.com');
+        const firebaseCredential = provider.credential({
+          idToken: identityToken,
+          // nonce プロパティが Apple の認証情報に存在しない場合、省略
+          // rawNonce: credential.nonce,
+        });
+        
+        // Firebaseでサインイン
+        const userCredential = await signInWithCredential(auth, firebaseCredential);
+        
+        // ユーザーが存在するか確認
+        const userRef = doc(db, 'users', userCredential.user.uid);
+        const userDoc = await getDoc(userRef);
+        
+        let isNewUser = false;
+        
+        if (!userDoc.exists()) {
+          // Apple認証から取得できる名前情報は初回のみなので保存しておく
+          const displayName = credential.fullName 
+            ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
+            : userCredential.user.displayName || '';
           
-          // ユーザーが既に存在するか確認
-          const userRef = doc(db, 'users', userCredential.user.uid);
-          const userDoc = await getDoc(userRef);
+          // 新規ユーザーの場合、プロファイルを作成
+          await setDoc(userRef, {
+            email: userCredential.user.email,
+            displayName: displayName,
+            createdAt: new Date(),
+            selectedInstrument: '',
+            selectedModel: '',
+            isPremium: false,
+            isOnboardingCompleted: false
+          });
           
-          if (!userDoc.exists()) {
-            // 新規ユーザーの場合、プロフィールを作成
-            const userData = {
-              email: userCredential.user.email,
-              createdAt: new Date(),
-              selectedInstrument: '',
-              selectedModel: '',
-              isPremium: false,
-              isOnboardingCompleted: false
-            };
-            
-            // Firestore にユーザー情報を保存
-            await setDoc(userRef, userData);
-            
-            // ユーザーのプロファイルも作成（新しい構造対応）
-            const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
+          // Firebaseの表示名を更新（Appleは2回目以降名前が取得できないため）
+          if (displayName && auth.currentUser) {
+            await updateProfile(auth.currentUser, {
+              displayName: displayName
+            });
+          }
+          
+          // ユーザーのプロファイルも作成（新しい構造対応）
+          const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
+          await setDoc(profileRef, {
+            name: displayName,
+            email: userCredential.user.email,
+            selectedCategory: '',
+            selectedInstrument: '',
+            selectedModel: '',
+            isPremium: false,
+            isOnboardingCompleted: false,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+          
+          isNewUser = true;
+        } else {
+          // 既存ユーザーの場合、オンボーディング完了状態を確認
+          const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
+          const profileDoc = await getDoc(profileRef);
+          
+          if (profileDoc.exists()) {
+            const profileData = profileDoc.data();
+            // オンボーディングが未完了の場合も新規ユーザーと同様に扱う
+            if (profileData.isOnboardingCompleted === false) {
+              isNewUser = true;
+            }
+          } else {
+            // プロファイルが存在しない場合、新規作成
             await setDoc(profileRef, {
               name: userCredential.user.displayName || '',
               email: userCredential.user.email,
@@ -761,47 +846,32 @@ export const useAuthStore = create<AuthState>((set, get) => {
               updatedAt: new Date()
             });
             
-            // 新規ユーザーフラグを設定
-            set({ isNewUser: true });
-          } else {
-            // 既存ユーザーの場合、オンボーディング完了状態を確認
-            const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
-            const profileDoc = await getDoc(profileRef);
-            
-            if (profileDoc.exists()) {
-              const profileData = profileDoc.data();
-              // オンボーディングが未完了の場合も新規ユーザーと同様に扱う
-              if (profileData.isOnboardingCompleted === false) {
-                set({ isNewUser: true });
-              }
-            } else {
-              // プロファイルが存在しない場合、新規作成
-              await setDoc(profileRef, {
-                name: userCredential.user.displayName || '',
-                email: userCredential.user.email,
-                selectedCategory: '',
-                selectedInstrument: '',
-                selectedModel: '',
-                isPremium: false,
-                isOnboardingCompleted: false,
-                createdAt: new Date(),
-                updatedAt: new Date()
-              });
-              
-              // 新規ユーザーフラグを設定
-              set({ isNewUser: true });
-            }
+            isNewUser = true;
           }
-          
-          console.log("✅ Appleサインイン成功");
-        } catch (error) {
-          console.error("❌ Appleサインイン処理失敗:", error);
-          set({ error: "Appleログイン処理中にエラーが発生しました", isLoading: false });
-          throw error;
         }
+        
+        // ストアの状態を更新
+        set({ isNewUser, isLoading: false });
+        
+        console.log("✅ Appleサインイン成功");
+        
+        const appUser: AppUser = {
+          uid: userCredential.user.uid,
+          email: userCredential.user.email,
+          displayName: userCredential.user.displayName,
+          photoURL: userCredential.user.photoURL
+        };
+        
+        return { user: appUser, isNewUser };
       } catch (error: any) {
-        console.error("❌ Appleサインイン失敗:", error.message);
-        set({ error: error.message, isLoading: false });
+        console.error("❌ Appleサインイン失敗:", error);
+        set({ error: error.message || "Apple認証に失敗しました", isLoading: false });
+        
+        if (error.code === 'ERR_CANCELED') {
+          // ユーザーが認証をキャンセルした場合
+          set({ error: "Apple認証がキャンセルされました", isLoading: false });
+        }
+        
         throw error;
       }
     },

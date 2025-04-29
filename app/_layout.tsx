@@ -14,6 +14,7 @@ import ErrorBoundary from 'react-native-error-boundary';
 import { checkOnboardingStatus } from '../services/userProfileService';
 import { requestTracking } from '../utils/trackingTransparency';
 import { useRouter } from 'expo-router';
+import { Provider as PaperProvider } from 'react-native-paper';
 
 // 全ての不要な警告を抑制
 LogBox.ignoreLogs([
@@ -134,81 +135,83 @@ export default function RootLayout() {
   };
 
   return (
-    <ErrorBoundaryComponent FallbackComponent={ErrorFallback} onError={handleError}>
-      <GestureHandlerRootView style={styles.container}>
-        <Stack 
-          screenOptions={{ 
-            headerShown: false,
-            animation: 'fade_from_bottom',
-            contentStyle: { backgroundColor: theme.colors.background },
-          }}
-        >
-          {!user ? (
-            <>
-              <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-              <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-              <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
-              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-              <Stack.Screen name="mode-selection" options={{ headerShown: false }} />
-            </>
-          ) : isOnboardingCompleted === false ? (
-            // オンボーディングが完了していない場合は、オンボーディング画面にリダイレクト
-            <>
-              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-              <Stack.Screen name="mode-selection" options={{ headerShown: false }} />
-            </>
-          ) : (
-            <>
-              <Stack.Screen name="tabs" options={{ headerShown: false }} />
-              <Stack.Screen name="chat-room" options={{ title: 'チャットルーム' }} />
-              <Stack.Screen name="chat-room-form" options={{ title: 'チャットルーム作成' }} />
-              <Stack.Screen name="lesson-form" options={{ title: 'レッスン作成' }} />
-              <Stack.Screen name="task-detail" options={{ title: '課題詳細' }} />
-              <Stack.Screen name="task-form" options={{ title: '課題作成' }} />
-              <Stack.Screen name="generate-tasks" options={{ title: '課題生成' }} />
-              <Stack.Screen name="consult-ai" options={{ title: 'AIに相談' }} />
-              <Stack.Screen name="subscription" options={{ title: 'サブスクリプション' }} />
-              <Stack.Screen name="subscription/plans" options={{ title: 'サブスクリプションプラン' }} />
-              <Stack.Screen name="subscription/manage" options={{ title: 'サブスクリプション管理' }} />
-              <Stack.Screen name="profile" options={{ title: 'プロフィール' }} />
-              <Stack.Screen name="instrument-settings" options={{ title: '楽器設定' }} />
-              <Stack.Screen name="api-settings" options={{ title: 'API設定' }} />
-              <Stack.Screen name="theme-settings" options={{ title: 'テーマ設定' }} />
-              <Stack.Screen name="language" options={{ title: '言語設定' }} />
-              <Stack.Screen name="notifications" options={{ title: '通知設定' }} />
-              <Stack.Screen name="privacy-policy" options={{ title: 'プライバシーポリシー' }} />
-              <Stack.Screen name="terms-of-service" options={{ title: '利用規約' }} />
-              <Stack.Screen name="help-support" options={{ title: 'ヘルプとサポート' }} />
-              <Stack.Screen name="error-report" options={{ title: 'エラー報告' }} />
-              <Stack.Screen name="sync" options={{ title: 'データ同期' }} />
-              <Stack.Screen name="shared-audio" options={{ title: '共有音声' }} />
-              
-              {/* 管理者画面ルート */}
-              <Stack.Screen name="admin" options={{ title: '管理者ページ' }} />
-              <Stack.Screen name="admin/practice-menu" options={{ title: '練習メニュー管理' }} />
-              <Stack.Screen name="admin/db-migration" options={{ title: 'DB移行' }} />
-              
-              {/* 管理者機能は現在非表示
-              <Stack.Screen name="admin/knowledge-management" options={{ title: 'ナレッジベース管理' }} />
-              <Stack.Screen name="admin/knowledge-edit" options={{ title: 'ナレッジ編集' }} />
-              */}
-            </>
+    <PaperProvider>
+      <ErrorBoundaryComponent FallbackComponent={ErrorFallback} onError={handleError}>
+        <GestureHandlerRootView style={styles.container}>
+          <Stack 
+            screenOptions={{ 
+              headerShown: false,
+              animation: 'fade_from_bottom',
+              contentStyle: { backgroundColor: theme.colors.background },
+            }}
+          >
+            {!user ? (
+              <>
+                <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+                <Stack.Screen name="auth/register" options={{ headerShown: false }} />
+                <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                <Stack.Screen name="mode-selection" options={{ headerShown: false }} />
+              </>
+            ) : isOnboardingCompleted === false ? (
+              // オンボーディングが完了していない場合は、オンボーディング画面にリダイレクト
+              <>
+                <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                <Stack.Screen name="mode-selection" options={{ headerShown: false }} />
+              </>
+            ) : (
+              <>
+                <Stack.Screen name="tabs" options={{ headerShown: false }} />
+                <Stack.Screen name="chat-room" options={{ title: 'チャットルーム' }} />
+                <Stack.Screen name="chat-room-form" options={{ title: 'チャットルーム作成' }} />
+                <Stack.Screen name="lesson-form" options={{ title: 'レッスン作成' }} />
+                <Stack.Screen name="task-detail" options={{ title: '課題詳細' }} />
+                <Stack.Screen name="task-form" options={{ title: '課題作成' }} />
+                <Stack.Screen name="generate-tasks" options={{ title: '課題生成' }} />
+                <Stack.Screen name="consult-ai" options={{ title: 'AIに相談' }} />
+                <Stack.Screen name="subscription" options={{ title: 'サブスクリプション' }} />
+                <Stack.Screen name="subscription/plans" options={{ title: 'サブスクリプションプラン' }} />
+                <Stack.Screen name="subscription/manage" options={{ title: 'サブスクリプション管理' }} />
+                <Stack.Screen name="profile" options={{ title: 'プロフィール' }} />
+                <Stack.Screen name="instrument-settings" options={{ title: '楽器設定' }} />
+                <Stack.Screen name="api-settings" options={{ title: 'API設定' }} />
+                <Stack.Screen name="theme-settings" options={{ title: 'テーマ設定' }} />
+                <Stack.Screen name="language" options={{ title: '言語設定' }} />
+                <Stack.Screen name="notifications" options={{ title: '通知設定' }} />
+                <Stack.Screen name="privacy-policy" options={{ title: 'プライバシーポリシー' }} />
+                <Stack.Screen name="terms-of-service" options={{ title: '利用規約' }} />
+                <Stack.Screen name="help-support" options={{ title: 'ヘルプとサポート' }} />
+                <Stack.Screen name="error-report" options={{ title: 'エラー報告' }} />
+                <Stack.Screen name="sync" options={{ title: 'データ同期' }} />
+                <Stack.Screen name="shared-audio" options={{ title: '共有音声' }} />
+                
+                {/* 管理者画面ルート */}
+                <Stack.Screen name="admin" options={{ title: '管理者ページ' }} />
+                <Stack.Screen name="admin/practice-menu" options={{ title: '練習メニュー管理' }} />
+                <Stack.Screen name="admin/db-migration" options={{ title: 'DB移行' }} />
+                
+                {/* 管理者機能は現在非表示
+                <Stack.Screen name="admin/knowledge-management" options={{ title: 'ナレッジベース管理' }} />
+                <Stack.Screen name="admin/knowledge-edit" options={{ title: 'ナレッジ編集' }} />
+                */}
+              </>
+            )}
+          </Stack>
+          {isDemo && (
+            <View style={styles.demoIndicator}>
+              <Text style={styles.demoText}>デモモード</Text>
+              <TouchableOpacity 
+                style={styles.createAccountButton}
+                onPress={() => router.push('/auth/register')}
+              >
+                <Text style={styles.createAccountText}>アカウント作成</Text>
+              </TouchableOpacity>
+            </View>
           )}
-        </Stack>
-        {isDemo && (
-          <View style={styles.demoIndicator}>
-            <Text style={styles.demoText}>デモモード</Text>
-            <TouchableOpacity 
-              style={styles.createAccountButton}
-              onPress={() => router.push('/auth/login')}
-            >
-              <Text style={styles.createAccountText}>アカウント作成</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
-      </GestureHandlerRootView>
-    </ErrorBoundaryComponent>
+          <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
+        </GestureHandlerRootView>
+      </ErrorBoundaryComponent>
+    </PaperProvider>
   );
 }
 

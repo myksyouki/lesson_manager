@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
 import { User } from 'firebase/auth';
 
@@ -14,6 +14,11 @@ export interface UserProfile {
   isOnboardingCompleted: boolean;
   createdAt: Date;
   updatedAt: Date;
+  displayName?: string;
+  photoURL?: string;
+  instrument?: string;
+  skillLevel?: string;
+  practiceGoal?: string;
 }
 
 // モデル情報の型定義
@@ -356,25 +361,31 @@ const DEFAULT_INSTRUMENT = 'piano';
 const DEFAULT_MODEL = 'standard';
 
 // ユーザープロファイルの作成
-export const createUserProfile = async (user: User) => {
-  // プロファイルデータを作成
-  const defaultProfile: UserProfile = {
-    id: user.uid,
-    name: user.displayName || '',
-    email: user.email || '',
-    selectedCategory: DEFAULT_CATEGORY,
-    selectedInstrument: DEFAULT_INSTRUMENT,
-    selectedModel: DEFAULT_MODEL,
-    isPremium: true, // 開発段階のため常にプレミアム権限を持つように設定
-    isOnboardingCompleted: false,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
-  
-  const userProfileRef = doc(db, `users/${user.uid}/profile`, 'main');
-  await setDoc(userProfileRef, defaultProfile);
-  
-  return defaultProfile;
+export const createUserProfile = async (profileData: Partial<UserProfile>): Promise<UserProfile> => {
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error('ユーザーが見つかりません');
+
+    const userRef = doc(db, 'users', user.uid);
+    const profileRef = doc(userRef, 'profile', 'main');
+
+    const updatedData = {
+      ...profileData,
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(profileRef, updatedData, { merge: true });
+
+    // 更新後のプロフィールを返す
+    return {
+      ...profileData,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as UserProfile;
+  } catch (error) {
+    console.error('プロフィール更新エラー:', error);
+    throw error;
+  }
 };
 
 /**
@@ -393,7 +404,18 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
     
     if (!profileDoc.exists()) {
       // プロファイルが存在しない場合は作成
-      return await createUserProfile(user);
+      return await createUserProfile({
+        id: user.uid,
+        name: user.displayName || '',
+        email: user.email || '',
+        selectedCategory: DEFAULT_CATEGORY,
+        selectedInstrument: DEFAULT_INSTRUMENT,
+        selectedModel: DEFAULT_MODEL,
+        isPremium: true, // 開発段階のため常にプレミアム権限を持つように設定
+        isOnboardingCompleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
     }
     
     const data = profileDoc.data();
@@ -410,6 +432,11 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
       isOnboardingCompleted: !!data.isOnboardingCompleted,
       createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000) : new Date(),
       updatedAt: data.updatedAt ? new Date(data.updatedAt.seconds * 1000) : new Date(),
+      displayName: data.displayName || user.displayName || '',
+      photoURL: data.photoURL || user.photoURL || '',
+      instrument: data.instrument || '',
+      skillLevel: data.skillLevel || '',
+      practiceGoal: data.practiceGoal || '',
     };
   } catch (error) {
     console.error('プロファイル取得エラー:', error);

@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { auth } from '../../config/firebase';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 // タスクタブのテーマカラー
 const TASK_THEME_COLOR = '#4CAF50';
@@ -146,14 +147,23 @@ export default function TaskScreen() {
       // 既にロード中の場合はスキップ
       if (refreshing) return;
       
+      console.log('タスクタブフォーカス: スクリーンにフォーカスしました');
+      
+      // ハプティックフィードバックを追加
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      
       const refreshTasksOnFocus = async () => {
         try {
           // 新規作成パラメータがある場合のみ再読み込み
           const isNewlyCreated = params.isNewlyCreated === 'true';
-          if (__DEV__) console.log('タスクタブフォーカス: isNewlyCreated =', isNewlyCreated);
+          const shouldReload = params.reload === 'true';
           
-          if (!isNewlyCreated) {
-            if (__DEV__) console.log('タスクタブフォーカス: 新規作成でないためスキップ');
+          if (__DEV__) console.log('タスクタブフォーカス: isNewlyCreated =', isNewlyCreated, 'reload =', shouldReload);
+          
+          if (!isNewlyCreated && !shouldReload) {
+            if (__DEV__) console.log('タスクタブフォーカス: 新規作成またはリロードが指定されていないためスキップ');
             return;
           }
           
@@ -164,6 +174,7 @@ export default function TaskScreen() {
           
           setRefreshing(true);
           await fetchTasksWhenAuthenticated();
+          console.log('タスクタブフォーカス: タスクデータを再読み込みしました');
         } catch (error) {
           if (__DEV__) console.error('タスク更新エラー:', error);
         } finally {
@@ -173,6 +184,14 @@ export default function TaskScreen() {
       refreshTasksOnFocus();
     }, [params, fetchTasksWhenAuthenticated, isDemo, refreshing, initialLoadDone])
   );
+
+  // パラメータ経由での再ロード
+  useEffect(() => {
+    if (params.reload === 'true' && initialLoadDone) {
+      console.log('タスクタブ: reloadパラメータを検出しました');
+      onRefresh();
+    }
+  }, [params.reload, initialLoadDone]);
 
   // タスク状態が変更された時のカテゴリ集計を最適化
   useEffect(() => {
