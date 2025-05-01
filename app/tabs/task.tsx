@@ -12,7 +12,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { auth } from '../../config/firebase';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import * as Haptics from 'expo-haptics';
 
 // タスクタブのテーマカラー
 const TASK_THEME_COLOR = '#4CAF50';
@@ -59,6 +58,8 @@ export default function TaskScreen() {
   // デモモードのデータキャッシュ
   const [demoPracticeMenusCache, setDemoPracticeMenusCache] = useState<any[]>([]);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  // リロード状態を追跡する状態変数を追加
+  const [isNewlyCreatedHandled, setIsNewlyCreatedHandled] = useState(false);
   
   const params = useLocalSearchParams();
   
@@ -147,25 +148,20 @@ export default function TaskScreen() {
       // 既にロード中の場合はスキップ
       if (refreshing) return;
       
-      console.log('タスクタブフォーカス: スクリーンにフォーカスしました');
-      
-      // ハプティックフィードバックを追加
-      if (Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-      
       const refreshTasksOnFocus = async () => {
         try {
           // 新規作成パラメータがある場合のみ再読み込み
           const isNewlyCreated = params.isNewlyCreated === 'true';
-          const shouldReload = params.reload === 'true';
+          if (__DEV__) console.log('タスクタブフォーカス: isNewlyCreated =', isNewlyCreated);
           
-          if (__DEV__) console.log('タスクタブフォーカス: isNewlyCreated =', isNewlyCreated, 'reload =', shouldReload);
-          
-          if (!isNewlyCreated && !shouldReload) {
-            if (__DEV__) console.log('タスクタブフォーカス: 新規作成またはリロードが指定されていないためスキップ');
+          // パラメータがない、または既に処理済みの場合はスキップ
+          if (!isNewlyCreated || isNewlyCreatedHandled) {
+            if (__DEV__) console.log('タスクタブフォーカス: 新規作成でないか既に処理済みのためスキップ');
             return;
           }
+          
+          // isNewlyCreatedを処理済みにマーク
+          setIsNewlyCreatedHandled(true);
           
           if (isDemo) {
             if (__DEV__) console.log('デモモード：フォーカス時の再読み込みをスキップします');
@@ -174,7 +170,11 @@ export default function TaskScreen() {
           
           setRefreshing(true);
           await fetchTasksWhenAuthenticated();
-          console.log('タスクタブフォーカス: タスクデータを再読み込みしました');
+          
+          // ページパラメータをリセット（無限リロード防止）
+          if (router && typeof router.setParams === 'function') {
+            router.setParams({ isNewlyCreated: 'false' });
+          }
         } catch (error) {
           if (__DEV__) console.error('タスク更新エラー:', error);
         } finally {
@@ -182,16 +182,15 @@ export default function TaskScreen() {
         }
       };
       refreshTasksOnFocus();
-    }, [params, fetchTasksWhenAuthenticated, isDemo, refreshing, initialLoadDone])
+    }, [params, fetchTasksWhenAuthenticated, isDemo, refreshing, initialLoadDone, isNewlyCreatedHandled])
   );
 
-  // パラメータ経由での再ロード
+  // isNewlyCreatedパラメータが変更されたら処理状態をリセット
   useEffect(() => {
-    if (params.reload === 'true' && initialLoadDone) {
-      console.log('タスクタブ: reloadパラメータを検出しました');
-      onRefresh();
+    if (params.isNewlyCreated !== 'true') {
+      setIsNewlyCreatedHandled(false);
     }
-  }, [params.reload, initialLoadDone]);
+  }, [params.isNewlyCreated]);
 
   // タスク状態が変更された時のカテゴリ集計を最適化
   useEffect(() => {
