@@ -340,9 +340,17 @@ export const sendMessageToLessonAIHttp = async (
         messageId: data.id
       });
       
+      // レスポンスを取得
+      const answer = data.choices?.[0]?.message?.content || data.answer || 'レスポンスを取得できませんでした';
+      
+      // 「該当なし」という応答が返ってきた場合はよりユーザーフレンドリーな応答に置き換える
+      const finalAnswer = answer === '該当なし' 
+        ? 'こんにちは！AIコーチです。楽器演奏について質問や相談があればお気軽にどうぞ。'
+        : answer;
+      
       return {
         success: true,
-        answer: data.choices?.[0]?.message?.content || data.answer || 'レスポンスを取得できませんでした',
+        answer: finalAnswer,
         conversationId: data.conversation_id || data.id,
         messageId: data.id
       };

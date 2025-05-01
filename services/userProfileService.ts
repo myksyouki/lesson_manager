@@ -19,6 +19,7 @@ export interface UserProfile {
   instrument?: string;
   skillLevel?: string;
   practiceGoal?: string;
+  termsAccepted?: boolean;
 }
 
 // モデル情報の型定義

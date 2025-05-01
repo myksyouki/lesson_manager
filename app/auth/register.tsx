@@ -7,102 +7,24 @@ import {
   TouchableOpacity,
   Platform,
   KeyboardAvoidingView,
-  ActivityIndicator,
   ScrollView,
   SafeAreaView,
   Dimensions,
   Animated,
   Easing,
-  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/auth';
 import { useGoogleAuth } from '../../store/auth';
-import { MaterialIcons, Feather, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
+import { MaterialIcons, Feather, FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import LoadingScreen from '../../components/LoadingScreen';
-import { Checkbox, RadioButton, Menu, Button, Divider } from 'react-native-paper';
 import GoogleIcon from '../../components/GoogleIcon';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { Modal, Portal, Provider as PaperProvider } from 'react-native-paper';
 
 const { width, height } = Dimensions.get('window');
-
-// 楽器カテゴリとそれに属する楽器のリスト
-const INSTRUMENT_CATEGORIES = [
-  {
-    label: '鍵盤楽器',
-    value: 'keyboard',
-    instruments: [
-      { label: 'ピアノ', value: 'piano' },
-      { label: 'エレクトーン', value: 'electone' },
-      { label: 'シンセサイザー', value: 'synthesizer' },
-    ]
-  },
-  {
-    label: '弦楽器',
-    value: 'string',
-    instruments: [
-      { label: 'バイオリン', value: 'violin' },
-      { label: 'ビオラ', value: 'viola' },
-      { label: 'チェロ', value: 'cello' },
-      { label: 'コントラバス', value: 'contrabass' },
-      { label: 'ギター', value: 'guitar' },
-      { label: 'ウクレレ', value: 'ukulele' },
-    ]
-  },
-  {
-    label: '管楽器',
-    value: 'wind',
-    instruments: [
-      { label: 'フルート', value: 'flute' },
-      { label: 'オーボエ', value: 'oboe' },
-      { label: 'クラリネット', value: 'clarinet' },
-      { label: 'サックス', value: 'saxophone' },
-      { label: 'トランペット', value: 'trumpet' },
-      { label: 'トロンボーン', value: 'trombone' },
-    ]
-  },
-  {
-    label: '打楽器',
-    value: 'percussion',
-    instruments: [
-      { label: 'ドラム', value: 'drums' },
-      { label: 'ティンパニ', value: 'timpani' },
-      { label: 'マリンバ', value: 'marimba' },
-    ]
-  },
-  {
-    label: '声楽',
-    value: 'vocal',
-    instruments: [
-      { label: 'ボーカル', value: 'vocal' },
-      { label: '合唱', value: 'chorus' },
-    ]
-  },
-  {
-    label: 'その他',
-    value: 'other',
-    instruments: [
-      { label: 'その他', value: 'other' },
-    ]
-  },
-];
-
-// レベルのリスト
-const SKILL_LEVELS = [
-  { label: '初心者', value: 'beginner' },
-  { label: '中級者', value: 'intermediate' },
-  { label: '上級者', value: 'advanced' },
-];
-
-// 目標のリスト
-const PRACTICE_GOALS = [
-  { label: '趣味として楽しむ', value: 'hobby' },
-  { label: '演奏技術の向上', value: 'improvement' },
-  { label: 'コンサート/発表会出演', value: 'performance' },
-  { label: 'プロを目指す', value: 'professional' },
-];
 
 export default function RegisterScreen() {
   const { register, signInWithGoogle, signInWithApple, isLoading, error, clearError } = useAuthStore();
@@ -111,7 +33,6 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
@@ -121,7 +42,7 @@ export default function RegisterScreen() {
   // 登録処理完了後に遷移する
   const handleRegisterSuccess = (userId: string) => {
     // 詳細設定画面へ遷移
-    router.push('/profile');
+    router.push('/initial-setup');
   };
 
   // アニメーションのための値
@@ -269,12 +190,6 @@ export default function RegisterScreen() {
       return;
     }
     
-    // 利用規約同意のバリデーション
-    if (!termsAccepted) {
-      setErrorMessage('利用規約に同意してください');
-      return;
-    }
-    
     try {
       // Firebaseでユーザー登録（デフォルトの表示名を使用）
       const result = await register(
@@ -340,262 +255,241 @@ export default function RegisterScreen() {
     }
   };
 
-  const navigateToPrivacyPolicy = () => {
-    router.push('/privacy-policy');
-  };
-
-  const navigateToTermsOfService = () => {
-    router.push('/terms-of-service');
-  };
-
   if (isLoading) {
     return <LoadingScreen />;
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <LinearGradient
-        colors={['#F5FBFF', '#E0F6FF', '#D5F0FF']}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
-      
-      {/* 背景のウェーブアニメーション */}
-      <Animated.View 
-        style={[
-          styles.waveBg,
-          {
-            transform: [
-              { 
-                translateX: waveAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -width]
-                })
-              }
-            ]
-          }
-        ]}
-      >
+    <PaperProvider>
+      <SafeAreaView style={styles.safeArea}>
         <LinearGradient
-          colors={[freshColors[currentColorSet][0], freshColors[currentColorSet][1]]}
+          colors={['#F5FBFF', '#E0F6FF', '#D5F0FF']}
+          style={styles.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.waveGradient}
         />
-      </Animated.View>
-      
-      {/* バブルアニメーション */}
-      {bubbleAnims.map((bubble, index) => (
-        <Animated.View
-          key={index}
+        
+        {/* 背景のウェーブアニメーション */}
+        <Animated.View 
           style={[
-            styles.bubble,
+            styles.waveBg,
             {
               transform: [
-                { translateX: bubble.position.x },
-                { translateY: bubble.position.y },
-                { scale: bubble.scale }
+                { 
+                  translateX: waveAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -width]
+                  })
+                }
               ]
             }
           ]}
         >
           <LinearGradient
             colors={[freshColors[currentColorSet][0], freshColors[currentColorSet][1]]}
-            style={styles.bubbleGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
+            style={styles.waveGradient}
           />
         </Animated.View>
-      ))}
-      
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoidingView}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollViewContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
+        
+        {/* バブルアニメーション */}
+        {bubbleAnims.map((bubble, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.bubble,
+              {
+                transform: [
+                  { translateX: bubble.position.x },
+                  { translateY: bubble.position.y },
+                  { scale: bubble.scale }
+                ]
+              }
+            ]}
           >
-            <MaterialIcons name="arrow-back" size={24} color="#333" />
-          </TouchableOpacity>
-          
-          <View style={styles.formContainer}>
-            <BlurView intensity={10} tint="light" style={styles.blurBackground} />
-            <View style={styles.formContent}>
-              <Text style={styles.formTitle}>アカウント作成</Text>
+            <LinearGradient
+              colors={[freshColors[currentColorSet][0], freshColors[currentColorSet][1]]}
+              style={styles.bubbleGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+          </Animated.View>
+        ))}
+        
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoidingView}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <MaterialIcons name="arrow-back" size={24} color="#333" />
+            </TouchableOpacity>
+            
+            <View style={styles.formContainer}>
+              <BlurView intensity={10} tint="light" style={styles.blurBackground} />
+              <View style={styles.formContent}>
+                <Text style={styles.formTitle}>アカウント作成</Text>
 
-              {(error || errorMessage) && (
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error || errorMessage}</Text>
-                </View>
-              )}
+                {(error || errorMessage) && (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error || errorMessage}</Text>
+                  </View>
+                )}
 
-              {/* 基本情報（必須） */}
-              <View style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle}>基本情報</Text>
-                
-                <View style={styles.inputContainer}>
-                  <MaterialIcons 
-                    name="email" 
-                    size={22} 
-                    color={freshColors[currentColorSet][0]} 
-                    style={styles.inputIcon} 
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="メールアドレス"
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    placeholderTextColor="rgba(100,120,140,0.5)"
-                  />
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <MaterialIcons 
-                    name="lock" 
-                    size={22} 
-                    color={freshColors[currentColorSet][0]} 
-                    style={styles.inputIcon} 
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="パスワード（6文字以上）"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!passwordVisible}
-                    placeholderTextColor="rgba(100,120,140,0.5)"
-                  />
-                  <TouchableOpacity
-                    style={styles.visibilityIcon}
-                    onPress={() => setPasswordVisible(!passwordVisible)}
-                  >
-                    <Feather
-                      name={passwordVisible ? 'eye' : 'eye-off'}
-                      size={20}
-                      color="rgba(100,120,140,0.8)"
+                {/* 基本情報（必須） */}
+                <View style={styles.sectionContainer}>
+                  <Text style={styles.sectionTitle}>基本情報</Text>
+                  
+                  <View style={styles.inputContainer}>
+                    <MaterialIcons 
+                      name="email" 
+                      size={22} 
+                      color={freshColors[currentColorSet][0]} 
+                      style={styles.inputIcon} 
                     />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <MaterialIcons 
-                    name="lock" 
-                    size={22} 
-                    color={freshColors[currentColorSet][0]} 
-                    style={styles.inputIcon} 
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="パスワード（確認）"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!confirmPasswordVisible}
-                    placeholderTextColor="rgba(100,120,140,0.5)"
-                  />
-                  <TouchableOpacity
-                    style={styles.visibilityIcon}
-                    onPress={() => setConfirmPasswordVisible(!confirmPasswordVisible)}
-                  >
-                    <Feather
-                      name={confirmPasswordVisible ? 'eye' : 'eye-off'}
-                      size={20}
-                      color="rgba(100,120,140,0.8)"
+                    <TextInput
+                      style={styles.input}
+                      placeholder="メールアドレス"
+                      value={email}
+                      onChangeText={setEmail}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      placeholderTextColor="rgba(100,120,140,0.5)"
                     />
-                  </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <MaterialIcons 
+                      name="lock" 
+                      size={22} 
+                      color={freshColors[currentColorSet][0]} 
+                      style={styles.inputIcon} 
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="パスワード（6文字以上）"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!passwordVisible}
+                      placeholderTextColor="rgba(100,120,140,0.5)"
+                    />
+                    <TouchableOpacity
+                      style={styles.visibilityIcon}
+                      onPress={() => setPasswordVisible(!passwordVisible)}
+                    >
+                      <Feather
+                        name={passwordVisible ? 'eye' : 'eye-off'}
+                        size={20}
+                        color="rgba(100,120,140,0.8)"
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <MaterialIcons 
+                      name="lock" 
+                      size={22} 
+                      color={freshColors[currentColorSet][0]} 
+                      style={styles.inputIcon} 
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="パスワード（確認）"
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry={!confirmPasswordVisible}
+                      placeholderTextColor="rgba(100,120,140,0.5)"
+                    />
+                    <TouchableOpacity
+                      style={styles.visibilityIcon}
+                      onPress={() => setConfirmPasswordVisible(!confirmPasswordVisible)}
+                    >
+                      <Feather
+                        name={confirmPasswordVisible ? 'eye' : 'eye-off'}
+                        size={20}
+                        color="rgba(100,120,140,0.8)"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.noteContainer}>
+                    <MaterialIcons name="info" size={16} color="#4A6572" style={{marginRight: 8}} />
+                    <Text style={styles.noteText}>
+                      登録後、プロフィールと楽器設定の詳細画面に進みます
+                    </Text>
+                  </View>
                 </View>
-                
-                <View style={styles.noteContainer}>
-                  <MaterialIcons name="info" size={16} color="#4A6572" style={{marginRight: 8}} />
-                  <Text style={styles.noteText}>
-                    登録後、プロフィールと楽器設定の詳細画面に進みます
-                  </Text>
-                </View>
-              </View>
 
-              <View style={styles.termsContainer}>
-                <Checkbox
-                  status={termsAccepted ? 'checked' : 'unchecked'}
-                  onPress={() => setTermsAccepted(!termsAccepted)}
-                  color={freshColors[currentColorSet][0]}
-                />
-                <Text style={styles.termsText}>
-                  <Text>私は</Text>
-                  <Text style={styles.termsLink} onPress={navigateToTermsOfService}> 利用規約 </Text>
-                  <Text>および</Text>
-                  <Text style={styles.termsLink} onPress={navigateToPrivacyPolicy}> プライバシーポリシー </Text>
-                  <Text>に同意します</Text>
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.authButton,
-                  { 
-                    backgroundColor: freshColors[currentColorSet][0],
-                    opacity: email && password && confirmPassword && termsAccepted ? 1 : 0.7 
-                  }
-                ]}
-                onPress={handleRegister}
-                disabled={!email || !password || !confirmPassword || !termsAccepted}
-              >
-                <Text style={styles.authButtonText}>アカウント作成</Text>
-              </TouchableOpacity>
-
-              <View style={styles.dividerContainer}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>または</Text>
-                <View style={styles.divider} />
-              </View>
-
-              <View style={styles.socialButtonsContainer}>
                 <TouchableOpacity
-                  style={[styles.socialButton, styles.googleButton]}
-                  onPress={handleGoogleSignIn}
-                  disabled={isLoading}
+                  style={[
+                    styles.authButton,
+                    { 
+                      backgroundColor: freshColors[currentColorSet][0],
+                      opacity: email && password && confirmPassword ? 1 : 0.7 
+                    }
+                  ]}
+                  onPress={handleRegister}
+                  disabled={!email || !password || !confirmPassword}
                 >
-                  <GoogleIcon width={22} height={22} style={styles.googleIcon} />
-                  <Text style={styles.socialButtonText}>Google</Text>
+                  <Text style={styles.authButtonText}>アカウント作成</Text>
                 </TouchableOpacity>
 
-                {Platform.OS === 'ios' && appleAuthAvailable && (
+                <View style={styles.dividerContainer}>
+                  <View style={styles.divider} />
+                  <Text style={styles.dividerText}>または</Text>
+                  <View style={styles.divider} />
+                </View>
+
+                <View style={styles.socialButtonsContainer}>
                   <TouchableOpacity
-                    style={[styles.socialButton, styles.appleButton]}
-                    onPress={handleAppleSignIn}
+                    style={[styles.socialButton, styles.googleButton]}
+                    onPress={handleGoogleSignIn}
                     disabled={isLoading}
                   >
-                    <FontAwesome name="apple" size={22} color="#FFFFFF" />
-                    <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>Apple</Text>
+                    <GoogleIcon width={22} height={22} style={styles.googleIcon} />
+                    <Text style={styles.socialButtonText}>Google</Text>
                   </TouchableOpacity>
-                )}
-              </View>
 
-              <View style={styles.switchContainer}>
-                <Text style={styles.switchText}>
-                  すでにアカウントをお持ちですか？
-                </Text>
-                <TouchableOpacity onPress={() => router.push('/auth/login')}>
-                  <Text 
-                    style={[
-                      styles.switchButton,
-                      { color: freshColors[currentColorSet][0] }
-                    ]}
-                  >
-                    ログイン
+                  {Platform.OS === 'ios' && appleAuthAvailable && (
+      <TouchableOpacity
+                      style={[styles.socialButton, styles.appleButton]}
+                      onPress={handleAppleSignIn}
+                      disabled={isLoading}
+                    >
+                      <FontAwesome name="apple" size={22} color="#FFFFFF" />
+                      <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>Apple</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View style={styles.switchContainer}>
+                  <Text style={styles.switchText}>
+                    すでにアカウントをお持ちですか？
                   </Text>
-                </TouchableOpacity>
+                  <TouchableOpacity onPress={() => router.push('/auth/login')}>
+                    <Text 
+                      style={[
+                        styles.switchButton,
+                        { color: freshColors[currentColorSet][0] }
+                      ]}
+                    >
+                      ログイン
+                    </Text>
+      </TouchableOpacity>
+    </View>
               </View>
             </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </PaperProvider>
   );
 }
 
@@ -753,11 +647,51 @@ const styles = StyleSheet.create({
   selectedMenuItem: {
     backgroundColor: 'rgba(70, 160, 230, 0.1)',
   },
+  termsContainerCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 200, 220, 0.4)',
+  },
+  termsHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  termsHeaderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#344955',
+  },
+  termsDescriptionText: {
+    fontSize: 14,
+    color: '#4A6572',
+    marginBottom: 16,
+  },
+  termsButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  termsButton: {
+    backgroundColor: 'rgba(70, 160, 230, 0.1)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    flex: 0.48,
+    alignItems: 'center',
+  },
+  termsButtonText: {
+    color: '#4285F4',
+    fontWeight: '500',
+    fontSize: 14,
+  },
   termsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 8,
+    marginBottom: 4,
   },
   termsText: {
     fontSize: 14,
@@ -858,16 +792,74 @@ const styles = StyleSheet.create({
   noteContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    padding: 12,
+    backgroundColor: 'rgba(70, 160, 230, 0.08)',
+    padding: 10,
     borderRadius: 8,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(180, 200, 220, 0.3)',
+    marginTop: 8,
   },
   noteText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#4A6572',
     flex: 1,
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    marginHorizontal: 20,
+    borderRadius: 16,
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(200, 210, 220, 0.5)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#344955',
+  },
+  modalContent: {
+    padding: 16,
+    maxHeight: 400,
+  },
+  modalText: {
+    fontSize: 14,
+    color: '#4A6572',
+    lineHeight: 22,
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(200, 210, 220, 0.5)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    flex: 0.48,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  modalCancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    flex: 0.48,
+    alignItems: 'center',
+    backgroundColor: 'rgba(200, 210, 220, 0.3)',
+  },
+  modalCancelButtonText: {
+    color: '#4A6572',
+    fontSize: 14,
   },
 }); 

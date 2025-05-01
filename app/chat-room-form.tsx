@@ -139,7 +139,7 @@ export default function ChatRoomFormScreen() {
             false  // isTestMode
           );
           
-          if (aiResponse && aiResponse.success) {
+          if (aiResponse && aiResponse.success && aiResponse.answer && aiResponse.answer !== '該当なし') {
             // AIからの応答をチャットルームに追加
             const aiMessage = {
               id: `ai-${Date.now()}`,
@@ -164,7 +164,7 @@ export default function ChatRoomFormScreen() {
             
             console.log('AIの初期応答を追加しました:', aiResponse.answer.substring(0, 50) + '...');
           } else {
-            console.error('AI応答取得エラー:', aiResponse);
+            console.log('AIの応答が無効または「該当なし」のため、メッセージを追加しません');
           }
         } catch (error) {
           console.error('AIの初期応答追加エラー:', error);
@@ -179,10 +179,10 @@ export default function ChatRoomFormScreen() {
           {
             text: 'OK',
             onPress: () => {
-              // AIレッスンタブに戻る (reloadパラメータ付き)
+              // 作成したチャットルームに直接遷移する
               router.push({
-                pathname: '/tabs',
-                params: { reload: 'true' }
+                pathname: `/chat-room`,
+                params: { id: chatRoom.id }
               });
             }
           }
