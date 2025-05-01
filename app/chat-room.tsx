@@ -28,6 +28,7 @@ import { ChatInput } from './features/chat/components/ChatInput';
 import { useFocusEffect } from 'expo-router';
 import { getUserInstrumentInfo, InstrumentModel } from '../services/userProfileService';
 import { isDemoMode, demoModeService, startDemoAIConversation } from '../services/demoModeService';
+import StreamingChatMessages from './features/chat/components/StreamingChatMessages';
 
 // 定数定義の追加
 const MAX_MESSAGE_LENGTH = 2000; // メッセージの最大文字数
@@ -332,9 +333,11 @@ export default function ChatRoomScreen() {
   
   // 最新メッセージまでスクロール
   const scrollToBottom = () => {
-    if (flatListRef.current && chatRoom?.messages?.length) {
-      flatListRef.current.scrollToEnd({ animated: true });
-    }
+    setTimeout(() => {
+      if (flatListRef.current) {
+        flatListRef.current.scrollToEnd({ animated: true });
+      }
+    }, 100);
   };
 
   // モデル選択を適用
@@ -641,30 +644,6 @@ export default function ChatRoomScreen() {
     }
   };
   
-  // チャットメッセージの表示コンポーネント
-  const renderItem = ({ item }: { item: ChatMessage }) => {
-    const isUserMessage = item.sender === 'user';
-    
-    return (
-      <View style={[
-        styles.messageContainer,
-        isUserMessage ? styles.userMessageContainer : styles.aiMessageContainer
-      ]}>
-        <View style={[
-          styles.messageBubble,
-          isUserMessage ? styles.userMessageBubble : styles.aiMessageBubble
-        ]}>
-          <Text style={[
-            styles.messageText,
-            isUserMessage ? { color: '#FFFFFF' } : { color: '#333333' }
-          ]}>
-            {item.content}
-          </Text>
-        </View>
-      </View>
-    );
-  };
-  
   // 空のメッセージリストの表示
   const renderEmptyMessages = () => (
     <View style={styles.emptyContainer}>
@@ -772,17 +751,10 @@ export default function ChatRoomScreen() {
               style={styles.container}
             >
               {chatRoom && chatRoom.messages && chatRoom.messages.length > 0 ? (
-                <FlatList
-                  ref={flatListRef}
-                  data={chatRoom.messages}
-                  renderItem={renderItem}
-                  keyExtractor={(item) => item.id}
-                  contentContainerStyle={styles.messagesContent}
-                  onLayout={() => {
-                    if (flatListRef.current) {
-                      flatListRef.current.scrollToEnd({ animated: false });
-                    }
-                  }}
+                <StreamingChatMessages 
+                  messages={chatRoom.messages}
+                  loading={loading}
+                  enableStreaming={true}
                 />
               ) : (
                 renderEmptyMessages()
