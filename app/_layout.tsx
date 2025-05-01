@@ -157,7 +157,6 @@ export default function RootLayout() {
               // オンボーディングが完了していない場合は、オンボーディング画面にリダイレクト
               <>
                 <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-                <Stack.Screen name="mode-selection" options={{ headerShown: false }} />
               </>
             ) : (
               <>

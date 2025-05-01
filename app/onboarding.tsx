@@ -31,7 +31,7 @@ import { useAuthStore } from '../store/auth';
 const { width } = Dimensions.get('window');
 
 // オンボーディングの各ステップを表す型
-type OnboardingStep = 'welcome' | 'category' | 'instrument' | 'model' | 'features' | 'tabs';
+type OnboardingStep = 'welcome' | 'features' | 'tabs';
 
 // モックアップ用のコンポーネント
 const HomeScreenMockup = () => (
@@ -230,11 +230,6 @@ const tabGuides: TabGuide[] = [
 
 export default function OnboardingScreen() {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedInstrument, setSelectedInstrument] = useState('');
-  const [selectedModel, setSelectedModel] = useState('');
-  const [currentCategory, setCurrentCategory] = useState<InstrumentCategory | null>(null);
-  const [currentInstrument, setCurrentInstrument] = useState<Instrument | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { setOnboardingCompleted } = useAuthStore();
@@ -244,22 +239,10 @@ export default function OnboardingScreen() {
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
+        // プロフィールはすでに設定済みなのでここでの処理は最小限にする
         const profile = await getUserProfile();
-        if (profile) {
-          setSelectedCategory(profile.selectedCategory);
-          setSelectedInstrument(profile.selectedInstrument);
-          setSelectedModel(profile.selectedModel);
-          
-          // カテゴリとインストゥルメント情報も設定
-          const category = instrumentCategories.find(c => c.id === profile.selectedCategory);
-          if (category) {
-            setCurrentCategory(category);
-            
-            const instrument = category.instruments.find(i => i.id === profile.selectedInstrument);
-            if (instrument) {
-              setCurrentInstrument(instrument);
-            }
-          }
+        if (!profile) {
+          console.error('プロフィールが見つかりません');
         }
       } catch (error) {
         console.error('プロファイル読み込みエラー:', error);
@@ -268,105 +251,6 @@ export default function OnboardingScreen() {
 
     loadUserProfile();
   }, []);
-
-  // カテゴリ選択の処理
-  const handleCategorySelect = async (categoryId: string) => {
-    try {
-      // 開発段階では管楽器のみ選択可能
-      if (categoryId !== 'woodwind') {
-        Alert.alert('開発中', 'このカテゴリは現在開発中です。管楽器を選択してください。');
-        return;
-      }
-      
-      setIsLoading(true);
-      setSelectedCategory(categoryId);
-      await saveSelectedCategory(categoryId);
-      
-      // 対応するカテゴリ情報を取得
-      const category = instrumentCategories.find(c => c.id === categoryId);
-      if (category) {
-        setCurrentCategory(category);
-      }
-      
-      // 次のステップに進む
-      setCurrentStep('instrument');
-    } catch (error: any) {
-      Alert.alert('エラー', error.message || 'カテゴリの選択に失敗しました');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 楽器選択の処理
-  const handleInstrumentSelect = async (instrumentId: string) => {
-    try {
-      // 開発段階ではサクソフォンのみ選択可能
-      if (instrumentId !== 'saxophone') {
-        Alert.alert('開発中', 'この楽器は現在開発中です。サクソフォンを選択してください。');
-        return;
-      }
-      
-      setIsLoading(true);
-      setSelectedInstrument(instrumentId);
-      
-      if (!selectedCategory) {
-        throw new Error('カテゴリが選択されていません');
-      }
-      
-      await saveSelectedInstrument(selectedCategory, instrumentId);
-      
-      // 対応する楽器情報を取得
-      if (currentCategory) {
-        const instrument = currentCategory.instruments.find(i => i.id === instrumentId);
-        if (instrument) {
-          setCurrentInstrument(instrument);
-          
-          // サックスの場合はモデル選択画面へ、それ以外は機能説明画面へ
-          if (instrumentId === 'saxophone') {
-            setCurrentStep('model');
-          } else {
-            // スタンダードモデルが自動選択される
-            setSelectedModel('standard');
-            setCurrentStep('features');
-          }
-        }
-      }
-    } catch (error: any) {
-      Alert.alert('エラー', error.message || '楽器の選択に失敗しました');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // モデル選択の処理
-  const handleModelSelect = async (modelId: string) => {
-    try {
-      setIsLoading(true);
-      
-      if (!selectedCategory || !selectedInstrument) {
-        throw new Error('カテゴリまたは楽器が選択されていません');
-      }
-      
-      // プロフェッショナルモデル選択時の処理
-      if (modelId !== 'standard') {
-        // プロフェッショナルモデルはueno（デフォルト）を使用
-        const professionalModelId = 'ueno';
-        setSelectedModel(professionalModelId);
-        await saveSelectedModel(selectedCategory, selectedInstrument, professionalModelId);
-      } else {
-        // スタンダードモデルの場合
-        setSelectedModel(modelId);
-        await saveSelectedModel(selectedCategory, selectedInstrument, modelId);
-      }
-      
-      // 次のステップに進む
-      setCurrentStep('features');
-    } catch (error: any) {
-      Alert.alert('エラー', error.message || 'モデルの選択に失敗しました');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // オンボーディング完了処理
   const handleComplete = async () => {
@@ -377,71 +261,13 @@ export default function OnboardingScreen() {
       await completeOnboarding();
       setOnboardingCompleted(true);
       
-      // モード選択画面に遷移
-      router.replace('/mode-selection');
+      // ホーム画面に直接遷移
+      router.replace('/tabs');
     } catch (error) {
       console.error('オンボーディング完了エラー:', error);
       setError('オンボーディングの完了に失敗しました。もう一度お試しください。');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // 楽器カテゴリアイコンの取得
-  const getCategoryIcon = (categoryId: string) => {
-    switch (categoryId) {
-      case 'vocal':
-        return <MaterialIcons name="mic" size={32} color="#1C1C1E" />;
-      case 'piano':
-        return <MaterialIcons name="piano" size={32} color="#1C1C1E" />;
-      case 'woodwind':
-        return <MaterialCommunityIcons name="trumpet" size={32} color="#1C1C1E" />;
-      case 'brass':
-        return <MaterialCommunityIcons name="trumpet" size={32} color="#1C1C1E" />;
-      case 'strings':
-        return <MaterialCommunityIcons name="violin" size={32} color="#1C1C1E" />;
-      default:
-        return <MaterialIcons name="music-note" size={32} color="#1C1C1E" />;
-    }
-  };
-
-  // 楽器アイコンの取得
-  const getInstrumentIcon = (instrumentId: string) => {
-    switch (instrumentId) {
-      case 'vocal':
-        return <MaterialIcons name="mic" size={32} color="#1C1C1E" />;
-      case 'piano':
-        return <MaterialIcons name="piano" size={32} color="#1C1C1E" />;
-      case 'flute':
-        return <MaterialCommunityIcons name="music" size={32} color="#1C1C1E" />;
-      case 'clarinet':
-        return <MaterialCommunityIcons name="trumpet" size={32} color="#1C1C1E" />;
-      case 'oboe':
-        return <MaterialCommunityIcons name="trumpet" size={32} color="#1C1C1E" />;
-      case 'fagott':
-        return <MaterialCommunityIcons name="trumpet" size={32} color="#1C1C1E" />;
-      case 'saxophone':
-        return <MaterialCommunityIcons name="saxophone" size={32} color="#1C1C1E" />;
-      case 'trumpet':
-        return <MaterialCommunityIcons name="trumpet" size={32} color="#1C1C1E" />;
-      case 'trombone':
-        return <MaterialCommunityIcons name="trumpet" size={32} color="#1C1C1E" />;
-      case 'horn':
-        return <MaterialCommunityIcons name="trumpet" size={32} color="#1C1C1E" />;
-      case 'euphonium':
-        return <MaterialCommunityIcons name="trumpet" size={32} color="#1C1C1E" />;
-      case 'tuba':
-        return <MaterialCommunityIcons name="trumpet" size={32} color="#1C1C1E" />;
-      case 'violin':
-        return <MaterialCommunityIcons name="violin" size={32} color="#1C1C1E" />;
-      case 'viola':
-        return <MaterialCommunityIcons name="violin" size={32} color="#1C1C1E" />;
-      case 'cello':
-        return <MaterialCommunityIcons name="violin" size={32} color="#1C1C1E" />;
-      case 'contrabass':
-        return <MaterialCommunityIcons name="violin" size={32} color="#1C1C1E" />;
-      default:
-        return <MaterialIcons name="music-note" size={32} color="#1C1C1E" />;
     }
   };
 
@@ -457,181 +283,14 @@ export default function OnboardingScreen() {
             <Text style={styles.title}>レッスン管理アプリへようこそ</Text>
             <Text style={styles.description}>
               このアプリでは、音楽レッスンの記録や練習の管理、AIによるアドバイスを受けることができます。
-              まずは簡単な設定から始めましょう。
+              主な機能について確認しましょう。
             </Text>
             <TouchableOpacity
               style={styles.button}
-              onPress={() => setCurrentStep('category')}
+              onPress={() => setCurrentStep('features')}
             >
               <Text style={styles.buttonText}>始める</Text>
               <MaterialIcons name="arrow-forward" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
-        );
-
-      case 'category':
-        return (
-          <View style={styles.stepContainer}>
-            <Text style={styles.title}>楽器カテゴリの選択</Text>
-            <Text style={styles.description}>
-              演奏する楽器のカテゴリを選択してください。
-              これに基づいてAIがアドバイスを提供します。
-              ※開発段階のため、管楽器のみ選択可能です
-            </Text>
-            
-            {instrumentCategories.map((category) => {
-              // 管楽器カテゴリ（woodwind）以外はグレーアウト
-              const isDisabled = category.id !== 'woodwind';
-              
-              return (
-                <TouchableOpacity
-                  key={category.id}
-                  style={[
-                    styles.instrumentItem,
-                    selectedCategory === category.id && styles.selectedInstrumentItem,
-                    isDisabled && styles.disabledItem
-                  ]}
-                  onPress={() => !isDisabled && handleCategorySelect(category.id)}
-                  disabled={isLoading || isDisabled}
-                >
-                  <View style={styles.instrumentRow}>
-                    {getCategoryIcon(category.id)}
-                    <Text style={[
-                      styles.instrumentLabel,
-                      isDisabled && styles.disabledText
-                    ]}>
-                      {category.name}
-                      {isDisabled && ' (準備中)'}
-                    </Text>
-                  </View>
-                  {selectedCategory === category.id && (
-                    <MaterialIcons name="check" size={24} color="#007AFF" />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-            
-            {isLoading && (
-              <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
-            )}
-          </View>
-        );
-
-      case 'instrument':
-        return (
-          <View style={styles.stepContainer}>
-            <Text style={styles.title}>楽器を選択</Text>
-            <Text style={styles.description}>
-              演奏する楽器を選択してください。
-              後から設定画面で変更することもできます。
-              ※開発段階のため、サクソフォンのみ選択可能です
-            </Text>
-            
-            {currentCategory?.instruments.map((instrument) => {
-              // サクソフォン以外はグレーアウト
-              const isDisabled = instrument.id !== 'saxophone';
-              
-              return (
-                <TouchableOpacity
-                  key={instrument.id}
-                  style={[
-                    styles.instrumentItem,
-                    selectedInstrument === instrument.id && styles.selectedInstrumentItem,
-                    isDisabled && styles.disabledItem
-                  ]}
-                  onPress={() => !isDisabled && handleInstrumentSelect(instrument.id)}
-                  disabled={isLoading || isDisabled}
-                >
-                  <View style={styles.instrumentRow}>
-                    {getInstrumentIcon(instrument.id)}
-                    <Text style={[
-                      styles.instrumentLabel,
-                      isDisabled && styles.disabledText
-                    ]}>
-                      {instrument.name}
-                      {isDisabled && ' (準備中)'}
-                    </Text>
-                  </View>
-                  {selectedInstrument === instrument.id && (
-                    <MaterialIcons name="check" size={24} color="#007AFF" />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-            
-            {isLoading && (
-              <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
-            )}
-            
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => setCurrentStep('category')}
-            >
-              <MaterialIcons name="arrow-back" size={20} color="#007AFF" />
-              <Text style={styles.backButtonText}>カテゴリ選択に戻る</Text>
-            </TouchableOpacity>
-          </View>
-        );
-        
-      case 'model':
-        return (
-          <View style={styles.stepContainer}>
-            <Text style={styles.title}>モデルを選択</Text>
-            <Text style={styles.description}>
-              使用するAIモデルを選択してください。
-              後から設定画面で変更することもできます。
-            </Text>
-            
-            {/* スタンダードモデル */}
-            <TouchableOpacity
-              key="standard"
-              style={[
-                styles.instrumentItem,
-                selectedModel === 'standard' && styles.selectedInstrumentItem
-              ]}
-              onPress={() => handleModelSelect('standard')}
-              disabled={isLoading}
-            >
-              <View style={styles.instrumentRow}>
-                <Text style={styles.instrumentLabel}>スタンダードモデル</Text>
-              </View>
-              {selectedModel === 'standard' && (
-                <MaterialIcons name="check" size={24} color="#007AFF" />
-              )}
-            </TouchableOpacity>
-
-            {/* プロフェッショナルモデル */}
-            <TouchableOpacity
-              key="professional"
-              style={[
-                styles.instrumentItem,
-                selectedModel !== 'standard' && styles.selectedInstrumentItem,
-                styles.artistModelItem
-              ]}
-              onPress={() => handleModelSelect('professional')}
-              disabled={isLoading}
-            >
-              <View style={styles.instrumentRow}>
-                <Text style={styles.instrumentLabel}>プロフェッショナルモデル</Text>
-                <View style={styles.betaBadge}>
-                  <Text style={styles.betaBadgeText}>BETA</Text>
-                </View>
-              </View>
-              {selectedModel !== 'standard' && (
-                <MaterialIcons name="check" size={24} color="#007AFF" />
-              )}
-            </TouchableOpacity>
-            
-            {isLoading && (
-              <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
-            )}
-            
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => setCurrentStep('instrument')}
-            >
-              <MaterialIcons name="arrow-back" size={20} color="#007AFF" />
-              <Text style={styles.backButtonText}>楽器選択に戻る</Text>
             </TouchableOpacity>
           </View>
         );
@@ -688,14 +347,6 @@ export default function OnboardingScreen() {
                 </>
               )}
             </TouchableOpacity>
-            
-            {currentStep === 'features' && currentInstrument && (
-              <View style={styles.selectedInfo}>
-                <Text style={styles.selectedInfoText}>
-                  選択した楽器: {currentCategory?.name} / {currentInstrument.name}
-                </Text>
-              </View>
-            )}
           </View>
         );
 
@@ -757,32 +408,18 @@ export default function OnboardingScreen() {
                 </>
               )}
             </TouchableOpacity>
-            
-            {currentInstrument && (
-              <View style={styles.selectedInfo}>
-                <Text style={styles.selectedInfoText}>
-                  選択した楽器: {currentCategory?.name} / {currentInstrument.name}
-                </Text>
-              </View>
-            )}
           </View>
         );
     }
   };
 
-  // 進捗の計算（例：ウェルカム=0%, カテゴリ=20%, 楽器=40%, モデル=60%, 機能=80%, タブ=100%）
+  // 進捗の計算（例：ウェルカム=0%, 機能=50%, タブ=100%）
   const calculateProgress = () => {
     switch (currentStep) {
       case 'welcome':
         return 0;
-      case 'category':
-        return 20;
-      case 'instrument':
-        return 40;
-      case 'model':
-        return 60;
       case 'features':
-        return 80;
+        return 50;
       case 'tabs':
         return 100;
     }
@@ -807,24 +444,6 @@ export default function OnboardingScreen() {
           style={[
             styles.progressDot, 
             (currentStep === 'welcome') && styles.activeProgressDot
-          ]} 
-        />
-        <View 
-          style={[
-            styles.progressDot, 
-            (currentStep === 'category') && styles.activeProgressDot
-          ]} 
-        />
-        <View 
-          style={[
-            styles.progressDot, 
-            (currentStep === 'instrument') && styles.activeProgressDot
-          ]} 
-        />
-        <View 
-          style={[
-            styles.progressDot, 
-            (currentStep === 'model' || (currentStep === 'features' && selectedInstrument !== 'saxophone')) && styles.activeProgressDot
           ]} 
         />
         <View 

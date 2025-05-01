@@ -203,7 +203,7 @@ export default function ChartSection() {
             styles.tabText, 
             selectedChart === 'tasks' && styles.selectedTabText
           ]}>
-            練習
+            練習メニュー
           </Text>
         </TouchableOpacity>
       </View>
@@ -237,7 +237,7 @@ export default function ChartSection() {
                 ? '半年間の練習日数'
                 : selectedChart === 'lessons'
                   ? '半年間のレッスン数'
-                  : '半年間のタスク数'}
+                  : '半年間の練習メニュー数'}
           </Text>
         </View>
         
