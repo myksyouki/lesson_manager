@@ -58,6 +58,8 @@ export default function TaskScreen() {
   // デモモードのデータキャッシュ
   const [demoPracticeMenusCache, setDemoPracticeMenusCache] = useState<any[]>([]);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  // リロード状態を追跡する状態変数を追加
+  const [isNewlyCreatedHandled, setIsNewlyCreatedHandled] = useState(false);
   
   const params = useLocalSearchParams();
   
@@ -152,10 +154,14 @@ export default function TaskScreen() {
           const isNewlyCreated = params.isNewlyCreated === 'true';
           if (__DEV__) console.log('タスクタブフォーカス: isNewlyCreated =', isNewlyCreated);
           
-          if (!isNewlyCreated) {
-            if (__DEV__) console.log('タスクタブフォーカス: 新規作成でないためスキップ');
+          // パラメータがない、または既に処理済みの場合はスキップ
+          if (!isNewlyCreated || isNewlyCreatedHandled) {
+            if (__DEV__) console.log('タスクタブフォーカス: 新規作成でないか既に処理済みのためスキップ');
             return;
           }
+          
+          // isNewlyCreatedを処理済みにマーク
+          setIsNewlyCreatedHandled(true);
           
           if (isDemo) {
             if (__DEV__) console.log('デモモード：フォーカス時の再読み込みをスキップします');
@@ -164,6 +170,11 @@ export default function TaskScreen() {
           
           setRefreshing(true);
           await fetchTasksWhenAuthenticated();
+          
+          // ページパラメータをリセット（無限リロード防止）
+          if (router && typeof router.setParams === 'function') {
+            router.setParams({ isNewlyCreated: 'false' });
+          }
         } catch (error) {
           if (__DEV__) console.error('タスク更新エラー:', error);
         } finally {
@@ -171,8 +182,15 @@ export default function TaskScreen() {
         }
       };
       refreshTasksOnFocus();
-    }, [params, fetchTasksWhenAuthenticated, isDemo, refreshing, initialLoadDone])
+    }, [params, fetchTasksWhenAuthenticated, isDemo, refreshing, initialLoadDone, isNewlyCreatedHandled])
   );
+
+  // isNewlyCreatedパラメータが変更されたら処理状態をリセット
+  useEffect(() => {
+    if (params.isNewlyCreated !== 'true') {
+      setIsNewlyCreatedHandled(false);
+    }
+  }, [params.isNewlyCreated]);
 
   // タスク状態が変更された時のカテゴリ集計を最適化
   useEffect(() => {
