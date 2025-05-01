@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, FlatList, Platform, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, FlatList, Platform, RefreshControl, ViewStyle } from 'react-native';
 import { ChatMessage } from '../../../../services/chatRoomService';
 import MessageBubble from './MessageBubble';
 import { useStreamingText, getLastAiMessage } from '../utils/streamingUtils';
@@ -10,6 +10,7 @@ interface StreamingChatMessagesProps {
   onRefresh?: () => void;
   refreshing?: boolean;
   enableStreaming?: boolean; // ストリーミング機能を有効にするかどうか
+  showAvatars?: boolean; // アバターアイコンを表示するかどうか
 }
 
 const StreamingChatMessages: React.FC<StreamingChatMessagesProps> = ({ 
@@ -17,7 +18,8 @@ const StreamingChatMessages: React.FC<StreamingChatMessagesProps> = ({
   loading = false, 
   onRefresh, 
   refreshing = false,
-  enableStreaming = true
+  enableStreaming = true,
+  showAvatars = false
 }) => {
   const flatListRef = useRef<FlatList>(null);
   const lastAiMessage = getLastAiMessage(messages);
@@ -53,10 +55,21 @@ const StreamingChatMessages: React.FC<StreamingChatMessagesProps> = ({
     }
   }, [messages.length, displayedText]);
   
-  // リストの表示アイテム
+  // メッセージグループ（同じ送信者の連続したメッセージ）を作成
   const renderItem = ({ item, index }: { item: ChatMessage; index: number }) => {
     const lastAiId = lastAiMessage?.id;
     const isLastAiMessage = item.id === lastAiId;
+    
+    // 連続した同じ送信者のメッセージの場合、スタイルを調整
+    const isPreviousSameSender = index > 0 && messages[index - 1].sender === item.sender;
+    const isNextSameSender = index < messages.length - 1 && messages[index + 1]?.sender === item.sender;
+    
+    // メッセージの位置に基づいたスタイル
+    const positionStyle = 
+      isPreviousSameSender && isNextSameSender ? styles.middleMessage :
+      isPreviousSameSender ? styles.lastGroupMessage :
+      isNextSameSender ? styles.firstGroupMessage :
+      styles.singleMessage;
     
     return (
       <MessageBubble
@@ -64,11 +77,11 @@ const StreamingChatMessages: React.FC<StreamingChatMessagesProps> = ({
         content={item.content}
         role={item.sender}
         isStreaming={isLastAiMessage && isStreaming}
-        containerStyle={styles.messageBubbleContainer}
-        // 最初と最後のメッセージは常にアバターを表示
-        showAvatar={index === 0 || index === messages.length - 1 || 
-          // 連続した同じ送信者のメッセージの場合、最後のメッセージのみアバターを表示
-          messages[index - 1]?.sender !== item.sender}
+        containerStyle={{
+          ...styles.messageBubbleContainer,
+          ...positionStyle
+        }}
+        showAvatar={showAvatars}
       />
     );
   };
@@ -98,6 +111,7 @@ const StreamingChatMessages: React.FC<StreamingChatMessagesProps> = ({
           flatListRef.current.scrollToEnd({ animated: false });
         }
       }}
+      showsVerticalScrollIndicator={false}
     />
   );
 };
@@ -105,10 +119,10 @@ const StreamingChatMessages: React.FC<StreamingChatMessagesProps> = ({
 const styles = StyleSheet.create({
   flatList: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#FFFFFF', // ChatGPTスタイルの背景色
   },
   messagesContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   headerSpacer: {
     height: 12,
@@ -117,7 +131,21 @@ const styles = StyleSheet.create({
     height: 20,
   },
   messageBubbleContainer: {
-    marginVertical: 4,
+    marginVertical: 2,
+  },
+  firstGroupMessage: {
+    marginBottom: 1,
+    marginTop: 8,
+  },
+  middleMessage: {
+    marginVertical: 1,
+  },
+  lastGroupMessage: {
+    marginTop: 1,
+    marginBottom: 8,
+  },
+  singleMessage: {
+    marginVertical: 8,
   },
 });
 

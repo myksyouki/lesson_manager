@@ -551,8 +551,7 @@ export default function ChatRoomScreen() {
         messages: updatedMessages
       });
       
-      // メッセージ入力をクリア
-      setMessage('');
+      // ChatInputコンポーネント側でメッセージ入力をクリアするようになったため、ここでのクリアは不要
       
       // 選択中のモデルIDを取得
       const currentModelId = selectedChatModel || 'standard';
@@ -673,11 +672,13 @@ export default function ChatRoomScreen() {
               },
               headerTitleStyle: {
                 fontWeight: '600',
+                color: '#343541',
+                fontSize: 16,
               },
               headerShadowVisible: true,
               headerLeft: () => (
                 <TouchableOpacity onPress={() => router.back()} style={{padding: 10}}>
-                  <Ionicons name="arrow-back" size={24} color="#007AFF" />
+                  <Ionicons name="arrow-back" size={24} color="#6E56CF" />
                 </TouchableOpacity>
               ),
             }}
@@ -704,22 +705,24 @@ export default function ChatRoomScreen() {
             },
             headerTitleStyle: {
               fontWeight: '600',
+              color: '#343541',
+              fontSize: 16,
             },
             headerShadowVisible: true,
             headerLeft: () => (
               <TouchableOpacity onPress={() => router.back()} style={{padding: 10}}>
-                <Ionicons name="arrow-back" size={24} color="#007AFF" />
+                <Ionicons name="arrow-back" size={24} color="#6E56CF" />
               </TouchableOpacity>
             ),
             headerRight: () => (
               <View style={{flexDirection: 'row'}}>
                 {availableModels.length > 0 && (
                   <TouchableOpacity onPress={handleOpenModelModal} style={{padding: 10}}>
-                    <MaterialIcons name="switch-access-shortcut" size={24} color="#007AFF" />
+                    <MaterialIcons name="switch-access-shortcut" size={24} color="#6E56CF" />
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={handleOpenEditModal} style={{padding: 10}}>
-                  <MaterialIcons name="edit" size={24} color="#007AFF" />
+                  <MaterialIcons name="edit" size={24} color="#6E56CF" />
                 </TouchableOpacity>
               </View>
             ),
@@ -727,7 +730,7 @@ export default function ChatRoomScreen() {
         />
         
         <KeyboardAvoidingView
-          style={{ flex: 1 }}
+          style={{ flex: 1, backgroundColor: '#FFFFFF' }}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
@@ -755,6 +758,7 @@ export default function ChatRoomScreen() {
                   messages={chatRoom.messages}
                   loading={loading}
                   enableStreaming={true}
+                  showAvatars={false}
                 />
               ) : (
                 renderEmptyMessages()

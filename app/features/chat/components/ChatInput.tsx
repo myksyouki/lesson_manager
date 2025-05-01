@@ -38,52 +38,58 @@ export function ChatInput({
   
   // 送信後キーボードを閉じる
   const handleSendPress = () => {
+    if (!message.trim() || sending) return;
+    
+    // 送信処理を実行
     onSend();
+    
+    // メッセージ入力をクリア
+    onChangeMessage('');
+    
+    // キーボードを閉じる
     Keyboard.dismiss();
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.inputWrapper}>
-        <View style={styles.inputContainer}>
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            value={message}
-            onChangeText={handleMessageChange}
-            placeholder="メッセージを入力..."
-            multiline
-            maxLength={2000}
-            placeholderTextColor="#9AA3AF"
-            editable={!sending}
-          />
+        <TextInput
+          ref={inputRef}
+          style={styles.input}
+          value={message}
+          onChangeText={handleMessageChange}
+          placeholder="メッセージを入力..."
+          multiline
+          maxLength={2000}
+          placeholderTextColor="#9E9EA7"
+          editable={!sending}
+        />
           
-          <TouchableOpacity
-            style={[
-              styles.sendButton, 
-              !message.trim() ? styles.disabledButton : styles.activeButton
-            ]}
-            onPress={handleSendPress}
-            disabled={!message.trim() || sending}
-            activeOpacity={0.7}
-          >
-            {sending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Ionicons 
-                name="send" 
-                size={18} 
-                color={!message.trim() ? "#C5C8CE" : "#FFFFFF"} 
-              />
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.sendButton, 
+            !message.trim() ? styles.disabledButton : styles.activeButton
+          ]}
+          onPress={handleSendPress}
+          disabled={!message.trim() || sending}
+          activeOpacity={0.7}
+        >
+          {sending ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Ionicons 
+              name="paper-plane" 
+              size={20} 
+              color={!message.trim() ? "#C5C8CE" : "#FFFFFF"} 
+            />
+          )}
+        </TouchableOpacity>
       </View>
       
       {/* モデル情報と文字制限表示 */}
       <View style={styles.infoContainer}>
         <View style={styles.modelInfo}>
-          <MaterialIcons name="model-training" size={12} color="#9AA3AF" />
+          <MaterialIcons name="model-training" size={12} color="#9E9EA7" />
           <Text style={styles.modelText}>
             {instrument === 'standard' ? 'スタンダードモデル' : instrument}
           </Text>
@@ -107,34 +113,31 @@ const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderTopColor: '#EFEFEF',
+    borderTopColor: '#E5E5E6',
     backgroundColor: '#FFFFFF',
   },
   inputWrapper: {
-    backgroundColor: '#F5F5F7',
-    borderRadius: 24,
-    paddingHorizontal: 4,
-  },
-  inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#F5F5F7',
-    borderRadius: 24,
-    paddingRight: 8,
+    backgroundColor: '#F7F7F8',
+    borderWidth: 1,
+    borderColor: '#E5E5E6',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
   },
   input: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 36,
     maxHeight: 120,
     fontSize: 16,
-    color: '#1F1F1F',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
-    marginBottom: Platform.OS === 'ios' ? 0 : 4,
+    color: '#343541',
+    paddingTop: 8,
+    paddingBottom: 8,
+    marginRight: 8,
   },
   sendButton: {
     width: 36,
@@ -142,18 +145,17 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
   },
   disabledButton: {
-    backgroundColor: '#E5E5EA',
+    backgroundColor: '#ECECF1',
   },
   activeButton: {
-    backgroundColor: '#7C4DFF',
+    backgroundColor: '#6E56CF',
   },
   infoContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 4,
+    paddingTop: 6,
     paddingHorizontal: 8,
   },
   modelInfo: {
@@ -162,12 +164,12 @@ const styles = StyleSheet.create({
   },
   modelText: {
     fontSize: 11,
-    color: '#9AA3AF',
+    color: '#9E9EA7',
     marginLeft: 4,
   },
   charCountText: {
     fontSize: 11,
-    color: '#9AA3AF',
+    color: '#9E9EA7',
   },
   charCountWarning: {
     color: '#FF3B30',

@@ -21,7 +21,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   isStreaming = false,
   containerStyle,
   textStyle,
-  showAvatar = true,
+  showAvatar = false,
 }) => {
   const isUser = role === 'user';
   const isAI = role === 'ai';
@@ -29,6 +29,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <View style={[
       styles.messageRow,
+      isUser ? styles.userMessageRow : styles.aiMessageRow,
       containerStyle
     ]}>
       {/* AIアバター (ユーザーメッセージでは非表示) */}
@@ -44,6 +45,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       <View style={[
         styles.messageBubble,
         isUser ? styles.userBubble : styles.aiBubble,
+        !showAvatar && (isUser ? styles.userBubbleWider : styles.aiBubbleWider)
       ]}>
         <Text style={[
           styles.messageText,
@@ -55,11 +57,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         
         {/* ストリーミング中の表示 */}
         {isStreaming && (
-          <ActivityIndicator 
-            size="small" 
-            color={isUser ? "#FFFFFF" : "#333333"} 
-            style={styles.streamingIndicator} 
-          />
+          <View style={styles.streamingContainer}>
+            <View style={styles.typingIndicator}>
+              <View style={[styles.typingDot, styles.typingDot1]} />
+              <View style={[styles.typingDot, styles.typingDot2]} />
+              <View style={[styles.typingDot, styles.typingDot3]} />
+            </View>
+          </View>
         )}
       </View>
       
@@ -80,6 +84,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginVertical: 8,
     alignItems: 'flex-start',
+    paddingHorizontal: 6,
+  },
+  userMessageRow: {
+    justifyContent: 'flex-end',
+  },
+  aiMessageRow: {
+    justifyContent: 'flex-start',
   },
   avatarContainer: {
     width: 36,
@@ -104,14 +115,24 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   userBubble: {
-    backgroundColor: '#7C4DFF',
+    backgroundColor: '#6E56CF',
     marginLeft: 'auto',
-    borderTopRightRadius: 2,
+    borderRadius: 18,
+    borderBottomRightRadius: 4,
   },
   aiBubble: {
-    backgroundColor: '#F5F5F7',
+    backgroundColor: '#F7F7F8',
     marginRight: 'auto',
-    borderTopLeftRadius: 2,
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  userBubbleWider: {
+    maxWidth: '90%',
+  },
+  aiBubbleWider: {
+    maxWidth: '90%',
   },
   messageText: {
     fontSize: 15,
@@ -121,12 +142,47 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   aiText: {
-    color: '#1F1F1F',
+    color: '#343541',
+  },
+  streamingContainer: {
+    marginTop: 6,
+    height: 20,
+    justifyContent: 'center',
+  },
+  typingIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 20,
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: 2,
+    backgroundColor: '#9AA3AF',
+    opacity: 0.7,
+  },
+  typingDot1: {
+    animationName: 'bounce',
+    animationDuration: '1s',
+    animationIterationCount: 'infinite',
+  },
+  typingDot2: {
+    animationName: 'bounce',
+    animationDuration: '1s',
+    animationDelay: '0.2s',
+    animationIterationCount: 'infinite',
+  },
+  typingDot3: {
+    animationName: 'bounce',
+    animationDuration: '1s',
+    animationDelay: '0.4s',
+    animationIterationCount: 'infinite',
   },
   streamingIndicator: {
-    position: 'absolute',
-    bottom: 4,
-    right: 8,
+    marginTop: 4,
+    alignSelf: 'center',
   },
 });
 
