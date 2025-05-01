@@ -41,14 +41,6 @@ functions/.env.*
 *.tsbuildinfo
 .venv/
 gcp-audio-processing/venv/
-.venv/
-gcp-audio-processing/venv/
-.venv/
-gcp-audio-processing/venv/
-.venv/
-gcp-audio-processing/venv/
-.venv/
-gcp-audio-processing/venv/
 
 # specstory
 .specstory/
@@ -66,3 +58,18 @@ coverage/
 
 # temp files
 .temp/
+
+# Google Services
+google-services.json
+GoogleService-Info.plist
+ios/GoogleService-Info.plist
+android/app/google-services.json
+
+# Firebase Config
+firebase.config.js
+firebase.config.ts
+
+# Large files
+gcp-audio-processing/venv/lib/python3.10/site-packages/llvmlite/binding/libllvmlite.dylib
+gcp-audio-processing/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.dylib
+*.dylib
