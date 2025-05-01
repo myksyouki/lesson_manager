@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "21424871541",
+    "project_id": "lesson-manager-99ab9",
+    "storage_bucket": "lesson-manager-99ab9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:21424871541:android:b3bf49eaa74dd2fabac03c",
+        "android_client_info": {
+          "package_name": "com.regnition.appli"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "21424871541-1553of634jsc7gj8qe8ljpkpv8u4cq77.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.regnition.appli",
+            "certificate_hash": "33e05bda50fe666af865e3ccd0659c65db2150e0"
+          }
+        },
+        {
+          "client_id": "21424871541-puqbpn185rha1lvpnprb8u8bn075bmbh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDhuq9CjTWcjHNmpZJevGFuNG17ekHiGa8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "21424871541-1ujlpfdrapifrvbn0hup1hah1q84avuo.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "21424871541-j9mudt7r229fk77j6rie1oasvs70e377.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.regnition.appli"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
