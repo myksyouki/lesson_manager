@@ -257,11 +257,13 @@ export default function SettingsScreen() {
             onPress={() => router.push('/profile')}
           />
           
-          <MenuItem 
-            icon="payments" 
-            text="サブスクリプション管理" 
-            onPress={() => router.push('/subscription/manage')}
-          />
+          <View style={styles.menuCard}>
+            <View style={styles.menuIconContainer}>
+              <MaterialIcons name="payments" size={24} color="#4A6572" />
+            </View>
+            <Text style={styles.menuItemText}>サブスクリプション管理（開発中）</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#ddd" />
+          </View>
         </View>
 
         {/* アプリ設定セクション */}
@@ -354,7 +356,7 @@ export default function SettingsScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>バージョン</Text>
-              <Text style={styles.infoValue}>0.0.2</Text>
+              <Text style={styles.infoValue}>0.1.0</Text>
             </View>
             <View style={[styles.infoItem, styles.noBorder]}>
               <Text style={styles.infoLabel}>開発者</Text>

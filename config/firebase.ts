@@ -1,14 +1,14 @@
-// app/config/firebase.ts
-import { initializeApp } from "firebase/app";
-import { getAuth, setPersistence, browserLocalPersistence, browserSessionPersistence, inMemoryPersistence, initializeAuth, getReactNativePersistence } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+// app/config/firebase.ts - エラーに強い遅延初期化バージョン
+import { initializeApp, FirebaseApp, getApps } from "firebase/app";
+import { getAuth, setPersistence, browserLocalPersistence, initializeAuth, Auth } from "firebase/auth";
+import { getFirestore, Firestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Firebase の設定を直接指定
+// Firebase の設定を直接指定 - 変更なし
 export const firebaseConfig = {
   apiKey: "AIzaSyA6GCKN48UZNnWQmU0LDIu7tn0jLRrJ4Ik",
   authDomain: "lesson-manager-99ab9.firebaseapp.com",
@@ -18,103 +18,157 @@ export const firebaseConfig = {
   appId: "1:21424871541:web:eab99b9421a3d0cfbac03c"
 };
 
-// Firebase アプリの初期化
-export const firebaseApp = initializeApp(firebaseConfig);
+// 初期化状態フラグ
+let isInitialized = false;
 
-// Auth の初期化 (プラットフォームに応じて最適な方法を選択)
-export const auth = Platform.OS === 'web' 
-  ? getAuth(firebaseApp)
-  : initializeAuth(firebaseApp, {
-      persistence: getReactNativePersistence(ReactNativeAsyncStorage)
-    });
+// サービスプロバイダー（遅延ロード用）
+let _app: FirebaseApp | null = null;
+let _auth: Auth | null = null;
+let _db: Firestore | null = null;
+let _storage: any = null;
+let _functions: any = null;
 
-// 認証の永続性を設定 (Webプラットフォームの場合のみ)
-try {
-  if (Platform.OS === 'web') {
-    setPersistence(auth, browserLocalPersistence)
-      .then(() => {
-        console.log('✅ 認証の永続性がブラウザローカルストレージに設定されました');
-      })
-      .catch((error) => {
-        console.error('❌ 認証の永続性設定エラー:', error);
-      });
-  } else {
-    // ネイティブアプリではAsyncStorageによる永続化が有効
-    console.log('✅ ネイティブアプリ: AsyncStorageによる認証永続性が設定されました');
-  }
-} catch (error) {
-  console.error('認証の永続性設定中にエラーが発生しました:', error);
-}
+// 初期化時のエラーハンドリング
+const logError = (component: string, error: any) => {
+  console.error(`Firebase ${component} 初期化エラー:`, error);
+};
 
-// Firebase の各サービスをエクスポート
-export const db = getFirestore(firebaseApp);
-export const storage = getStorage(firebaseApp);
-
-// Firebase Functions の初期化 (リージョンを明示的に指定)
-const functionsRegion = 'asia-northeast1';
-console.log(`Firebase Functions初期化開始 (リージョン: ${functionsRegion})`);
-
-// 明示的にプロジェクトIDを確認
-const projectId = firebaseApp.options.projectId || 'lesson-manager-99ab9';
-console.log(`Firebase プロジェクトID: ${projectId}`);
-
-// 重要: functions変数をletからconstに変更し、より確実な初期化を行う
-const functions = getFunctions(firebaseApp, functionsRegion);
-
-// 明示的にリージョンを設定（バージョン互換性のため冗長に設定）
-try {
-  console.log('🔧 Firebase Functions初期化およびリージョン設定...');
-  
-  // _delegateプロパティは最新のFirebase SDKでは異なる構造になっているため
-  // カスタムドメイン設定は行わず、リージョン指定のみに依存する
-  
-  console.log('📊 Firebase Functions診断:', {
-    functionsExists: !!functions,
-    projectId: firebaseApp.options.projectId,
-    appName: firebaseApp.name,
-    functionsRegion: functionsRegion,
-    mode: __DEV__ ? 'development' : 'production'
-  });
-  
-  // 初期化テスト - 関数参照の取得を試す
+// Firebaseアプリの遅延初期化
+const initializeFirebaseApp = (): FirebaseApp => {
   try {
-    const testFunc = httpsCallable(functions, 'sendMessage');
-    console.log('✅ sendMessage関数参照テスト:', {
-      functionExists: !!testFunc,
-      functionType: typeof testFunc
-    });
-  } catch (refError) {
-    console.error('❌ 関数参照テストエラー:', refError);
+    // 既存のアプリがあれば再利用
+    const apps = getApps();
+    if (apps.length > 0) {
+      return apps[0];
+    }
+    
+    // なければ新規作成
+    return initializeApp(firebaseConfig);
+  } catch (error) {
+    logError('App', error);
+    // 最終手段として空のFirebaseAppを返す
+    throw new Error('Firebase初期化失敗');
   }
-} catch (error) {
-  console.error('Firebase Functions設定エラー:', error);
-}
+};
 
-// 初期化したfunctionsをエクスポート
-export { functions };
+// 各サービスの安全な初期化を行う
+const initializeServices = () => {
+  if (isInitialized) return;
+  
+  try {
+    console.log('Firebaseの初期化を開始します（安全モード）');
+    
+    // Firebaseアプリの初期化
+    _app = initializeFirebaseApp();
+    
+    // 各サービスの初期化（エラーハンドリング付き）
+    try { 
+      _auth = getAuth(_app); 
+    } catch (e) { 
+      logError('Auth', e);
+    }
+    
+    try { 
+      _db = getFirestore(_app); 
+    } catch (e) { 
+      logError('Firestore', e);
+    }
+    
+    try { 
+      _storage = getStorage(_app); 
+    } catch (e) { 
+      logError('Storage', e);
+    }
+    
+    try { 
+      const functionsRegion = 'asia-northeast1';
+      _functions = getFunctions(_app, functionsRegion); 
+    } catch (e) { 
+      logError('Functions', e);
+    }
+    
+    // 初期化完了フラグを設定
+    isInitialized = true;
+    console.log('Firebase初期化完了');
+  } catch (error) {
+    console.error('Firebase初期化に完全に失敗しました:', error);
+  }
+};
+
+// 遅延初期化を行う（プラットフォームに合わせて調整）
+const initDelay = Platform.OS === 'web' ? 0 : 5000;
+setTimeout(() => {
+  initializeServices();
+}, initDelay);
+
+// 安全なアクセサ関数を提供
+export const firebaseApp = (): FirebaseApp => {
+  if (!_app) {
+    if (!isInitialized) {
+      initializeServices();
+    }
+    if (!_app) {
+      throw new Error('Firebaseアプリが初期化されていません');
+    }
+  }
+  return _app;
+};
+
+export const auth = (): Auth => {
+  if (!_auth) {
+    if (!isInitialized) {
+      initializeServices();
+    }
+    if (!_auth) {
+      _auth = getAuth();
+    }
+  }
+  return _auth;
+};
+
+export const db = (): Firestore => {
+  if (!_db) {
+    if (!isInitialized) {
+      initializeServices();
+    }
+    if (!_db) {
+      _db = getFirestore();
+    }
+  }
+  return _db;
+};
+
+export const storage = (): any => {
+  if (!_storage) {
+    if (!isInitialized) {
+      initializeServices();
+    }
+    if (!_storage) {
+      _storage = getStorage();
+    }
+  }
+  return _storage;
+};
+
+export const functions = (): any => {
+  if (!_functions) {
+    if (!isInitialized) {
+      initializeServices();
+    }
+    if (!_functions) {
+      _functions = getFunctions();
+    }
+  }
+  return _functions;
+};
 
 // Firebase Functions 接続テスト関数
 export const testFunctionConnection = async () => {
   try {
     console.log('Firebase Functions接続テスト開始...');
-    const functions = getFunctions(firebaseApp, 'asia-northeast1');
-    
-    // 簡単なhelloWorld関数を呼び出す（存在する場合）
-    try {
-      const helloWorld = httpsCallable(functions, 'helloWorld');
-      const result = await helloWorld({});
-      return { success: true, result: result.data };
-    } catch (innerError) {
-      // helloWorldが存在しない場合、sendMessageを試す
-      try {
-        const sendMessage = httpsCallable(functions, 'sendMessage');
-        const testResult = await sendMessage({ test: true });
-        return { success: true, result: testResult.data };
-      } catch (sendMessageError) {
-        console.error('Functions呼び出しエラー:', sendMessageError);
-        return { success: false, error: sendMessageError };
-      }
-    }
+    const testFunc = httpsCallable(functions(), 'helloWorld');
+    const result = await testFunc({});
+    return { success: true, result: result.data };
   } catch (error) {
     console.error('Firebase Functions接続テストエラー:', error);
     return { success: false, error };

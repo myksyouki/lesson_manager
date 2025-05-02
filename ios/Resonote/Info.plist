@@ -21,7 +21,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.0.2</string>
+    <string>0.1.0</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -30,7 +30,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>resonote</string>
-          <string>com.regnition.appli</string>
+          <string>com.regnition-ai.resonote</string>
         </array>
       </dict>
       <dict>
@@ -39,62 +39,42 @@
           <string>exp+lesson-manager</string>
         </array>
       </dict>
-      <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>com.googleusercontent.apps.21424871541-j9mudt7r229fk77j6rie1oasvs70e377</string>
-        </array>
-      </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
-    <key>ITSAppUsesNonExemptEncryption</key>
-    <false/>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+      <string>itms-apps</string>
+    </array>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
-    <key>LSSupportsOpeningDocumentsInPlace</key>
-    <true/>
     <key>NSAppTransportSecurity</key>
     <dict>
       <key>NSAllowsArbitraryLoads</key>
-      <true/>
+      <false/>
       <key>NSAllowsLocalNetworking</key>
       <true/>
-      <key>NSExceptionDomains</key>
-      <dict>
-        <key>localhost</key>
-        <dict>
-          <key>NSExceptionAllowsInsecureHTTPLoads</key>
-          <true/>
-        </dict>
-      </dict>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your camera</string>
-    <key>NSDocumentsFolderUsageDescription</key>
-    <string>音声ファイルを保存・読み込みするために必要です</string>
+    <string>写真の撮影に使用します。</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <string>練習中の音声録音に使用します。</string>
     <key>NSMotionUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your device motion</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>音声ファイルをライブラリから選択するために必要です</string>
+    <string>練習記録の写真アップロードに使用します。</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
     </array>
     <key>NSUserTrackingUsageDescription</key>
-    <string>より良いアプリ体験を提供するために、広告IDへのアクセスを許可してください。個人を特定する情報は収集しません。</string>
+    <string>広告表示のためにIDFAを使用します。許可しない場合でもアプリの機能は全て利用できます。</string>
     <key>UIBackgroundModes</key>
     <array>
       <string>audio</string>
     </array>
-    <key>UIFileSharingEnabled</key>
-    <true/>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>
@@ -117,8 +97,6 @@
       <string>UIInterfaceOrientationLandscapeLeft</string>
       <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
-    <key>UISupportsDocumentBrowser</key>
-    <true/>
     <key>UIUserInterfaceStyle</key>
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Redirect } from 'expo-router';
 import { useAuthStore } from '../store/auth';
 import { ActivityIndicator, View, StyleSheet, Platform } from 'react-native';
@@ -8,91 +8,78 @@ import { colors } from '../constants/colors';
 import { Image } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useSettingsStore } from '../store/settings';
+import { auth } from '../config/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RootScreen() {
-  const { isAuthenticated, isDemo, isLoading, enterDemoMode } = useAuthStore();
+  const { user, setUser, isDemo, isOnboardingCompleted } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const { theme } = useSettingsStore();
   const insets = useSafeAreaInsets();
 
-  // 認証中はローディングを表示
+  // 起動時にローディング状態を追加し、少し遅延させる
+  useEffect(() => {
+    // 安全にアプリを初期化するため、タイマーを使用
+    const timer = setTimeout(() => {
+      const unsubscribe = auth.onAuthStateChanged((authUser) => {
+        if (authUser) {
+          console.log('ユーザーが認証済みです:', authUser.uid);
+          setUser(authUser);
+        } else {
+          console.log('ユーザーは認証されていません');
+        }
+        
+        // 少し遅延してからローディング状態を解除
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 1000);
+      });
+      
+      return () => {
+        unsubscribe();
+      };
+    }, 2000); // 2秒待機してから初期化を開始
+    
+    return () => clearTimeout(timer);
+  }, [setUser]);
+
+  // ローディング表示
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.text.accent} />
-        <Text style={styles.loadingText}>読み込み中...</Text>
+      <View style={[styles.container, { backgroundColor: theme === 'dark' ? '#000' : '#fff' }]}>
+        <ActivityIndicator size="large" color={theme === 'dark' ? '#fff' : '#212121'} />
+        <Text style={[styles.loadingText, { color: theme === 'dark' ? '#fff' : '#212121' }]}>
+          読み込み中...
+        </Text>
       </View>
     );
   }
 
-  // ログイン済みまたはデモモードの場合はタブ画面にリダイレクト
-  if (isAuthenticated || isDemo) {
-    return <Redirect href="/tabs" />;
+  // 認証状態に応じてリダイレクト
+  if (!user && !isDemo) {
+    return <Redirect href="/auth/login" />;
   }
 
-  // ユーザーがログインしていない場合はスタート画面を表示
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar style="light" />
-      <View style={styles.logoContainer}>
-        <Image
-          source={require('../assets/images/app-logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.title}>Resonote</Text>
-        <Text style={styles.subtitle}>練習をデザインする</Text>
-      </View>
+  // オンボーディングチェック
+  if (user && !isOnboardingCompleted && !isDemo) {
+    return <Redirect href="/onboarding" />;
+  }
 
-      <View style={styles.buttonContainer}>
-        <Button
-          mode="contained"
-          style={styles.loginButton}
-          labelStyle={styles.buttonLabel}
-          onPress={() => router.push('/auth/login')}
-        >
-          ログイン
-        </Button>
-        
-        <Button
-          mode="contained"
-          style={styles.signupButton}
-          labelStyle={styles.buttonLabel}
-          onPress={() => router.push('/auth/register')}
-        >
-          新規登録
-        </Button>
-        
-        <Button
-          mode="outlined"
-          style={styles.demoButton}
-          labelStyle={styles.demoButtonLabel}
-          onPress={() => enterDemoMode().then(() => router.push('/tabs'))}
-        >
-          デモモードで試す
-        </Button>
-      </View>
-      <Text style={styles.footer}>
-        {Platform.OS === 'web' ? 'v' + '1.0.0' : null}
-      </Text>
-    </View>
-  );
+  // メインアプリにリダイレクト
+  return <Redirect href="/tabs" />;
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
-    padding: 20,
-  },
-  loadingContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background.primary,
+    padding: 20,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 20,
     fontSize: 16,
-    color: colors.text.secondary,
   },
   logoContainer: {
     flex: 1,
