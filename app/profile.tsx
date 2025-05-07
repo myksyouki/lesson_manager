@@ -225,6 +225,14 @@ export default function ProfileScreen() {
   return (
     <PaperProvider>
     <SafeAreaView style={styles.safeArea}>
+      {/* 戻るボタン */}
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={() => router.back()}>
+        <MaterialIcons name="arrow-back" size={24} color="#007AFF" />
+        <Text style={styles.backButtonText}>戻る</Text>
+      </TouchableOpacity>
+      
       <ScrollView style={styles.container}>
         {/* プロフィール情報 */}
         <Text style={styles.mainHeader}>プロフィール</Text>
@@ -335,8 +343,10 @@ export default function ProfileScreen() {
             ) : instrumentInfo ? (
               <View style={styles.currentInstrument}>
                 <Text style={styles.instrumentValue}>
-                  {instrumentInfo.categoryName} / {instrumentInfo.instrumentName}
-                  {instrumentInfo.modelName ? ` / ${instrumentInfo.modelName}` : ''}
+                  {instrumentInfo.categoryName} / {instrumentInfo.instrumentName} / 
+                  {instrumentInfo.isArtistModel 
+                    ? 'プロフェッショナルプラン' 
+                    : instrumentInfo.modelName.replace('モデル', 'プラン')}
                 </Text>
                 <TouchableOpacity 
                   style={styles.settingsButton}
@@ -447,8 +457,15 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F8F9FA' },
-  container: { flex: 1, padding: 20 },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 20,
+  },
   mainHeader: {
     fontSize: 32,
     fontWeight: '700',
@@ -758,5 +775,17 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: 'white',
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginLeft: 8,
   },
 });

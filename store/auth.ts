@@ -113,6 +113,49 @@ export interface AuthState {
   exitDemoMode: () => Promise<void>;
 }
 
+// Firebaseのエラーコードと日本語エラーメッセージのマッピング
+const firebaseErrorMessages: { [key: string]: string } = {
+  'auth/user-not-found': 'メールアドレスが登録されていません',
+  'auth/wrong-password': 'パスワードが正しくありません',
+  'auth/email-already-in-use': 'このメールアドレスは既に使用されています',
+  'auth/invalid-email': 'メールアドレスの形式が正しくありません',
+  'auth/weak-password': 'パスワードが弱すぎます。6文字以上の強力なパスワードを使用してください',
+  'auth/operation-not-allowed': 'この操作は許可されていません',
+  'auth/network-request-failed': 'ネットワークエラーが発生しました。インターネット接続を確認してください',
+  'auth/too-many-requests': '短時間にあまりにも多くのリクエストがありました。しばらく時間をおいてから再試行してください',
+  'auth/user-disabled': 'このアカウントは無効化されています',
+  'auth/requires-recent-login': '再度ログインしてからもう一度お試しください',
+  'auth/popup-closed-by-user': 'ログインウィンドウが閉じられました',
+  'auth/cancelled-popup-request': 'ログイン処理がキャンセルされました',
+  'auth/popup-blocked': 'ログインポップアップがブロックされました。ポップアップを許可してください',
+  'auth/account-exists-with-different-credential': 'このメールアドレスは既に別の方法で登録されています',
+  'auth/invalid-credential': '認証情報が無効です',
+  'auth/invalid-verification-code': '確認コードが無効です',
+  'auth/invalid-verification-id': '確認IDが無効です',
+  'auth/missing-verification-code': '確認コードがありません',
+  'auth/missing-verification-id': '確認IDがありません',
+};
+
+// エラーメッセージを日本語に変換する関数
+const getJapaneseErrorMessage = (error: any): string => {
+  if (!error) return '不明なエラーが発生しました';
+  
+  // エラーコードが存在する場合
+  if (error.code && firebaseErrorMessages[error.code]) {
+    return firebaseErrorMessages[error.code];
+  }
+  
+  // メッセージが存在する場合
+  if (error.message) {
+    // メッセージに "Firebase: " が含まれる場合は削除
+    const message = error.message.replace('Firebase: ', '');
+    // 英語のエラーメッセージを含む可能性があるので、デフォルトの日本語メッセージを返す
+    return '認証エラーが発生しました。もう一度お試しください。';
+  }
+  
+  return '不明なエラーが発生しました';
+};
+
 export const useAuthStore = create<AuthState>((set, get) => {
   // 初期状態を設定
   const initialState = {
@@ -342,70 +385,50 @@ export const useAuthStore = create<AuthState>((set, get) => {
     login: async (email, password) => {
       try {
         set({ isLoading: true, error: null });
-        console.log("🔑 サインイン試行:", email);
+        console.log("🔑 ログイン試行:", email);
+        
         await signInWithEmailAndPassword(auth, email, password);
-        console.log("✅ サインイン成功:", email);
+        console.log("✅ ログイン成功");
+        
+        // 追加情報は onAuthStateChanged で設定されるため、
+        // ここでは最低限の情報だけを設定
+        set({ isLoading: false, isNewUser: false, error: null });
       } catch (error: any) {
-        console.error("❌ サインイン失敗:", error.message);
-        set({ error: error.message, isLoading: false });
+        console.error("❌ ログイン失敗:", error);
+        const errorMessage = getJapaneseErrorMessage(error);
+        set({ isLoading: false, error: errorMessage });
       }
     },
 
     register: async (email, password, displayName) => {
       try {
         set({ isLoading: true, error: null });
-        console.log("📝 サインアップ試行:", email);
+        console.log("📝 ユーザー登録試行:", email);
         
-        // ユーザー作成
+        // 新規ユーザー作成
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        console.log("✅ ユーザー登録成功:", userCredential.user.uid);
         
-        // Firebase Authのプロファイル更新（表示名のみ）
+        // 表示名を設定
         if (displayName) {
-          try {
-            await updateProfile(auth.currentUser!, {
-              displayName: displayName
-            });
-          } catch (profileError) {
-            console.error("⚠️ プロフィール更新エラー:", profileError);
-            // プロフィール更新に失敗してもユーザー作成は継続
-          }
+          await updateProfile(userCredential.user, { displayName });
         }
         
         // 新規ユーザーのプロファイルをFirestoreに作成
         const userRef = doc(db, 'users', userCredential.user.uid);
         await setDoc(userRef, {
           email: userCredential.user.email,
-          displayName: displayName || '',
+          displayName: displayName || null,
           createdAt: new Date(),
           selectedInstrument: '',
-          level: '',
-          goal: '',
           selectedModel: '',
           isPremium: false,
           isOnboardingCompleted: false
         });
         
-        // ユーザーのプロファイルも作成（新しい構造対応）
-        const profileRef = doc(db, `users/${userCredential.user.uid}/profile`, 'main');
-        await setDoc(profileRef, {
-          name: displayName || '',
-          email: userCredential.user.email,
-          selectedCategory: '',
-          selectedInstrument: '',
-          level: '',
-          goal: '',
-          selectedModel: '',
-          isPremium: false,
-          isOnboardingCompleted: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
+        set({ isLoading: false, isNewUser: true });
         
-        // 新規ユーザーフラグを設定
-        set({ isNewUser: true, isLoading: false });
-        
-        console.log("✅ サインアップ成功:", email);
-        
+        // ユーザー情報を返す
         const appUser: AppUser = {
           uid: userCredential.user.uid,
           email: userCredential.user.email,
@@ -415,9 +438,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
         
         return { user: appUser, isNewUser: true };
       } catch (error: any) {
-        console.error("❌ サインアップ失敗:", error.message);
-        set({ error: error.message, isLoading: false });
-        throw error;
+        console.error("❌ ユーザー登録失敗:", error);
+        const errorMessage = getJapaneseErrorMessage(error);
+        set({ isLoading: false, error: errorMessage });
+        throw new Error(errorMessage);
       }
     },
     
@@ -508,7 +532,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         return { user: appUser, isNewUser };
       } catch (error: any) {
         console.error("❌ Googleサインイン失敗:", error.message);
-        set({ error: error.message, isLoading: false });
+        const errorMessage = getJapaneseErrorMessage(error);
+        set({ error: errorMessage, isLoading: false });
         
         if (error.code === 'auth/popup-closed-by-user') {
           // ユーザーがポップアップを閉じた場合

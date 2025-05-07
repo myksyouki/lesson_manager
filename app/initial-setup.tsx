@@ -29,7 +29,7 @@ import {
   saveSelectedInstrument
 } from '../services/userProfileService';
 import { Menu, Button, Checkbox, Divider, List } from 'react-native-paper';
-import { Portal, Provider as PaperProvider, Modal as PaperModal } from 'react-native-paper';
+import { Portal, Provider as PaperProvider } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
@@ -278,60 +278,74 @@ export default function InitialSetupScreen() {
     <PaperProvider>
       <Portal>
         {/* 利用規約モーダル */}
-        <PaperModal
+        <Modal
           visible={termsModalVisible}
-          onDismiss={() => setTermsModalVisible(false)}
-          contentContainerStyle={styles.modalContent}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setTermsModalVisible(false)}
         >
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>利用規約</Text>
-            <TouchableOpacity onPress={() => setTermsModalVisible(false)}>
-              <MaterialIcons name="close" size={24} color="#333" />
-            </TouchableOpacity>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>利用規約</Text>
+                <TouchableOpacity onPress={() => setTermsModalVisible(false)}>
+                  <MaterialIcons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+              <View style={{maxHeight: 350}}>
+                <ScrollView contentContainerStyle={{paddingHorizontal: 20, paddingVertical: 10}}>
+                  <Text style={styles.modalText}>{termsContent}</Text>
+                </ScrollView>
+              </View>
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.modalButtonAccept, { backgroundColor: '#4285F4' }]}
+                  onPress={() => {
+                    setTermsAccepted(true);
+                    setTermsModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.modalButtonText}>同意する</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-          <ScrollView style={styles.modalScrollView}>
-            <Text style={styles.modalText}>{termsContent}</Text>
-          </ScrollView>
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={[styles.modalButtonAccept, { backgroundColor: '#4285F4' }]}
-              onPress={() => {
-                setTermsAccepted(true);
-                setTermsModalVisible(false);
-              }}
-            >
-              <Text style={styles.modalButtonText}>同意する</Text>
-            </TouchableOpacity>
-          </View>
-        </PaperModal>
+        </Modal>
 
         {/* プライバシーポリシーモーダル */}
-        <PaperModal
+        <Modal
           visible={privacyModalVisible}
-          onDismiss={() => setPrivacyModalVisible(false)}
-          contentContainerStyle={styles.modalContent}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setPrivacyModalVisible(false)}
         >
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>プライバシーポリシー</Text>
-            <TouchableOpacity onPress={() => setPrivacyModalVisible(false)}>
-              <MaterialIcons name="close" size={24} color="#333" />
-            </TouchableOpacity>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>プライバシーポリシー</Text>
+                <TouchableOpacity onPress={() => setPrivacyModalVisible(false)}>
+                  <MaterialIcons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+              <View style={{maxHeight: 350}}>
+                <ScrollView contentContainerStyle={{paddingHorizontal: 20, paddingVertical: 10}}>
+                  <Text style={styles.modalText}>{privacyContent}</Text>
+                </ScrollView>
+              </View>
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.modalButtonAccept, { backgroundColor: '#4285F4' }]}
+                  onPress={() => {
+                    setTermsAccepted(true);
+                    setPrivacyModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.modalButtonText}>同意する</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-          <ScrollView style={styles.modalScrollView}>
-            <Text style={styles.modalText}>{privacyContent}</Text>
-          </ScrollView>
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={[styles.modalButtonAccept, { backgroundColor: '#4285F4' }]}
-              onPress={() => {
-                setTermsAccepted(true);
-                setPrivacyModalVisible(false);
-              }}
-            >
-              <Text style={styles.modalButtonText}>同意する</Text>
-            </TouchableOpacity>
-          </View>
-        </PaperModal>
+        </Modal>
       </Portal>
       
       <LinearGradient
@@ -755,12 +769,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginRight: 8,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
   modalContent: {
     backgroundColor: 'white',
     borderRadius: 16,
-    margin: 20,
-    maxHeight: '80%',
-    overflow: 'hidden',
+    width: '90%',
+    maxWidth: 400,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -769,10 +789,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
-  },
-  modalScrollView: {
-    padding: 20,
-    maxHeight: '70%',
   },
   modalTitle: {
     fontSize: 20,
