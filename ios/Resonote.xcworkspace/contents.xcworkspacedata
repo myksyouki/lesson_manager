@@ -2,9 +2,6 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "group:../../ResoNote.storekit">
-   </FileRef>
-   <FileRef
       location = "group:Resonote.xcodeproj">
    </FileRef>
    <FileRef
