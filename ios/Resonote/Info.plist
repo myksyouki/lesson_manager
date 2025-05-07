@@ -39,14 +39,6 @@
           <string>exp+lesson-manager</string>
         </array>
       </dict>
-      <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>com.googleusercontent.apps.21424871541-j9mudt7r229fk77j6rie1oasvs70e377</string>
-        </array>
-      </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
@@ -61,17 +53,9 @@
     <key>NSAppTransportSecurity</key>
     <dict>
       <key>NSAllowsArbitraryLoads</key>
-      <true/>
+      <false/>
       <key>NSAllowsLocalNetworking</key>
       <true/>
-      <key>NSExceptionDomains</key>
-      <dict>
-        <key>localhost</key>
-        <dict>
-          <key>NSExceptionAllowsInsecureHTTPLoads</key>
-          <true/>
-        </dict>
-      </dict>
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your camera</string>
@@ -88,11 +72,9 @@
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
     </array>
     <key>NSUserTrackingUsageDescription</key>
-    <string>より良いアプリ体験を提供するために、広告IDへのアクセスを許可してください。個人を特定する情報は収集しません。</string>
+    <string>このアプリでは、お客様により適切なレッスン内容を提供し、アプリの利用体験を向上させるために、お客様のデータを利用します。データは安全に管理され、第三者との共有は当社のプライバシーポリシーに従って行われます。</string>
     <key>UIBackgroundModes</key>
-    <array>
-      <string>audio</string>
-    </array>
+    <array/>
     <key>UIFileSharingEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>
