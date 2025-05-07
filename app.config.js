@@ -3,7 +3,7 @@ module.exports = {
     owner: "regnition-ai",
     name: "Resonote",
     slug: "lesson-manager",
-    version: "0.0.2",
+    version: "0.1.1",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     splash: {
