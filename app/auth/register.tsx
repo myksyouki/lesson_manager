@@ -14,8 +14,7 @@ import {
   Easing,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useAuthStore } from '../../store/auth';
-import { useGoogleAuth } from '../../store/auth';
+import { useAuthStore, AppUser, useGoogleAuth } from '../../store/auth';
 import { MaterialIcons, Feather, FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -23,6 +22,7 @@ import LoadingScreen from '../../components/LoadingScreen';
 import GoogleIcon from '../../components/GoogleIcon';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Modal, Portal, Provider as PaperProvider } from 'react-native-paper';
+import { GoogleAuthProvider, getAuth, signInWithCredential } from 'firebase/auth';
 
 const { width, height } = Dimensions.get('window');
 
@@ -223,14 +223,49 @@ export default function RegisterScreen() {
   // Googleでサインイン
   const handleGoogleSignIn = async () => {
     try {
-      const result = await signInWithGoogle();
-      
-      // Google認証成功時に詳細設定画面へ遷移
-      if (result && result.isNewUser && result.user) {
-        handleRegisterSuccess(result.user.uid);
-      } else if (result && result.user) {
-        // 既存ユーザーの場合はホーム画面へ
-        router.push('/');
+      if (Platform.OS === 'web') {
+        // Web環境では直接signInWithGoogleを呼び出す
+        const result = await signInWithGoogle();
+        
+        // Google認証成功時に詳細設定画面へ遷移
+        if (result && result.isNewUser && result.user) {
+          handleRegisterSuccess(result.user.uid);
+        } else if (result && result.user) {
+          // 既存ユーザーの場合はホーム画面へ
+          router.push('/');
+        }
+      } else {
+        // モバイル環境ではexpo-auth-sessionを使用
+        if (!request || !promptAsync) {
+          setErrorMessage('Googleログインの準備ができていません');
+          return;
+        }
+        
+        // 認証プロンプトを表示
+        const result = await promptAsync();
+        console.log("Auth Session結果:", result);
+        
+        if (result.type !== 'success') {
+          setErrorMessage('Googleログインがキャンセルされました');
+          return;
+        }
+        
+        // IDトークンを取得
+        const { id_token } = result.params;
+        
+        // Firebaseの認証情報に変換してサインイン
+        const credential = GoogleAuthProvider.credential(id_token);
+        const auth = getAuth(); // Firebase Authインスタンスを取得
+        
+        // Firebaseでサインイン
+        const userCredential = await signInWithCredential(auth, credential);
+        
+        // 新規ユーザーかどうか確認してリダイレクト
+        if (userCredential.user.metadata.creationTime === userCredential.user.metadata.lastSignInTime) {
+          handleRegisterSuccess(userCredential.user.uid);
+        } else {
+          router.push('/');
+        }
       }
     } catch (error: any) {
       console.error('Google認証エラー:', error);

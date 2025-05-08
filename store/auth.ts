@@ -35,14 +35,11 @@ console.log("🔗 Redirect URI:", Constants.expoConfig?.extra?.expoPublicGoogleR
 // ExpoのWebブラウザセッションを有効化
 WebBrowser.maybeCompleteAuthSession();
 
-// Expoの自動リダイレクトURI生成を使う
-const redirectUri = AuthSession.makeRedirectUri({
-  scheme: "lessonmanager",
-  preferLocalhost: false, // ✅ ローカル環境でも `https://auth.expo.io/...` を使う
-});
+// 有効なリダイレクトURIを設定
+const redirectUri = "https://auth.expo.io/@regnition-ai/lesson-manager";
 
-// 初期化時に一度だけログ出力
-console.log("🔍 実際に使われるURI:", redirectUri);
+// デバッグ用にURIをログ出力
+console.log("🔍 リダイレクトURI:", redirectUri);
 
 // テストユーザーの認証情報
 const TEST_USER_EMAIL = "test@example.com";
@@ -54,7 +51,7 @@ export function useGoogleAuth() {
     iosClientId: Constants.expoConfig?.extra?.expoPublicGoogleIosClientId,
     androidClientId: Constants.expoConfig?.extra?.expoPublicGoogleAndroidClientId,
     webClientId: Constants.expoConfig?.extra?.expoPublicGoogleWebClientId,
-    redirectUri,         // 上記で生成したURI
+    redirectUri: redirectUri,
     scopes: ["profile", "email"],
   });
 
