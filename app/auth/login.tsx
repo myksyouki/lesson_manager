@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
   logoBox: {
     width: 100,
     height: 100,
-    borderRadius: 22,
+    borderRadius: 50,
     marginBottom: 20,
     shadowColor: '#50A4D2',
     shadowOffset: { width: 0, height: 6 },
