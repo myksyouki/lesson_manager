@@ -14,6 +14,7 @@ import {
   Dimensions,
   Animated,
   Easing,
+  Alert
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore, AppUser } from '../../store/auth';
@@ -25,12 +26,21 @@ import LoadingScreen from '../../components/LoadingScreen';
 import GoogleIcon from '../../components/GoogleIcon';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { GoogleAuthProvider, getAuth, signInWithCredential } from 'firebase/auth';
+import { useAuth } from '../../services/auth';
+import { configureGoogleSignIn } from '../../services/googleSignInCommon';
+import Constants from 'expo-constants';
+
+// GoogleSignInの初期化
+if (Platform.OS !== 'web') {
+  configureGoogleSignIn();
+}
 
 const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
-  const { login, signInWithGoogle, signInWithApple, signInAsTestUser, user, isLoading, error, clearError } = useAuthStore();
+  const { login, signInWithGoogle: storeSignInWithGoogle, signInWithApple, signInAsTestUser, user, isLoading, error, clearError } = useAuthStore();
   const { request, response, promptAsync } = useGoogleAuth();
+  const auth = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -221,51 +231,30 @@ export default function LoginScreen() {
 
   const handleGoogleSignIn = async () => {
     try {
+      // Expo開発環境では制限あり
+      if (Constants.appOwnership === 'expo') {
+        // Expo Goの場合は警告表示
+        Alert.alert(
+          'Google認証制限',
+          'Expo Go環境ではGoogle認証を使用できません。実機ビルドが必要です。代わりにテストアカウントをご利用ください。',
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
+      
       if (Platform.OS === 'web') {
         // Web環境では直接signInWithGoogleを呼び出す
-        await signInWithGoogle();
+        await storeSignInWithGoogle();
       } else {
-        // モバイル環境ではexpo-auth-sessionを使用
-        if (!request || !promptAsync) {
-          alert('Googleログインの準備ができていません');
-          return;
-        }
-        
-        // 認証プロンプトを表示
-        const result = await promptAsync();
-        console.log("Auth Session結果:", result);
-        
-        if (result.type !== 'success') {
-          setErrorMessage('Googleログインがキャンセルされました');
-          return;
-        }
-        
-        // IDトークンを取得
-        const { id_token } = result.params;
-        
-        // Firebaseの認証情報に変換してサインイン
-        const credential = GoogleAuthProvider.credential(id_token);
-        const auth = getAuth(); // Firebase Authインスタンスを取得
-        
-        // Firebaseでサインイン
-        const userCredential = await signInWithCredential(auth, credential);
-        
-        // ユーザー情報をストアに設定
-        if (userCredential.user) {
-          const appUser: AppUser = {
-            uid: userCredential.user.uid,
-            email: userCredential.user.email,
-            displayName: userCredential.user.displayName,
-            photoURL: userCredential.user.photoURL
-          };
-          
-          // 必要に応じてユーザー情報を更新
-          router.replace("/tabs" as any);
+        // ネイティブ環境ではネイティブSDKを使用
+        const result = await auth.signInWithGoogle();
+        if (!result.success) {
+          setErrorMessage(result.error || 'Googleログインに失敗しました');
         }
       }
-    } catch (error) {
-      console.error('Googleログインエラー:', error);
-      setErrorMessage('Googleログインに失敗しました');
+    } catch (error: any) {
+      console.error('Google Sign-Inエラー:', error);
+      setErrorMessage(error.message || 'Googleログインに失敗しました');
     }
   };
 
@@ -274,37 +263,30 @@ export default function LoginScreen() {
       await signInAsTestUser();
     } catch (error) {
       console.error('テストユーザーログインエラー:', error);
-      setErrorMessage('テストユーザーログインに失敗しました');
     }
   };
 
   const handleAppleSignIn = async () => {
     try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-      
-      // appleの認証情報を使ってSignInWithAppleを呼び出す
-      await signInWithApple(credential);
+      await signInWithApple();
     } catch (error: any) {
-      if (error.code === 'ERR_REQUEST_CANCELED') {
-        console.log('ユーザーがAppleサインインをキャンセルしました');
-      } else {
-        console.error('Appleサインインエラー:', error);
-        setErrorMessage('Appleサインインに失敗しました');
+      console.error('Appleサインインエラー:', error);
+      // Apple認証がキャンセルされた場合はメッセージを表示しない
+      if (error.code !== 'ERR_CANCELED') {
+        setErrorMessage(error.message || 'Appleログインに失敗しました');
       }
     }
   };
 
   const navigateToRegister = () => {
-    // 新規登録画面に遷移
     router.push('/auth/register');
-    clearError();
   };
 
+  const navigateToForgotPassword = () => {
+    router.push('/auth/forgot-password');
+  };
+
+  // ローディング画面
   if (isLoading) {
     return <LoadingScreen />;
   }
@@ -466,7 +448,7 @@ export default function LoginScreen() {
 
               <TouchableOpacity 
                 style={styles.forgotPassword}
-                onPress={() => router.push('/auth/forgot-password')}
+                onPress={navigateToForgotPassword}
               >
                 <Text 
                   style={[

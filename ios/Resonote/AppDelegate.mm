@@ -2,11 +2,16 @@
 
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTLinkingManager.h>
+#import <GoogleSignIn/GoogleSignIn.h>
+#import <FirebaseCore/FirebaseCore.h>
 
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
+  // Firebase設定
+  [FIRApp configure];
+  
   self.moduleName = @"main";
 
   // You can add your custom initial props in the dictionary below.
@@ -30,15 +35,28 @@
 #endif
 }
 
-// Linking API
-- (BOOL)application:(UIApplication *)application openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {
-  return [super application:application openURL:url options:options] || [RCTLinkingManager application:application openURL:url options:options];
+// Google認証のためのURL処理
+- (BOOL)application:(UIApplication *)application
+            openURL:(NSURL *)url
+            options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options
+{
+  // GoogleSignInのURL処理
+  BOOL googleSignInHandled = [[GIDSignIn sharedInstance] handleURL:url];
+  if (googleSignInHandled) {
+    return YES;
+  }
+  
+  // React Native Linkingのためのデフォルト処理
+  return [RCTLinkingManager application:application openURL:url options:options];
 }
 
-// Universal Links
-- (BOOL)application:(UIApplication *)application continueUserActivity:(nonnull NSUserActivity *)userActivity restorationHandler:(nonnull void (^)(NSArray<id<UIUserActivityRestoring>> * _Nullable))restorationHandler {
-  BOOL result = [RCTLinkingManager application:application continueUserActivity:userActivity restorationHandler:restorationHandler];
-  return [super application:application continueUserActivity:userActivity restorationHandler:restorationHandler] || result;
+// Universal Linkを処理
+- (BOOL)application:(UIApplication *)application continueUserActivity:(nonnull NSUserActivity *)userActivity
+ restorationHandler:(nonnull void (^)(NSArray<id<UIUserActivityRestoring>> * _Nullable))restorationHandler
+{
+  return [RCTLinkingManager application:application
+                   continueUserActivity:userActivity
+                     restorationHandler:restorationHandler];
 }
 
 // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries

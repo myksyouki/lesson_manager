@@ -32,6 +32,75 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 console.log("✅ Expo Config Extra:", Constants.expoConfig?.extra);
 console.log("🔗 Redirect URI:", Constants.expoConfig?.extra?.expoPublicGoogleRedirectUri);
 
+// 型定義を追加
+interface GoogleSignInUser {
+  idToken?: string | null;
+  serverAuthCode?: string | null;
+  scopes?: string[];
+  user?: {
+    email?: string;
+    id?: string;
+    givenName?: string;
+    familyName?: string;
+    photo?: string;
+    name?: string;
+  };
+}
+
+interface GoogleSignInType {
+  configure: (options: any) => void;
+  hasPlayServices: (options?: { showPlayServicesUpdateDialog?: boolean }) => Promise<boolean>;
+  signIn: () => Promise<GoogleSignInUser>;
+  signOut: () => Promise<void>;
+}
+
+// ダミーの定義 - 型付き
+const DummyGoogleSignin: GoogleSignInType = {
+  configure: () => console.log('Dummy GoogleSignin.configure called'),
+  hasPlayServices: async () => true,
+  signIn: async () => {
+    throw new Error('開発環境ではGoogleサインインを利用できません。実機ビルドが必要です。');
+  },
+  signOut: async () => console.log('Dummy GoogleSignin.signOut called'),
+};
+
+// ダミーのエラーコード
+const DummyStatusCodes = {
+  SIGN_IN_CANCELLED: 'sign_in_cancelled',
+  IN_PROGRESS: 'in_progress',
+  PLAY_SERVICES_NOT_AVAILABLE: 'play_services_not_available'
+};
+
+// GoogleSigninモジュールの安全なインポート
+let GoogleSignin: GoogleSignInType = DummyGoogleSignin;
+let statusCodes = DummyStatusCodes;
+
+// モジュールが利用可能な場合にだけ初期化
+if (Platform.OS !== 'web') {
+  try {
+    // GoogleSigninモジュールを動的にロード
+    const GoogleSigninModule = require('@react-native-google-signin/google-signin');
+    if (GoogleSigninModule && GoogleSigninModule.GoogleSignin) {
+      GoogleSignin = GoogleSigninModule.GoogleSignin as GoogleSignInType;
+      statusCodes = GoogleSigninModule.statusCodes || DummyStatusCodes;
+      
+      // 設定を適用
+      GoogleSignin.configure({
+        webClientId: Constants.expoConfig?.extra?.expoPublicGoogleWebClientId,
+        iosClientId: Constants.expoConfig?.extra?.expoPublicGoogleIosClientId,
+        offlineAccess: true,
+        forceCodeForRefreshToken: true,
+      });
+      
+      console.log('✅ GoogleSignin初期化成功');
+    } else {
+      console.warn('⚠️ GoogleSigninモジュールが正しく読み込めませんでした');
+    }
+  } catch (error) {
+    console.warn('⚠️ GoogleSigninモジュール読み込みエラー:', error);
+  }
+}
+
 // ExpoのWebブラウザセッションを有効化
 WebBrowser.maybeCompleteAuthSession();
 
@@ -455,10 +524,48 @@ export const useAuthStore = create<AuthState>((set, get) => {
           const provider = new GoogleAuthProvider();
           userCredential = await signInWithPopup(auth, provider);
         } else {
-          // モバイル環境: 別の方法が必要
-          // モバイルではlogin.tsxからprompさせる必要があるため、
-          // signInWithGoogle関数はそのまま実行する
-          throw new Error('モバイル環境ではGoogle認証方法が異なります。アプリを更新してください。');
+          // ネイティブ環境: GoogleSigninを使用
+          try {
+            // Expo Go環境ではアラートを表示
+            if (Constants.appOwnership === 'expo') {
+              Alert.alert(
+                'Google認証制限',
+                'Expo Go環境ではGoogle認証を利用できません。実機ビルドが必要です。代わりにテストアカウントをご利用ください。',
+                [{ text: 'OK', style: 'default' }]
+              );
+              throw new Error('Expo Go環境ではGoogle認証を利用できません');
+            }
+            
+            // アプリがGoogle Play Servicesを持っているか確認
+            await GoogleSignin.hasPlayServices();
+            // Googleサインイン実行
+            const userInfo = await GoogleSignin.signIn();
+            
+            // GoogleのIDトークンからFirebase認証情報を作成
+            if (!userInfo.idToken) {
+              throw new Error('Google認証からIDトークンを取得できませんでした');
+            }
+            
+            const credential = GoogleAuthProvider.credential(userInfo.idToken);
+            // Firebaseにサインイン
+            userCredential = await signInWithCredential(auth, credential);
+          } catch (error: any) {
+            console.error("GoogleSignin エラー:", error);
+            
+            // エラーメッセージに基づいてユーザーフレンドリーなメッセージを設定
+            let errorMessage = '認証に失敗しました';
+            if (error.message) {
+              if (error.message.includes('cancelled') || error.message.includes('canceled')) {
+                errorMessage = 'ログインがキャンセルされました';
+              } else if (error.message.includes('not correctly linked') || 
+                         error.message.includes('Expo Go環境')) {
+                errorMessage = '開発環境ではGoogleサインインを利用できません。実機ビルドが必要です。';
+              }
+            }
+            
+            set({ error: errorMessage, isLoading: false });
+            throw new Error(errorMessage);
+          }
         }
         
         // 以降はユーザー情報の処理（既存のコード）
@@ -538,15 +645,16 @@ export const useAuthStore = create<AuthState>((set, get) => {
         return { user: appUser, isNewUser };
       } catch (error: any) {
         console.error("❌ Googleサインイン失敗:", error.message);
-        const errorMessage = getJapaneseErrorMessage(error);
-        set({ error: errorMessage, isLoading: false });
-        
-        if (error.code === 'auth/popup-closed-by-user') {
-          // ユーザーがポップアップを閉じた場合
-          set({ error: "Googleログインがキャンセルされました", isLoading: false });
+        // エラーメッセージがセットされていなければ設定
+        if (!get().error) {
+          let errorMessage = 'Googleサインインに失敗しました';
+          if (error.code === 'auth/popup-closed-by-user') {
+            errorMessage = "Googleログインがキャンセルされました";
+          }
+          set({ error: errorMessage, isLoading: false });
         }
         
-        throw error;
+        return null;
       }
     },
 

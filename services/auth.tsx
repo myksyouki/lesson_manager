@@ -8,9 +8,17 @@ import {
   signOut as firebaseSignOut,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { auth, db } from '../app/config/firebase';
+import { auth, db } from '../config/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useAuthStore } from '../store/auth';
+import { signInWithGoogleNative } from './googleSignInNative';
+import { configureGoogleSignIn } from './googleSignInCommon';
+import { Platform } from 'react-native';
+
+// Google SignInのネイティブSDK初期化
+if (Platform.OS !== 'web') {
+  configureGoogleSignIn();
+}
 
 // 認証コンテキストの型定義
 interface AuthContextType {
@@ -22,6 +30,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
 }
 
 // 認証コンテキストの作成
@@ -34,6 +43,7 @@ const AuthContext = createContext<AuthContextType>({
   signUp: async () => ({ success: false }),
   signOut: async () => {},
   resetPassword: async () => ({ success: false }),
+  signInWithGoogle: async () => ({ success: false })
 });
 
 // 認証プロバイダーコンポーネント
@@ -108,6 +118,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Googleサインイン
+  const signInWithGoogle = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        // Webの場合はstoreのsignInWithGoogle関数を使用
+        throw new Error('Web環境ではこの関数を使用せず、store/auth.tsのsignInWithGoogleを使用してください');
+      } else {
+        // ネイティブ環境の場合
+        const result = await signInWithGoogleNative();
+        setIsNewUser(result.isNewUser);
+        return { success: true };
+      }
+    } catch (error: any) {
+      console.error('Googleサインインエラー:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Googleサインインに失敗しました。後でもう一度お試しください。'
+      };
+    }
+  };
+
   // パスワードリセット
   const resetPassword = async (email: string) => {
     try {
@@ -125,7 +156,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, isNewUser, setIsNewUser, signIn, signUp, signOut, resetPassword }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      isNewUser, 
+      setIsNewUser, 
+      signIn, 
+      signUp, 
+      signOut, 
+      resetPassword,
+      signInWithGoogle 
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -133,37 +174,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 // 認証フックの作成
 export const useAuth = () => {
-  const authStore = useAuthStore();
-  return {
-    user: authStore.user,
-    loading: authStore.isLoading,
-    isNewUser: authStore.isNewUser,
-    setIsNewUser: authStore.setIsNewUser,
-    signIn: async (email: string, password: string) => {
-      try {
-        await authStore.signIn(email, password);
-        return { success: true };
-      } catch (error: any) {
-        return { success: false, error: error.message };
-      }
-    },
-    signUp: async (email: string, password: string) => {
-      try {
-        await authStore.signUp(email, password);
-        return { success: true };
-      } catch (error: any) {
-        return { success: false, error: error.message };
-      }
-    },
-    signOut: authStore.signOut,
-    resetPassword: async (email: string) => {
-      try {
-        // useAuthStoreには直接resetPasswordがないためエラー処理を追加
-        console.warn('resetPasswordはuseAuthStoreに実装されていません');
-        return { success: false, error: 'この機能は現在利用できません' };
-      } catch (error: any) {
-        return { success: false, error: error.message };
-      }
-    }
-  };
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
