@@ -661,4 +661,39 @@ export const getUserInstrumentInfo = async (forceRefresh: boolean = false): Prom
     console.error('楽器情報取得エラー:', error);
     return null;
   }
+};
+
+/**
+ * ユーザープロフィール情報を保存する
+ * @param profileData プロフィールデータ
+ * @returns 成功した場合true、失敗した場合false
+ */
+export const saveUserProfile = async (profileData: Partial<UserProfile>): Promise<boolean> => {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('ユーザーが認証されていません');
+      return false;
+    }
+
+    const userRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      // 既存のプロフィールを更新
+      await updateDoc(userRef, {
+        ...profileData,
+        updatedAt: serverTimestamp()
+      });
+    } else {
+      // 新規プロフィールを作成
+      await createUserProfile(profileData);
+    }
+
+    console.log('プロフィールを保存しました');
+    return true;
+  } catch (error) {
+    console.error('プロフィール保存エラー:', error);
+    return false;
+  }
 }; 

@@ -216,10 +216,6 @@ export default function AILessonScreen() {
     useCallback(() => {
       console.log('Screen focused, reloading chat rooms');
       loadChatRooms();
-      // ハプティックフィードバックを追加
-      if (Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
       
       return () => {
         // クリーンアップが必要な場合はここに記述

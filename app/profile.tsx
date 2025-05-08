@@ -7,9 +7,16 @@ import { useAuthStore } from '../store/auth';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '../config/firebase';
-import { getUserInstrumentInfo, InstrumentInfo, getUserProfile, createUserProfile, UserProfile } from '../services/userProfileService';
+import { 
+  getUserInstrumentInfo, 
+  InstrumentInfo, 
+  getUserProfile, 
+  createUserProfile, 
+  UserProfile,
+  saveUserProfile
+} from '../services/userProfileService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Portal, Provider as PaperProvider } from 'react-native-paper';
+import { Portal, Provider as PaperProvider, Menu, Button } from 'react-native-paper';
 
 // AccountDeletionStatus型の定義
 interface AccountDeletionStatus {
@@ -20,6 +27,21 @@ interface AccountDeletionStatus {
 
 // デフォルト表示名
 const DEFAULT_DISPLAY_NAME = '名称未設定';
+
+// レベルのリスト
+const SKILL_LEVELS = [
+  { label: '初心者', value: 'beginner' },
+  { label: '中級者', value: 'intermediate' },
+  { label: '上級者', value: 'advanced' },
+];
+
+// 目標のリスト
+const PRACTICE_GOALS = [
+  { label: '趣味として楽しむ', value: 'hobby' },
+  { label: '演奏技術の向上', value: 'improvement' },
+  { label: 'コンサート/発表会出演', value: 'performance' },
+  { label: 'プロを目指す', value: 'professional' },
+];
 
 export default function ProfileScreen() {
   const { getFavorites } = useLessonStore();
@@ -46,6 +68,14 @@ export default function ProfileScreen() {
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // 追加：ユーザープロファイル関連
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [skillLevel, setSkillLevel] = useState('beginner');
+  const [practiceGoal, setPracticeGoal] = useState('hobby');
+  const [showSkillLevelMenu, setShowSkillLevelMenu] = useState(false);
+  const [showPracticeGoalMenu, setShowPracticeGoalMenu] = useState(false);
+
   // 楽器情報を読み込む関数をコンポーネントレベルで定義
   const loadUserInstrument = async () => {
     try {
@@ -61,6 +91,20 @@ export default function ProfileScreen() {
     }
   };
 
+  // 追加：プロフィール情報を読み込む関数
+  const loadUserProfileData = async () => {
+    try {
+      const profile = await getUserProfile();
+      if (profile) {
+        setUserProfile(profile);
+        setSkillLevel(profile.skillLevel || 'beginner');
+        setPracticeGoal(profile.practiceGoal || 'hobby');
+      }
+    } catch (error) {
+      console.error('プロフィール情報取得エラー:', error);
+    }
+  };
+
   useEffect(() => {
     // ユーザー名の初期設定
     if (user?.displayName) {
@@ -73,6 +117,8 @@ export default function ProfileScreen() {
     
     // 初期ロード時に楽器情報を取得
     loadUserInstrument();
+    // 追加：プロフィール情報を取得
+    loadUserProfileData();
   }, [user]);
 
   // 画面がフォーカスされたときに楽器情報を再読み込み
@@ -80,6 +126,8 @@ export default function ProfileScreen() {
     React.useCallback(() => {
       // プロフィール画面が表示されたときに楽器情報を更新
       loadUserInstrument();
+      // 追加：プロフィール情報も更新
+      loadUserProfileData();
     }, [])
   );
 
@@ -138,8 +186,42 @@ export default function ProfileScreen() {
     }
   };
 
+  // 追加：プロフィール設定を保存する関数
+  const handleSaveUserProfile = async () => {
+    setIsSaving(true);
+    
+    try {
+      // プロフィール情報を保存
+      await saveUserProfile({
+        skillLevel,
+        practiceGoal,
+        ...userProfile
+      });
+      
+      setIsEditingProfile(false);
+      Alert.alert('成功', 'プロフィール設定を更新しました');
+    } catch (error) {
+      console.error('プロフィール保存エラー:', error);
+      Alert.alert('エラー', 'プロフィール設定の保存に失敗しました');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const navigateToInstrumentSettings = () => {
     router.push('/instrument-settings');
+  };
+
+  // 追加：スキルレベルの表示名を取得
+  const getSkillLevelLabel = (value: string) => {
+    const level = SKILL_LEVELS.find(item => item.value === value);
+    return level ? level.label : '未設定';
+  };
+
+  // 追加：練習目標の表示名を取得
+  const getPracticeGoalLabel = (value: string) => {
+    const goal = PRACTICE_GOALS.find(item => item.value === value);
+    return goal ? goal.label : '未設定';
   };
 
   const handleScheduleAccountDeletion = async () => {
@@ -268,16 +350,18 @@ export default function ProfileScreen() {
           </View>
         )}
         
-        <View style={styles.profileSection}>
-          <View style={styles.userInfoContainer}>
-            <View style={styles.userAvatar}>
-              <Text style={styles.userInitial}>
-                {getInitial()}
-              </Text>
+        {/* プロフィールカード */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileHeader}>
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{getInitial()}</Text>
+              </View>
             </View>
-            <View style={styles.userDetails}>
+            
+            <View style={styles.profileInfo}>
               {isEditing ? (
-                <View style={styles.editContainer}>
+                <View style={styles.editNameContainer}>
                   <TextInput
                     style={styles.nameInput}
                     value={displayName}
@@ -286,171 +370,258 @@ export default function ProfileScreen() {
                     maxLength={20}
                     autoFocus
                   />
-                  <View style={styles.editButtons}>
+                  <View style={styles.editButtonsRow}>
                     <TouchableOpacity 
-                      style={[styles.editButton, styles.cancelButton]} 
+                      style={[styles.smallButton, styles.cancelButton]} 
                       onPress={() => {
                         setIsEditing(false);
-                        // キャンセル時は元の表示名に戻す
-                        if (user?.displayName) {
-                          setDisplayName(user.displayName);
-                        } else {
-                          setDisplayName(DEFAULT_DISPLAY_NAME);
-                        }
+                        setDisplayName(user?.displayName || DEFAULT_DISPLAY_NAME);
                       }}
-                      disabled={isSaving}
                     >
-                      <Text style={styles.cancelButtonText}>キャンセル</Text>
+                      <Text style={styles.smallButtonText}>キャンセル</Text>
                     </TouchableOpacity>
                     <TouchableOpacity 
-                      style={[styles.editButton, styles.saveButton]} 
-                        onPress={handleUpdateProfile}
+                      style={[styles.smallButton, styles.saveButton]}
+                      onPress={handleUpdateProfile}
                       disabled={isSaving}
                     >
-                      <Text style={styles.saveButtonText}>
+                      <Text style={styles.smallButtonText}>
                         {isSaving ? '保存中...' : '保存'}
                       </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               ) : (
-                <View style={styles.nameContainer}>
-                  <Text style={styles.userName}>
-                    {getCurrentDisplayName()}
-                  </Text>
-                  <TouchableOpacity 
-                    style={styles.editNameButton}
-                    onPress={() => setIsEditing(true)}
-                  >
-                    <MaterialIcons name="edit" size={16} color="#007AFF" />
-                    <Text style={styles.editNameText}>編集</Text>
-                  </TouchableOpacity>
-                </View>
+                <>
+                  <View style={styles.nameContainer}>
+                    <Text style={styles.displayName}>{getCurrentDisplayName()}</Text>
+                    <TouchableOpacity 
+                      style={styles.editButton}
+                      onPress={() => setIsEditing(true)}
+                    >
+                      <MaterialIcons name="edit" size={16} color="#007AFF" />
+                      <Text style={styles.editButtonText}>編集</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
               )}
-              <Text style={styles.userEmail}>{user?.email || ''}</Text>
+              
+              <Text style={styles.email}>{user?.email}</Text>
             </View>
           </View>
-          
-          {/* 楽器情報 */}
-          <View style={styles.instrumentContainer}>
-            <View style={styles.instrumentHeader}>
-              <MaterialCommunityIcons name="music" size={24} color="#007AFF" />
-              <Text style={styles.instrumentTitle}>現在選択中の楽器</Text>
+        </View>
+
+        {/* 追加：プロフィール設定カード */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="person-outline" size={22} color="#555" />
+            <Text style={styles.sectionTitle}>プロフィール設定</Text>
+            {!isEditingProfile ? (
+              <TouchableOpacity 
+                style={styles.editButton}
+                onPress={() => setIsEditingProfile(true)}
+              >
+                <MaterialIcons name="edit" size={16} color="#007AFF" />
+                <Text style={styles.editButtonText}>編集</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                style={styles.saveButton}
+                onPress={handleSaveUserProfile}
+                disabled={isSaving}
+              >
+                <Text style={styles.smallButtonText}>
+                  {isSaving ? '保存中...' : '保存'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.sectionContent}>
+            {/* スキルレベル */}
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>スキルレベル</Text>
+              {isEditingProfile ? (
+                <Menu
+                  visible={showSkillLevelMenu}
+                  onDismiss={() => setShowSkillLevelMenu(false)}
+                  anchor={
+                    <TouchableOpacity 
+                      style={styles.dropdownButton}
+                      onPress={() => setShowSkillLevelMenu(true)}
+                    >
+                      <Text style={styles.dropdownButtonText}>
+                        {getSkillLevelLabel(skillLevel)}
+                      </Text>
+                      <MaterialIcons name="arrow-drop-down" size={24} color="#555" />
+                    </TouchableOpacity>
+                  }
+                >
+                  {SKILL_LEVELS.map((level) => (
+                    <Menu.Item 
+                      key={level.value}
+                      onPress={() => {
+                        setSkillLevel(level.value);
+                        setShowSkillLevelMenu(false);
+                      }} 
+                      title={level.label} 
+                    />
+                  ))}
+                </Menu>
+              ) : (
+                <Text style={styles.settingValue}>{getSkillLevelLabel(skillLevel)}</Text>
+              )}
             </View>
-            
+
+            {/* 練習目標 */}
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>練習目標</Text>
+              {isEditingProfile ? (
+                <Menu
+                  visible={showPracticeGoalMenu}
+                  onDismiss={() => setShowPracticeGoalMenu(false)}
+                  anchor={
+                    <TouchableOpacity 
+                      style={styles.dropdownButton}
+                      onPress={() => setShowPracticeGoalMenu(true)}
+                    >
+                      <Text style={styles.dropdownButtonText}>
+                        {getPracticeGoalLabel(practiceGoal)}
+                      </Text>
+                      <MaterialIcons name="arrow-drop-down" size={24} color="#555" />
+                    </TouchableOpacity>
+                  }
+                >
+                  {PRACTICE_GOALS.map((goal) => (
+                    <Menu.Item 
+                      key={goal.value}
+                      onPress={() => {
+                        setPracticeGoal(goal.value);
+                        setShowPracticeGoalMenu(false);
+                      }} 
+                      title={goal.label} 
+                    />
+                  ))}
+                </Menu>
+              ) : (
+                <Text style={styles.settingValue}>{getPracticeGoalLabel(practiceGoal)}</Text>
+              )}
+            </View>
+          </View>
+        </View>
+        
+        {/* 楽器設定カード */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="saxophone" size={22} color="#555" />
+            <Text style={styles.sectionTitle}>楽器設定</Text>
+            <TouchableOpacity 
+              style={styles.editButton}
+              onPress={navigateToInstrumentSettings}
+            >
+              <MaterialIcons name="edit" size={16} color="#007AFF" />
+              <Text style={styles.editButtonText}>変更</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.sectionContent}>
             {isLoadingInstrument ? (
               <Text style={styles.loadingText}>読み込み中...</Text>
-            ) : instrumentInfo ? (
-              <View style={styles.currentInstrument}>
-                <Text style={styles.instrumentValue}>
-                  {instrumentInfo.categoryName} / {instrumentInfo.instrumentName} / 
-                  {instrumentInfo.isArtistModel 
-                    ? 'プロフェッショナルプラン' 
-                    : instrumentInfo.modelName.replace('モデル', 'プラン')}
-                </Text>
-                <TouchableOpacity 
-                  style={styles.settingsButton}
-                  onPress={navigateToInstrumentSettings}
-                >
-                  <MaterialIcons name="settings" size={16} color="#007AFF" />
-                  <Text style={styles.settingsButtonText}>変更</Text>
-                </TouchableOpacity>
-              </View>
             ) : (
-              <View style={styles.noInstrument}>
-                <Text style={styles.noInstrumentText}>楽器が設定されていません</Text>
-                <TouchableOpacity 
-                  style={styles.settingsButton}
-                  onPress={navigateToInstrumentSettings}
-                >
-                  <MaterialIcons name="add" size={16} color="#007AFF" />
-                  <Text style={styles.settingsButtonText}>設定する</Text>
-                </TouchableOpacity>
-              </View>
+              <>
+                <View style={styles.settingRow}>
+                  <Text style={styles.settingLabel}>カテゴリー</Text>
+                  <Text style={styles.settingValue}>{instrumentInfo?.categoryName || '未設定'}</Text>
+                </View>
+                <View style={styles.settingRow}>
+                  <Text style={styles.settingLabel}>楽器</Text>
+                  <Text style={styles.settingValue}>{instrumentInfo?.instrumentName || '未設定'}</Text>
+                </View>
+              </>
             )}
           </View>
         </View>
-
-        {/* お気に入りレッスン */}
-        <View style={styles.profileSection}>
-          <Text style={styles.sectionHeader}>お気に入りレッスン</Text>
-          {favoriteLesson.length > 0 ? (
-            favoriteLesson.map(lesson => (
-              <LessonCard key={lesson.id} lesson={lesson} />
-            ))
-          ) : (
-            <Text style={styles.emptyMessage}>お気に入りに追加したレッスンはまだありません</Text>
-          )}
-        </View>
-
-        {/* アカウント設定 */}
-        <View style={styles.profileSection}>
-          <Text style={styles.sectionHeader}>アカウント</Text>
+        
+        {/* アカウント管理カード */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="security" size={22} color="#555" />
+            <Text style={styles.sectionTitle}>アカウント管理</Text>
+          </View>
+          
           <TouchableOpacity 
-            style={styles.settingsItem}
+            style={styles.dangerButton}
             onPress={openDeleteModal}
           >
-            <MaterialIcons name="delete-outline" size={24} color="#FF3B30" />
-            <Text style={styles.settingsItemTextDanger}>アカウント削除</Text>
+            <MaterialIcons name="delete-forever" size={20} color="#f44336" />
+            <Text style={styles.dangerButtonText}>アカウントを削除</Text>
           </TouchableOpacity>
+          
+          <Text style={styles.dangerNote}>
+            アカウントを削除すると、すべてのデータが完全に削除されます。
+            この操作は取り消せません。
+          </Text>
         </View>
         
-        {/* アカウント削除モーダル */}
-        <Modal
-          animationType="fade"
-          transparent={true}
-          visible={showDeleteModal}
-          onRequestClose={() => setShowDeleteModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>アカウント削除の確認</Text>
-              <Text style={styles.modalText}>
-                アカウントを削除すると、すべてのデータが30日後に完全に削除されます。この操作は取り消せません。
-              </Text>
-              <Text style={styles.modalText}>
-                削除を確認するためにパスワードを入力してください。
-              </Text>
+        <View style={styles.footer} />
+      </ScrollView>
+
+      {/* アカウント削除モーダル */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showDeleteModal}
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>アカウント削除の確認</Text>
+            
+            <Text style={styles.modalText}>
+              アカウントを削除するには、パスワードを入力してください。
+              削除は30日後に完了し、その間はログインしてキャンセルできます。
+            </Text>
+            
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="パスワードを入力"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+            
+            {deleteError && (
+              <Text style={styles.deleteErrorText}>{deleteError}</Text>
+            )}
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelModalButton]}
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setPassword('');
+                  setDeleteError(null);
+                }}
+              >
+                <Text style={styles.cancelModalButtonText}>キャンセル</Text>
+              </TouchableOpacity>
               
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="パスワードを入力"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-              />
-              
-              {deleteError && (
-                <Text style={styles.errorText}>{deleteError}</Text>
-              )}
-              
-              <View style={styles.modalFooter}>
-                <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: '#E0E0E0' }]}
-                  onPress={() => {
-                    setShowDeleteModal(false);
-                    setPassword('');
-                    setDeleteError(null);
-                  }}
-                  disabled={isDeleting}
-                >
-                  <Text style={[styles.modalButtonText, { color: '#333' }]}>キャンセル</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: '#FF3B30' }]}
-                  onPress={handleScheduleAccountDeletion}
-                  disabled={!password || isDeleting}
-                >
-                  <Text style={styles.modalButtonText}>
-                    {isDeleting ? '処理中...' : '削除を予約'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton, 
+                  styles.deleteModalButton,
+                  { opacity: password ? 1 : 0.5 }
+                ]}
+                onPress={handleScheduleAccountDeletion}
+                disabled={!password || isDeleting}
+              >
+                <Text style={styles.deleteModalButtonText}>
+                  {isDeleting ? '処理中...' : '削除を予約'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
     </PaperProvider>
   );
@@ -459,226 +630,200 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F2F7',
   },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 20,
+    padding: 16,
   },
   mainHeader: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 20,
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    marginTop: 8,
+    color: '#333',
   },
-  profileSection: {
-    marginBottom: 30,
-  },
-  userInfoContainer: {
+  backButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
+    paddingBottom: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#007AFF',
+    marginLeft: 4,
+  },
+  profileCard: {
     backgroundColor: 'white',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  userAvatar: {
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    marginRight: 16,
+  },
+  avatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
-  userInitial: {
+  avatarText: {
     color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
   },
-  userDetails: {
+  profileInfo: {
     flex: 1,
   },
   nameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
-  userName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginRight: 8,
+  displayName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
   },
-  userEmail: {
+  email: {
     fontSize: 14,
-    color: '#6e6e6e',
+    color: '#666',
   },
-  editNameButton: {
+  editButton: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 4,
   },
-  editNameText: {
-    fontSize: 14,
+  editButtonText: {
     color: '#007AFF',
-    marginLeft: 2,
+    fontSize: 14,
+    marginLeft: 4,
   },
-  editContainer: {
+  editNameContainer: {
     marginBottom: 8,
   },
   nameInput: {
-    fontSize: 16,
     borderWidth: 1,
-    borderColor: '#C8C8C8',
-    borderRadius: 8,
-    padding: 8,
+    borderColor: '#DDD',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 16,
     marginBottom: 8,
   },
-  editButtons: {
+  editButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },
-  editButton: {
-    paddingVertical: 6,
+  smallButton: {
     paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 6,
     marginLeft: 8,
+  },
+  smallButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   cancelButton: {
     backgroundColor: '#F2F2F7',
   },
-  cancelButtonText: {
-    color: '#3A3A3C',
-    fontSize: 14,
-  },
   saveButton: {
     backgroundColor: '#007AFF',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   saveButtonText: {
     color: 'white',
     fontSize: 14,
     fontWeight: '500',
   },
-  sectionHeader: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  instrumentContainer: {
+  sectionCard: {
     backgroundColor: 'white',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  instrumentHeader: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-  instrumentTitle: {
-    fontSize: 16,
+  sectionTitle: {
+    fontSize: 17,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#333',
     marginLeft: 8,
+    flex: 1,
   },
-  currentInstrument: {
+  sectionContent: {
+    
+  },
+  settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
   },
-  instrumentValue: {
-    fontSize: 15,
-    color: '#3A3A3C',
-    flex: 1,
+  settingLabel: {
+    fontSize: 16,
+    color: '#333',
   },
-  settingsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 6,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    borderRadius: 6,
-  },
-  settingsButtonText: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginLeft: 4,
-  },
-  noInstrument: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  noInstrumentText: {
-    fontSize: 15,
-    color: '#8E8E93',
-    flex: 1,
+  settingValue: {
+    fontSize: 16,
+    color: '#666',
   },
   loadingText: {
-    fontSize: 15,
-    color: '#8E8E93',
-    fontStyle: 'italic',
+    textAlign: 'center',
+    color: '#999',
+    padding: 12,
   },
-  settingsItem: {
+  dangerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    paddingVertical: 12,
+    borderRadius: 6,
   },
-  settingsItemTextDanger: {
+  dangerButtonText: {
+    color: '#f44336',
     fontSize: 16,
-    color: '#FF3B30',
-    marginLeft: 12,
+    marginLeft: 8,
+    fontWeight: '500',
   },
-  emptyMessage: {
-    fontSize: 15,
-    color: '#8E8E93',
-    fontStyle: 'italic',
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 12,
-    textAlign: 'center',
+  dangerNote: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 8,
+    lineHeight: 16,
+  },
+  footer: {
+    height: 40,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -694,56 +839,65 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 16,
-    textAlign: 'center',
+    color: '#333',
   },
   modalText: {
     fontSize: 14,
-    color: '#333',
-    marginBottom: 12,
     lineHeight: 20,
+    color: '#666',
+    marginBottom: 16,
   },
   passwordInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DDD',
     borderRadius: 6,
     padding: 12,
     fontSize: 16,
-    marginTop: 4,
     marginBottom: 16,
   },
-  errorText: {
-    color: '#FF3B30',
-    fontSize: 14,
-    marginBottom: 12,
+  deleteErrorText: {
+    color: '#f44336',
+    marginBottom: 16,
   },
-  modalFooter: {
+  modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   modalButton: {
+    flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flex: 0.48,
+    borderRadius: 6,
     alignItems: 'center',
   },
-  modalButtonText: {
+  cancelModalButton: {
+    backgroundColor: '#F2F2F7',
+    marginRight: 8,
+  },
+  cancelModalButtonText: {
+    color: '#333',
+    fontWeight: '500',
+  },
+  deleteModalButton: {
+    backgroundColor: '#f44336',
+    marginLeft: 8,
+  },
+  deleteModalButtonText: {
     color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
+    fontWeight: '500',
   },
   deletionWarning: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF3E0',
-    padding: 16,
+    backgroundColor: '#fff3e0',
     borderRadius: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#FFCCBC',
+    padding: 16,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#e65100',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   deletionWarningContent: {
-    flex: 1,
     marginLeft: 12,
+    flex: 1,
   },
   deletionWarningTitle: {
     fontSize: 16,
@@ -751,41 +905,37 @@ const styles = StyleSheet.create({
     color: '#e65100',
     marginBottom: 8,
   },
-  deletionWarningText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
   countdownDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(211, 47, 47, 0.1)',
-    padding: 8,
-    borderRadius: 8,
     marginBottom: 12,
   },
   cancelDeletionButton: {
-    backgroundColor: '#e65100',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e65100',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignSelf: 'flex-start',
   },
   cancelDeletionButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: '#e65100',
+    fontWeight: '500',
     fontSize: 14,
   },
-  backButton: {
+  // 追加：プロフィール設定関連スタイル
+  dropdownButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    backgroundColor: 'white',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  backButtonText: {
+  dropdownButtonText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginLeft: 8,
+    color: '#333',
+    marginRight: 4,
   },
 });

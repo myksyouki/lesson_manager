@@ -27,7 +27,8 @@ const StreamingChatMessages: React.FC<StreamingChatMessagesProps> = ({
   // 最後のAIメッセージを特定し、ストリーミング表示を適用
   const { displayedText, isStreaming } = useStreamingText(
     lastAiMessage?.content || '',
-    enableStreaming && lastAiMessage !== null
+    enableStreaming && lastAiMessage !== null,
+    lastAiMessage?.id // メッセージIDを追加
   );
   
   // ストリーミング表示用の処理済みメッセージリストを作成
