@@ -147,9 +147,10 @@ export default function RegisterScreen() {
     const checkAppleAuthAvailability = async () => {
       try {
         const isAvailable = await AppleAuthentication.isAvailableAsync();
+        console.log('🍎 Apple認証利用可能:', isAvailable, 'プラットフォーム:', Platform.OS);
         setAppleAuthAvailable(isAvailable);
       } catch (error) {
-        console.log('Apple認証の確認エラー:', error);
+        console.log('🍎 Apple認証の確認エラー:', error);
         setAppleAuthAvailable(false);
       }
     };
@@ -457,11 +458,12 @@ export default function RegisterScreen() {
                     <Text style={styles.socialButtonText}>Google</Text>
                   </TouchableOpacity>
 
-                  {Platform.OS === 'ios' && appleAuthAvailable && (
-      <TouchableOpacity
+                  {/* Appleサインインボタン - iOSのみ表示 */}
+                  {(Platform.OS === 'ios' || Platform.OS === 'macos') && (
+                    <TouchableOpacity
                       style={[styles.socialButton, styles.appleButton]}
                       onPress={handleAppleSignIn}
-                      disabled={isLoading}
+                      disabled={isLoading || !appleAuthAvailable}
                     >
                       <FontAwesome name="apple" size={22} color="#FFFFFF" />
                       <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>Apple</Text>
@@ -482,8 +484,8 @@ export default function RegisterScreen() {
                     >
                       ログイン
                     </Text>
-      </TouchableOpacity>
-    </View>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </ScrollView>

@@ -95,7 +95,7 @@ export interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<{ user: AppUser; isNewUser: boolean }>;
   signInWithGoogle: () => Promise<{ user: AppUser; isNewUser: boolean } | null>;
-  signInWithApple: () => Promise<{ user: AppUser; isNewUser: boolean } | null>;
+  signInWithApple: (credential?: AppleAuthentication.AppleAuthenticationCredential) => Promise<{ user: AppUser; isNewUser: boolean } | null>;
   signInAsTestUser: () => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
@@ -450,12 +450,21 @@ export const useAuthStore = create<AuthState>((set, get) => {
         set({ isLoading: true, error: null, isNewUser: false });
         console.log("🔑 Googleサインイン試行");
         
-        // Google認証プロバイダーを作成
-        const provider = new GoogleAuthProvider();
+        let userCredential;
         
-        // ログインをポップアップで実行
-        const userCredential = await signInWithPopup(auth, provider);
+        // プラットフォームに応じた認証方法を使用
+        if (Platform.OS === 'web') {
+          // Web環境: ポップアップ認証を使用
+          const provider = new GoogleAuthProvider();
+          userCredential = await signInWithPopup(auth, provider);
+        } else {
+          // モバイル環境: 別の方法が必要
+          // モバイルではlogin.tsxからprompさせる必要があるため、
+          // signInWithGoogle関数はそのまま実行する
+          throw new Error('モバイル環境ではGoogle認証方法が異なります。アプリを更新してください。');
+        }
         
+        // 以降はユーザー情報の処理（既存のコード）
         // ユーザーが既に存在するか確認
         const userRef = doc(db, 'users', userCredential.user.uid);
         const userDoc = await getDoc(userRef);
@@ -771,13 +780,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     setPremiumStatus: (status) => set({ premiumStatus: status }),
 
-    signInWithApple: async () => {
+    signInWithApple: async (credential?: AppleAuthentication.AppleAuthenticationCredential) => {
       try {
         set({ isLoading: true, error: null, isNewUser: false });
         console.log("🔑 Appleサインイン試行");
         
         // AppleのOAuth認証を実行
-        const credential = await AppleAuthentication.signInAsync({
+        const credentialResult = await AppleAuthentication.signInAsync({
           requestedScopes: [
             AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
             AppleAuthentication.AppleAuthenticationScope.EMAIL,
@@ -785,7 +794,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         });
         
         // Appleから取得した認証情報をFirebaseの認証情報に変換
-        const { identityToken } = credential;
+        const { identityToken } = credentialResult;
         
         if (!identityToken) {
           throw new Error('Apple認証からIDトークンを取得できませんでした');
@@ -809,8 +818,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         
         if (!userDoc.exists()) {
           // Apple認証から取得できる名前情報は初回のみなので保存しておく
-          const displayName = credential.fullName 
-            ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
+          const displayName = credentialResult.fullName 
+            ? `${credentialResult.fullName.givenName || ''} ${credentialResult.fullName.familyName || ''}`.trim()
             : userCredential.user.displayName || '';
           
           // 新規ユーザーの場合、プロファイルを作成

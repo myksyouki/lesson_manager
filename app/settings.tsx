@@ -354,7 +354,7 @@ export default function SettingsScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>バージョン</Text>
-              <Text style={styles.infoValue}>0.0.2</Text>
+              <Text style={styles.infoValue}>0.1.1</Text>
             </View>
             <View style={[styles.infoItem, styles.noBorder]}>
               <Text style={styles.infoLabel}>開発者</Text>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, Text, View, TouchableOpacity, LogBox, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, LogBox, Platform, useColorScheme } from 'react-native';
 import { useSettingsStore } from '../store/settings';
 import { useAuthStore } from '../store/auth';
 import { useTheme } from '../theme/index';
@@ -79,6 +79,7 @@ export default function RootLayout() {
   const theme = useTheme();
   const [loaded] = useFonts(FontAwesome.font);
   const router = useRouter();
+  const deviceColorScheme = useColorScheme();
 
   // スプラッシュ画面を非表示にする
   useEffect(() => {
@@ -207,7 +208,11 @@ export default function RootLayout() {
               </TouchableOpacity>
             </View>
           )}
-          <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
+          <StatusBar 
+            style={(themeName === 'system') 
+              ? (deviceColorScheme === 'dark' ? 'light' : 'dark')
+              : (themeName === 'dark' ? 'light' : 'dark')} 
+          />
         </GestureHandlerRootView>
       </ErrorBoundaryComponent>
     </PaperProvider>

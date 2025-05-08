@@ -1,5 +1,5 @@
 import { useSettingsStore } from '../store/settings';
-import { Dimensions } from 'react-native';
+import { Dimensions, useColorScheme } from 'react-native';
 
 // テーマの型定義
 export interface ThemeColors {
@@ -288,6 +288,14 @@ export const darkTheme: ThemeType = {
 // テーマフック
 export const useTheme = (): ThemeType => {
   const { theme: themeType } = useSettingsStore();
+  const deviceColorScheme = useColorScheme();
+  
+  // システム設定の場合は端末の設定に従う
+  // 'dark'または'light'の場合はその設定を使用
+  if (themeType === 'system') {
+    return deviceColorScheme === 'dark' ? darkTheme : lightTheme;
+  }
+  
   return themeType === 'dark' ? darkTheme : lightTheme;
 };
 
