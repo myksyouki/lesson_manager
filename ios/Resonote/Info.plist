@@ -31,20 +31,13 @@
         <array>
           <string>resonote</string>
           <string>com.regnition.appli</string>
+          <string>com.googleusercontent.apps.21424871541-j9mudt7r229fk77j6rie1oasvs70e377</string>
         </array>
       </dict>
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
           <string>exp+lesson-manager</string>
-        </array>
-      </dict>
-      <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>com.googleusercontent.apps.21424871541-j9mudt7r229fk77j6rie1oasvs70e377</string>
         </array>
       </dict>
     </array>

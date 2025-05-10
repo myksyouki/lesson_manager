@@ -282,12 +282,16 @@ export const useAuthStore = create<AuthState>((set, get) => {
       // 3. 現在のユーザーが取得できた場合はそれを使用
       if (currentUser) {
         console.log("✅ Firebase認証からユーザー情報を復元:", currentUser.uid);
+        
+        // デモユーザーかどうかを判定
+        const isEmailDemo = currentUser.email === 'demo@example.com';
+        
         set({ user: {
           uid: currentUser.uid,
           email: currentUser.email,
           displayName: currentUser.displayName,
           photoURL: currentUser.photoURL
-        }, isAuthenticated: true, isLoading: false });
+        }, isAuthenticated: true, isLoading: false, isDemo: isEmailDemo });
         
         // ローカルストレージにも保存/更新
         try {
@@ -297,6 +301,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             localStorage.setItem('userEmail', currentUser.email || '');
             localStorage.setItem('userDisplayName', currentUser.displayName || '');
             localStorage.setItem('userPhotoURL', currentUser.photoURL || '');
+            localStorage.setItem('isDemo', isEmailDemo ? 'true' : 'false');
           } else {
             await setLocalStorageItem('auth_user', {
               uid: currentUser.uid,
@@ -304,21 +309,34 @@ export const useAuthStore = create<AuthState>((set, get) => {
               displayName: currentUser.displayName,
               photoURL: currentUser.photoURL
             });
+            await setLocalStorageItem('isDemo', isEmailDemo);
           }
         } catch (e) {
           console.error('ローカルストレージへの保存に失敗:', e);
         }
       } 
-      // 4. ストレージからユーザー情報が取得できていて、Firebaseにはない場合
-      else if (storedUser) {
-        console.log("⚠️ ストレージにユーザー情報がありますが、Firebase認証セッションが見つかりません");
-        console.log("🔄 ユーザーを暫定的に復元し、onAuthStateChangedの結果を待機します");
+      // 4. ストレージからのユーザー情報が取得できた場合はそれを使用
+      if (!currentUser && storedUser) {
+        console.log("✅ ストレージからユーザー情報を復元:", storedUser.uid);
         
-        // ローカルストレージからの情報でユーザー状態を設定
+        let isDemo = false;
+        
+        // デモユーザーかどうかを確認
+        if (Platform.OS === 'web') {
+          isDemo = localStorage.getItem('isDemo') === 'true';
+        } else {
+          isDemo = await getLocalStorageItem('isDemo') || false;
+        }
+        
+        // デモユーザーかどうかをメールアドレスからも判定
+        const isEmailDemo = storedUser.email === 'demo@example.com';
+        isDemo = isDemo || isEmailDemo;
+        
         set({ 
-          user: storedUser,
-          isAuthenticated: true,
-          isLoading: true // onAuthStateChangedを待機中という意味で
+          user: storedUser, 
+          isAuthenticated: true, 
+          isLoading: false,
+          isDemo
         });
       }
       // 5. どこにも認証情報がない場合
@@ -351,6 +369,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
         
         if (user) {
           // ユーザー情報をストアに保存
+          // Firebaseユーザーの場合はデモモードを解除
+          const isEmailDemo = user.email === 'demo@example.com';
+          
           set({ 
             user: {
               uid: user.uid,
@@ -359,7 +380,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
               photoURL: user.photoURL
             }, 
             isAuthenticated: true, 
-            isLoading: false 
+            isLoading: false,
+            // Firebaseユーザーがデモユーザーメールでない場合はisDemo=false
+            isDemo: isEmailDemo
           });
           
           // ストレージに保存
@@ -370,6 +393,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
               localStorage.setItem('userEmail', user.email || '');
               localStorage.setItem('userDisplayName', user.displayName || '');
               localStorage.setItem('userPhotoURL', user.photoURL || '');
+              localStorage.setItem('isDemo', isEmailDemo ? 'true' : 'false');
             } else {
               await setLocalStorageItem('auth_user', {
                 uid: user.uid,
@@ -377,6 +401,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
                 displayName: user.displayName,
                 photoURL: user.photoURL
               });
+              await setLocalStorageItem('isDemo', isEmailDemo);
             }
           } catch (e) {
             console.error('ストレージへの認証情報保存に失敗:', e);

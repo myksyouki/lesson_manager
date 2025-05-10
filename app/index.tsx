@@ -33,11 +33,13 @@ export default function RootScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="light" />
       <View style={styles.logoContainer}>
-        <Image
-          source={require('../assets/images/app-logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <View style={styles.logoWrapper}>
+          <Image
+            source={require('../assets/images/app-logo.png')}
+            style={styles.logo}
+            resizeMode="cover"
+          />
+        </View>
         <Text style={styles.title}>Resonote</Text>
         <Text style={styles.subtitle}>練習をデザインする</Text>
       </View>
@@ -99,10 +101,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logo: {
+  logoWrapper: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 6,
+    borderRadius: 28,
+    marginBottom: 24,
     width: 140,
     height: 140,
-    marginBottom: 24,
+    backgroundColor: Platform.OS === 'android' ? '#FFF' : 'transparent',
+    overflow: Platform.OS === 'android' ? 'hidden' : 'visible',
+  },
+  logo: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+    overflow: 'hidden',
   },
   title: {
     fontSize: 36,

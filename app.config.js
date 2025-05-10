@@ -32,7 +32,7 @@ module.exports = {
       expoPublicGoogleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "21424871541-1ujlpfdrapifrvbn0hup1hah1q84avuo.apps.googleusercontent.com",
       expoPublicGoogleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "21424871541-j9mudt7r229fk77j6rie1oasvs70e377.apps.googleusercontent.com",
       expoPublicGoogleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "21424871541-1553of634jsc7gj8qe8ljpkpv8u4cq77.apps.googleusercontent.com",
-      expoPublicGoogleRedirectUri: process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI || "https://auth.expo.io/@regnition-ai/lesson-manager",
+      expoPublicGoogleRedirectUri: process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI || "com.regnition.appli:/oauth2redirect/google",
       eas: {
         projectId: "303ee673-c9ce-4969-84fd-9776438b4468"
       },
